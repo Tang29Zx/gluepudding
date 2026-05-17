@@ -1,14 +1,17 @@
 :root {
-  --paper: #fbf7ef;
-  --paper-soft: #f3eadc;
-  --ink: #2e261f;
-  --muted: #74685d;
-  --line: #dfd1bf;
-  --accent: #a65f3c;
-  --accent-dark: #77432b;
-  --sage: #6e7f67;
-  --white: #fffdf8;
-  --shadow: 0 24px 70px rgba(70, 49, 32, 0.12);
+  --paper: #fff8fb;
+  --paper-soft: #f5fff9;
+  --ink: #332b3a;
+  --muted: #776a7e;
+  --line: #f0cfe0;
+  --accent: #ef7aa8;
+  --accent-dark: #cf4f82;
+  --heading: #5a4b67;
+  --sage: #49a68e;
+  --sky: #77aee8;
+  --butter: #ffd977;
+  --white: #fffefd;
+  --shadow: 0 22px 54px rgba(207, 79, 130, 0.13);
   --radius: 8px;
 }
 
@@ -25,8 +28,9 @@ body {
   min-width: 320px;
   color: var(--ink);
   background:
-    linear-gradient(120deg, rgba(166, 95, 60, 0.08), transparent 32%),
-    linear-gradient(240deg, rgba(110, 127, 103, 0.12), transparent 34%),
+    linear-gradient(120deg, rgba(239, 122, 168, 0.12), transparent 34%),
+    linear-gradient(240deg, rgba(73, 166, 142, 0.13), transparent 36%),
+    linear-gradient(180deg, rgba(255, 217, 119, 0.16), transparent 46%),
     var(--paper);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
     "Microsoft YaHei", sans-serif;
@@ -39,11 +43,11 @@ body::before {
   z-index: -1;
   pointer-events: none;
   content: "";
-  opacity: 0.33;
+  opacity: 0.45;
   background-image:
-    linear-gradient(rgba(46, 38, 31, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(46, 38, 31, 0.03) 1px, transparent 1px);
-  background-size: 42px 42px;
+    linear-gradient(rgba(239, 122, 168, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(119, 174, 232, 0.055) 1px, transparent 1px);
+  background-size: 36px 36px;
 }
 
 a {
@@ -69,10 +73,10 @@ h3 {
   width: min(1120px, calc(100% - 40px));
   margin: 16px auto 0;
   padding: 12px 14px;
-  border: 1px solid rgba(223, 209, 191, 0.78);
+  border: 1px solid rgba(240, 207, 224, 0.84);
   border-radius: var(--radius);
-  background: rgba(251, 247, 239, 0.84);
-  box-shadow: 0 14px 38px rgba(70, 49, 32, 0.08);
+  background: rgba(255, 248, 251, 0.86);
+  box-shadow: 0 14px 38px rgba(207, 79, 130, 0.1);
   backdrop-filter: blur(16px);
 }
 
@@ -98,8 +102,9 @@ h3 {
   place-items: center;
   border-radius: 50%;
   color: var(--white);
-  background: var(--accent-dark);
+  background: linear-gradient(135deg, var(--accent), var(--sky));
   font-size: 0.82rem;
+  box-shadow: 0 8px 20px rgba(239, 122, 168, 0.26);
 }
 
 .site-nav {
@@ -117,7 +122,7 @@ h3 {
 .site-nav a:hover,
 .site-nav a:focus-visible {
   color: var(--accent-dark);
-  background: rgba(166, 95, 60, 0.1);
+  background: rgba(239, 122, 168, 0.12);
 }
 
 .section-shell {
@@ -146,7 +151,9 @@ h3 {
 
 h1,
 h2 {
-  font-family: "Songti SC", "STSong", "SimSun", serif;
+  color: var(--heading);
+  font-family: "Nunito", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-weight: 700;
   line-height: 1.15;
   letter-spacing: 0;
 }
@@ -154,12 +161,12 @@ h2 {
 h1 {
   max-width: 760px;
   margin-bottom: 24px;
-  font-size: clamp(2.7rem, 8vw, 6.2rem);
+  font-size: clamp(2.35rem, 7vw, 5.2rem);
 }
 
 h2 {
   margin-bottom: 18px;
-  font-size: clamp(2rem, 4.8vw, 4rem);
+  font-size: clamp(1.85rem, 4.2vw, 3.4rem);
 }
 
 h3 {
@@ -191,7 +198,8 @@ h3 {
   border-radius: 999px;
   font-weight: 700;
   line-height: 1.2;
-  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease,
+    border-color 180ms ease;
 }
 
 .button:hover,
@@ -201,22 +209,29 @@ h3 {
 
 .button.primary {
   color: var(--white);
-  background: var(--accent-dark);
-  box-shadow: 0 12px 26px rgba(119, 67, 43, 0.22);
+  background: linear-gradient(135deg, var(--accent-dark), #f38f81);
+  box-shadow: 0 14px 28px rgba(207, 79, 130, 0.24);
 }
 
 .button.secondary {
   color: var(--ink);
   border-color: var(--line);
-  background: rgba(255, 253, 248, 0.64);
+  background: rgba(255, 254, 253, 0.74);
+}
+
+.button.secondary:hover,
+.button.secondary:focus-visible {
+  border-color: rgba(119, 174, 232, 0.72);
+  background: rgba(245, 255, 249, 0.92);
 }
 
 .profile-card {
   position: relative;
+  overflow: hidden;
   padding: 24px;
-  border: 1px solid rgba(223, 209, 191, 0.9);
+  border: 1px solid rgba(240, 207, 224, 0.94);
   border-radius: var(--radius);
-  background: rgba(255, 253, 248, 0.72);
+  background: rgba(255, 254, 253, 0.76);
   box-shadow: var(--shadow);
 }
 
@@ -228,9 +243,22 @@ h3 {
   border-radius: var(--radius);
   content: "";
   background:
-    radial-gradient(circle at 68% 24%, rgba(255, 253, 248, 0.78) 0 13%, transparent 14%),
-    linear-gradient(145deg, rgba(166, 95, 60, 0.72), rgba(110, 127, 103, 0.72)),
-    linear-gradient(90deg, #e8d3bd, #c5a98c);
+    radial-gradient(circle, rgba(255, 254, 253, 0.78) 0 5px, transparent 6px),
+    linear-gradient(135deg, #ffd5e7, #d9f7ee 52%, #ffe6a6);
+  background-size: 42px 42px, auto;
+}
+
+.profile-card::after {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 74px;
+  height: 18px;
+  border: 1px solid rgba(255, 217, 119, 0.78);
+  border-radius: 999px;
+  content: "";
+  background: rgba(255, 254, 253, 0.58);
+  transform: rotate(8deg);
 }
 
 .portrait {
@@ -241,24 +269,25 @@ h3 {
   width: clamp(118px, 18vw, 164px);
   aspect-ratio: 1;
   place-items: center;
-  border: 8px solid rgba(255, 253, 248, 0.86);
+  border: 8px solid rgba(255, 254, 253, 0.92);
   border-radius: 50%;
   color: var(--white);
   background:
-    linear-gradient(180deg, rgba(46, 38, 31, 0.06), rgba(46, 38, 31, 0.18)),
-    var(--accent-dark);
-  box-shadow: 0 20px 40px rgba(46, 38, 31, 0.18);
+    linear-gradient(180deg, rgba(51, 43, 58, 0.05), rgba(51, 43, 58, 0.16)),
+    linear-gradient(135deg, var(--accent), var(--sage));
+  box-shadow: 0 20px 40px rgba(207, 79, 130, 0.18);
   transform: translate(-50%, -50%);
 }
 
 .portrait span {
-  font-size: 2rem;
-  font-weight: 800;
+  font-size: 1.8rem;
+  font-weight: 700;
 }
 
 .profile-name {
   margin-bottom: 2px;
-  font-family: "Songti SC", "STSong", "SimSun", serif;
+  color: var(--heading);
+  font-family: "Nunito", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 1.7rem;
   font-weight: 700;
 }
@@ -318,10 +347,24 @@ h3 {
 
 .skill-card,
 .project-card {
-  border: 1px solid rgba(223, 209, 191, 0.9);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(240, 207, 224, 0.92);
   border-radius: var(--radius);
-  background: rgba(255, 253, 248, 0.68);
-  box-shadow: 0 16px 46px rgba(70, 49, 32, 0.07);
+  background:
+    linear-gradient(180deg, rgba(255, 254, 253, 0.88), rgba(255, 248, 251, 0.72)),
+    var(--white);
+  box-shadow: 0 16px 42px rgba(207, 79, 130, 0.08);
+}
+
+.skill-card::before,
+.project-card::before {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 5px;
+  content: "";
+  background: linear-gradient(90deg, var(--accent), var(--butter), var(--sage), var(--sky));
 }
 
 .skill-card {
@@ -332,7 +375,7 @@ h3 {
 .skill-index,
 .project-type,
 .timeline-item time {
-  color: var(--sage);
+  color: var(--accent-dark);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -365,8 +408,8 @@ h3 {
 }
 
 .project-card:hover {
-  border-color: rgba(166, 95, 60, 0.42);
-  box-shadow: 0 26px 62px rgba(70, 49, 32, 0.12);
+  border-color: rgba(239, 122, 168, 0.5);
+  box-shadow: 0 26px 58px rgba(207, 79, 130, 0.14);
   transform: translateY(-4px);
 }
 
@@ -381,12 +424,22 @@ h3 {
 
 .project-tags li {
   padding: 5px 10px;
-  border: 1px solid rgba(223, 209, 191, 0.95);
+  border: 1px solid rgba(240, 207, 224, 0.95);
   border-radius: 999px;
   color: var(--accent-dark);
-  background: rgba(166, 95, 60, 0.08);
+  background: rgba(239, 122, 168, 0.1);
   font-size: 0.84rem;
   font-weight: 700;
+}
+
+.project-tags li:nth-child(2n) {
+  color: #357f71;
+  background: rgba(73, 166, 142, 0.11);
+}
+
+.project-tags li:nth-child(3n) {
+  color: #4e7fb8;
+  background: rgba(119, 174, 232, 0.12);
 }
 
 .project-card > a {
@@ -414,6 +467,15 @@ h3 {
   border-bottom: 1px solid var(--line);
 }
 
+.timeline-item time {
+  width: fit-content;
+  height: fit-content;
+  padding: 5px 9px;
+  border: 1px solid rgba(255, 217, 119, 0.72);
+  border-radius: 999px;
+  background: rgba(255, 217, 119, 0.17);
+}
+
 .timeline-item:last-child {
   border-bottom: 0;
 }
@@ -423,13 +485,30 @@ h3 {
 }
 
 .contact-panel {
+  position: relative;
+  overflow: hidden;
   padding: clamp(28px, 6vw, 56px);
-  border: 1px solid rgba(223, 209, 191, 0.95);
+  border: 1px solid rgba(240, 207, 224, 0.95);
   border-radius: var(--radius);
   background:
-    linear-gradient(120deg, rgba(255, 253, 248, 0.92), rgba(243, 234, 220, 0.76)),
+    linear-gradient(120deg, rgba(255, 254, 253, 0.94), rgba(245, 255, 249, 0.78)),
     var(--white);
   box-shadow: var(--shadow);
+}
+
+.contact-panel::before {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background:
+    linear-gradient(135deg, rgba(239, 122, 168, 0.08) 0 18%, transparent 18% 36%),
+    linear-gradient(135deg, transparent 0 58%, rgba(119, 174, 232, 0.1) 58% 76%, transparent 76%);
+  background-size: 46px 46px;
+}
+
+.contact-panel > * {
+  position: relative;
 }
 
 .contact-panel h2 {
@@ -443,7 +522,7 @@ h3 {
 .copy-status {
   min-height: 1.6em;
   margin: 16px 0 0;
-  color: var(--sage);
+  color: var(--accent-dark);
   font-size: 0.95rem;
   font-weight: 700;
 }
