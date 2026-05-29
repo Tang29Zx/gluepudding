@@ -603,6 +603,18 @@ h3 {
   gap: 10px 16px;
 }
 
+.filing-links a {
+  display: inline-flex;
+  align-items: center;
+}
+
+.filing-icon {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin-right: 5px;
+}
+
 .filing-links a:hover,
 .filing-links a:focus-visible {
   color: var(--accent-dark);
