@@ -5,268 +5,124 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="xx的个人主页：正在学习开发，记录练习、项目和成长。"
+      content="汤源梦影 的站点导航页"
     />
-    <title>xx | 学习中的开发者</title>
-    <link rel="stylesheet" href="styles.css" />
+    <title>汤源梦影 | 站点导航</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23fff8fb'/%3E%3Ccircle cx='32' cy='31' r='21' fill='%23ef7aa8'/%3E%3Ccircle cx='24' cy='29' r='3' fill='%235a4b67'/%3E%3Ccircle cx='40' cy='29' r='3' fill='%235a4b67'/%3E%3Cpath d='M24 40 Q32 46 40 40' stroke='%235a4b67' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="styles.css?v=20260527" />
   </head>
   <body>
     <header class="site-header">
       <a class="brand" href="#top" aria-label="回到首页">
-        <span class="brand-mark">xx</span>
-        <span>xx</span>
+        <span class="brand-mark"></span>
+        <span>站点导航</span>
       </a>
 
       <nav class="site-nav" aria-label="主导航">
-        <a href="#about">关于</a>
-        <a href="#skills">技能</a>
-        <a href="#projects">练习</a>
-        <a href="#timeline">学习</a>
-        <a href="#contact">联系</a>
+        <a href="#sites">站点</a>
+        <a href="https://home.gluepudding.com">个人主页</a>
       </nav>
     </header>
 
     <main id="top">
       <section class="hero section-shell">
         <div class="hero-copy reveal">
-          <p class="eyebrow">Learning Web Development / Personal Notes</p>
-          <h1>正在学习开发，也在认真记录每一点进步。</h1>
+          <p class="eyebrow">Site Navigation / Learning Space</p>
+          <h1>站点导航</h1>
           <p class="hero-intro">
-            我是xx，目前正在学习开发。喜欢把看到的知识点拆成小练习，
-            一点点熟悉页面结构、交互细节和代码组织方式。
+            这里收着学习时做出来的小站点：个人主页、工具页面、小游戏，
+            还有以后会慢慢长出来的新东西。
           </p>
 
           <div class="hero-actions">
-            <a class="button primary" href="#projects">查看练习</a>
-            <a class="button secondary" href="#contact">交流一下</a>
+            <a class="button primary" href="#sites">查看站点</a>
+            <a class="button secondary" href="https://home.gluepudding.com">打开个人主页</a>
           </div>
         </div>
 
-        <aside class="profile-card reveal" aria-label="个人信息卡片">
-          <div class="portrait" aria-hidden="true">
-            <span>xx</span>
-          </div>
-          <div>
-            <p class="profile-name">xx</p>
-            <p class="profile-role">学习中的开发者</p>
-          </div>
-          <dl class="profile-facts">
-            <div>
-              <dt>关注</dt>
-              <dd>Web 基础 / 前端页面 / 小工具练习</dd>
-            </div>
-            <div>
-              <dt>方法</dt>
-              <dd>先理解概念，再做一个小页面验证</dd>
-            </div>
-            <div>
-              <dt>当前</dt>
-              <dd>学习 HTML、CSS、JavaScript，并整理练习作品</dd>
-            </div>
-          </dl>
+        <aside class="quick-panel reveal" aria-label="快速入口">
+          <p class="panel-kicker">Quick Access</p>
+          <a class="quick-row" href="https://home.gluepudding.com">
+            <span>01</span>
+            <strong>个人主页</strong>
+          </a>
+          <a class="quick-row" href="https://mqtt.gluepudding.com">
+            <span>02</span>
+            <strong>MQTT</strong>
+          </a>
+          <a class="quick-row" href="https://game.gluepudding.com">
+            <span>03</span>
+            <strong>小游戏</strong>
+          </a>
         </aside>
       </section>
 
-      <section id="about" class="section-shell split-section">
+      <section id="sites" class="section-shell">
         <div class="section-heading reveal">
-          <p class="eyebrow">About</p>
-          <h2>关于我</h2>
-        </div>
-        <div class="rich-text reveal">
-          <p>
-            我目前在学习 Web 开发，正在从 HTML、CSS、JavaScript 基础开始，
-            慢慢练习页面结构、响应式布局和简单交互。这个主页会用来记录学习过程、
-            练手项目和一些阶段性的想法。
-          </p>
-          <p>
-            我喜欢可爱但清楚的界面：颜色可以轻一点，信息要好读一点。
-            写代码之外，我也会记录技术笔记、收藏喜欢的页面，并继续练习表达和审美。
-          </p>
-        </div>
-      </section>
-
-      <section id="skills" class="section-shell">
-        <div class="section-heading reveal">
-          <p class="eyebrow">Skills</p>
-          <h2>技能与练习</h2>
+          <p class="eyebrow">Navigation</p>
+          <h2>站点入口</h2>
         </div>
 
-        <div class="skill-grid">
-          <article class="skill-card reveal">
-            <span class="skill-index">01</span>
-            <h3>前端基础</h3>
+        <div class="nav-grid">
+          <article class="nav-card reveal">
+            <span class="card-icon card-icon-home" aria-hidden="true"></span>
+            <p class="card-type">Homepage</p>
+            <h3>个人主页</h3>
             <p>
-              练习 HTML、CSS 和 JavaScript，关注页面结构、语义标签、
-              响应式布局和基础交互。
+              记录主页、练习作品和一些 three.js 小实验。
             </p>
-          </article>
-          <article class="skill-card reveal">
-            <span class="skill-index">02</span>
-            <h3>页面布局</h3>
-            <p>
-              通过个人主页、卡片列表和小型页面练习排版，慢慢熟悉间距、
-              层级和不同屏幕下的适配。
-            </p>
-          </article>
-          <article class="skill-card reveal">
-            <span class="skill-index">03</span>
-            <h3>交互练习</h3>
-            <p>
-              从按钮、表单、滚动动画和复制提示开始，练习让页面更顺手、
-              更有反馈感。
-            </p>
-          </article>
-          <article class="skill-card reveal">
-            <span class="skill-index">04</span>
-            <h3>学习整理</h3>
-            <p>
-              把学到的概念写成笔记，把练习过程整理成清单，方便回头复盘和继续改进。
-            </p>
-          </article>
-        </div>
-      </section>
-
-      <section id="projects" class="section-shell">
-        <div class="section-heading reveal">
-          <p class="eyebrow">Practice Log</p>
-          <h2>练习与作品</h2>
-        </div>
-
-        <div class="project-list">
-          <article class="project-card reveal">
-            <div>
-              <p class="project-type">Homepage Practice</p>
-              <h3>响应式个人主页</h3>
-              <p>
-                练习页面结构、导航、卡片排版和移动端适配，把个人介绍做得更清爽、
-                更像一个可以持续更新的小空间。
-              </p>
-            </div>
-            <ul class="project-tags" aria-label="练习标签">
+            <ul class="card-tags" aria-label="页面标签">
+              <li>Three.js</li>
+              <li>Profile</li>
               <li>HTML</li>
-              <li>CSS</li>
-              <li>Responsive</li>
             </ul>
-            <a href="https://example.com" target="_blank" rel="noreferrer">查看链接</a>
+            <a class="card-link" href="https://home.gluepudding.com">进入页面</a>
           </article>
 
-          <article class="project-card reveal">
-            <div>
-              <p class="project-type">JavaScript Practice</p>
-              <h3>小型待办清单</h3>
-              <p>
-                练习 DOM 操作、本地状态和基础表单交互，让新增、完成、删除这些小动作都能清楚反馈。
-              </p>
-            </div>
-            <ul class="project-tags" aria-label="练习标签">
+          <article class="nav-card reveal">
+            <span class="card-icon card-icon-mqtt" aria-hidden="true"></span>
+            <p class="card-type">IoT Lab</p>
+            <h3>MQTT</h3>
+            <p>
+              收纳物联网相关页面和调试小工具。
+            </p>
+            <ul class="card-tags" aria-label="页面标签">
+              <li>MQTT</li>
+              <li>Tool</li>
+              <li>Demo</li>
+            </ul>
+            <a class="card-link" href="https://mqtt.gluepudding.com">进入页面</a>
+          </article>
+
+          <article class="nav-card reveal">
+            <span class="card-icon card-icon-game" aria-hidden="true"></span>
+            <p class="card-type">Mini Game</p>
+            <h3>小游戏</h3>
+            <p>
+              小游戏练习区，先从五子棋开始慢慢加料。
+            </p>
+            <ul class="card-tags" aria-label="页面标签">
+              <li>Game</li>
               <li>JavaScript</li>
-              <li>DOM</li>
-              <li>State</li>
-            </ul>
-            <a href="https://example.com" target="_blank" rel="noreferrer">查看链接</a>
-          </article>
-
-          <article class="project-card reveal">
-            <div>
-              <p class="project-type">Notes</p>
-              <h3>学习笔记页面</h3>
-              <p>
-                把常用标签、代码片段和学习心得整理成页面，练习内容层级、
-                列表样式和可读性。
-              </p>
-            </div>
-            <ul class="project-tags" aria-label="练习标签">
-              <li>Notes</li>
-              <li>Layout</li>
-              <li>Reading</li>
-            </ul>
-            <a href="https://example.com" target="_blank" rel="noreferrer">查看链接</a>
-          </article>
-
-          <article class="project-card reveal">
-            <div>
-              <p class="project-type">Mini Tool</p>
-              <h3>日常小工具练习</h3>
-              <p>
-                尝试做一些计时器、随机选择器和收藏整理小页面，用简单功能练习交互和代码拆分。
-              </p>
-            </div>
-            <ul class="project-tags" aria-label="练习标签">
-              <li>Practice</li>
-              <li>Utility</li>
               <li>UI</li>
             </ul>
-            <a href="https://example.com" target="_blank" rel="noreferrer">查看链接</a>
+            <a class="card-link" href="https://game.gluepudding.com">进入页面</a>
           </article>
-        </div>
-      </section>
-
-      <section id="timeline" class="section-shell split-section">
-        <div class="section-heading reveal">
-          <p class="eyebrow">Timeline</p>
-          <h2>学习时间线</h2>
-        </div>
-
-        <div class="timeline reveal">
-          <article class="timeline-item">
-            <time>现在</time>
-            <div>
-              <h3>系统学习 Web 开发</h3>
-              <p>持续练习 HTML、CSS、JavaScript，把基础知识做成可以看见、可以修改的小页面。</p>
-            </div>
-          </article>
-          <article class="timeline-item">
-            <time>最近</time>
-            <div>
-              <h3>整理练习项目</h3>
-              <p>把个人主页、待办清单和笔记页面这些练习整理起来，慢慢形成自己的作品集。</p>
-            </div>
-          </article>
-          <article class="timeline-item">
-            <time>起步</time>
-            <div>
-              <h3>从基础概念开始</h3>
-              <p>学习网页如何组成、样式如何生效、交互如何连接，也开始记录自己的学习路线。</p>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section id="contact" class="section-shell contact-section">
-        <div class="contact-panel reveal">
-          <p class="eyebrow">Contact</p>
-          <h2>如果你也在学习网页开发，我们可以交流一下。</h2>
-          <p>
-            欢迎发邮件交流学习笔记、小项目想法或页面反馈。
-            我看到后会尽量回复。
-          </p>
-          <div class="contact-actions">
-            <a class="button primary copy-email" href="mailto:hello@example.com" data-email="hello@example.com">
-              hello@example.com
-            </a>
-            <a class="button secondary" href="https://github.com/yourname" target="_blank" rel="noreferrer">
-              GitHub
-            </a>
-            <a class="button secondary" href="https://www.linkedin.com/in/yourname" target="_blank" rel="noreferrer">
-              LinkedIn
-            </a>
-            <a class="button secondary" href="https://example.com/social" target="_blank" rel="noreferrer">
-              X / 微博 / 小红书
-            </a>
-          </div>
-          <p class="copy-status" aria-live="polite"></p>
         </div>
       </section>
     </main>
 
     <footer class="site-footer">
-      <p>© 2026 xx。保持清醒，也保持好奇。</p>
+      <p>© 2026 汤源梦影 个人学习与作品导航</p>
       <div class="filing-links" aria-label="备案信息模板">
         <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer">
-          ICP备案号：京ICP备XXXXXXXX号-X
+          ICP备案号：沪ICP备2026022375号
         </a>
         <a href="https://beian.mps.gov.cn/#/query/webSearch" target="_blank" rel="noreferrer">
-          公安备案号：京公网安备 XXXXXXXXXXXXXX号
+          公安备案号：沪公网安备 XXXXXXXXXXXXXX号
         </a>
       </div>
     </footer>

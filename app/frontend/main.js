@@ -1,6 +1,4 @@
 const revealItems = document.querySelectorAll(".reveal");
-const copyEmailButton = document.querySelector(".copy-email");
-const copyStatus = document.querySelector(".copy-status");
 
 if ("IntersectionObserver" in window) {
   const observer = new IntersectionObserver(
@@ -33,27 +31,3 @@ document.querySelectorAll('a[href^="#"]').forEach((link) => {
     target.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 });
-
-if (copyEmailButton && copyStatus) {
-  copyEmailButton.addEventListener("click", async (event) => {
-    const email = copyEmailButton.dataset.email;
-
-    if (!navigator.clipboard || !email) {
-      return;
-    }
-
-    event.preventDefault();
-
-    try {
-      await navigator.clipboard.writeText(email);
-      copyStatus.textContent = "邮箱已复制，可以直接粘贴发送。";
-    } catch {
-      copyStatus.textContent = "复制失败时，也可以直接点击邮箱打开邮件客户端。";
-      window.location.href = `mailto:${email}`;
-    }
-
-    window.setTimeout(() => {
-      copyStatus.textContent = "";
-    }, 3200);
-  });
-}
