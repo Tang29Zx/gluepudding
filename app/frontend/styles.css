@@ -27,13 +27,10 @@ html {
 
 body {
   margin: 0;
+  min-height: 100vh;
   min-width: 320px;
   color: var(--ink);
-  background:
-    linear-gradient(120deg, rgba(239, 122, 168, 0.13), transparent 34%),
-    linear-gradient(240deg, rgba(73, 166, 142, 0.12), transparent 36%),
-    linear-gradient(180deg, rgba(255, 217, 119, 0.17), transparent 46%),
-    var(--paper);
+  background: var(--paper);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
     "Microsoft YaHei", sans-serif;
   line-height: 1.7;
@@ -47,11 +44,13 @@ body::before {
   content: "";
   opacity: 0.45;
   background-image:
+    linear-gradient(120deg, rgba(239, 122, 168, 0.09), transparent 42%),
+    linear-gradient(240deg, rgba(73, 166, 142, 0.06), transparent 46%),
     radial-gradient(circle, rgba(239, 122, 168, 0.16) 1px, transparent 1.6px),
     linear-gradient(rgba(239, 122, 168, 0.055) 1px, transparent 1px),
     linear-gradient(90deg, rgba(119, 174, 232, 0.055) 1px, transparent 1px);
-  background-position: 12px 12px, 0 0, 0 0;
-  background-size: 36px 36px;
+  background-position: 0 0, 0 0, 12px 12px, 0 0, 0 0;
+  background-size: auto, auto, 36px 36px, 36px 36px, 36px 36px;
 }
 
 ::selection {
@@ -478,7 +477,7 @@ h3 {
   background: rgba(255, 255, 255, 0.96);
 }
 
-.card-icon-mqtt::before {
+.card-icon-iot::before {
   top: 12px;
   right: 12px;
   width: 28px;
@@ -490,7 +489,7 @@ h3 {
   transform: rotate(45deg);
 }
 
-.card-icon-mqtt::after {
+.card-icon-iot::after {
   bottom: 14px;
   left: 14px;
   width: 8px;
@@ -606,6 +605,7 @@ h3 {
 .filing-links a {
   display: inline-flex;
   align-items: center;
+  line-height: 1.35;
 }
 
 .filing-icon {
@@ -613,6 +613,7 @@ h3 {
   width: 14px;
   height: 14px;
   margin-right: 5px;
+  transform: translateY(1px);
 }
 
 .filing-links a:hover,
