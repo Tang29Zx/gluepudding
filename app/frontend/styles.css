@@ -30,7 +30,11 @@ body {
   min-height: 100vh;
   min-width: 320px;
   color: var(--ink);
-  background: var(--paper);
+  background:
+    linear-gradient(120deg, rgba(239, 122, 168, 0.13), transparent 34%),
+    linear-gradient(240deg, rgba(73, 166, 142, 0.12), transparent 36%),
+    linear-gradient(180deg, rgba(255, 217, 119, 0.17), transparent 46%),
+    var(--paper);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
     "Microsoft YaHei", sans-serif;
   line-height: 1.7;
@@ -44,13 +48,11 @@ body::before {
   content: "";
   opacity: 0.45;
   background-image:
-    linear-gradient(120deg, rgba(239, 122, 168, 0.09), transparent 42%),
-    linear-gradient(240deg, rgba(73, 166, 142, 0.06), transparent 46%),
     radial-gradient(circle, rgba(239, 122, 168, 0.16) 1px, transparent 1.6px),
     linear-gradient(rgba(239, 122, 168, 0.055) 1px, transparent 1px),
     linear-gradient(90deg, rgba(119, 174, 232, 0.055) 1px, transparent 1px);
-  background-position: 0 0, 0 0, 12px 12px, 0 0, 0 0;
-  background-size: auto, auto, 36px 36px, 36px 36px, 36px 36px;
+  background-position: 12px 12px, 0 0, 0 0;
+  background-size: 36px 36px;
 }
 
 ::selection {
