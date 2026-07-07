@@ -87,6 +87,16 @@ h3 {
   inset: 0;
 }
 
+.world-canvas > div,
+.world-canvas canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.world-canvas canvas:focus {
+  outline: none;
+}
+
 .world-hud {
   position: relative;
   z-index: 2;
@@ -138,6 +148,186 @@ h3 {
   color: var(--sage);
   font-size: 0.92rem;
   line-height: 1.35;
+}
+
+.world-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.world-crosshair::before,
+.world-crosshair::after {
+  position: absolute;
+  content: "";
+  background: rgba(255, 254, 253, 0.88);
+  box-shadow: 0 1px 4px rgba(51, 43, 58, 0.24);
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.world-crosshair::before {
+  top: 10px;
+  left: 3px;
+  width: 16px;
+  height: 2px;
+}
+
+.world-crosshair::after {
+  top: 3px;
+  left: 10px;
+  width: 2px;
+  height: 16px;
+}
+
+.world-crosshair.is-aimed::before,
+.world-crosshair.is-aimed::after {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(255, 254, 253, 0.46), 0 3px 12px rgba(207, 79, 130, 0.32);
+  transform: scale(1.18);
+}
+
+.world-interaction-bar {
+  position: absolute;
+  right: 50%;
+  bottom: 22px;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
+  width: min(680px, calc(100% - 32px));
+  padding: 12px 14px;
+  border: 1px solid rgba(240, 207, 224, 0.78);
+  border-radius: var(--radius);
+  color: var(--heading);
+  background: rgba(255, 248, 251, 0.86);
+  box-shadow: 0 16px 42px rgba(74, 122, 146, 0.16);
+  backdrop-filter: blur(16px);
+  pointer-events: none;
+  transform: translateX(50%);
+}
+
+.world-interaction-bar div {
+  display: grid;
+  gap: 4px;
+}
+
+.world-interaction-bar span {
+  font-size: 0.92rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.world-interaction-bar strong {
+  color: var(--accent-dark);
+  font-size: 0.84rem;
+  line-height: 1.25;
+}
+
+.world-touch-actions {
+  position: absolute;
+  right: 16px;
+  bottom: 112px;
+  z-index: 3;
+  display: none;
+  gap: 8px;
+}
+
+.world-touch-actions button,
+.world-panel button {
+  min-height: 42px;
+  padding: 9px 14px;
+  border: 1px solid rgba(239, 122, 168, 0.28);
+  border-radius: var(--radius);
+  color: var(--accent-dark);
+  background: rgba(255, 254, 253, 0.88);
+  font: inherit;
+  font-weight: 850;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(207, 79, 130, 0.13);
+}
+
+.world-touch-actions button:disabled {
+  color: rgba(119, 106, 126, 0.68);
+  cursor: not-allowed;
+  background: rgba(255, 254, 253, 0.58);
+  box-shadow: none;
+}
+
+.world-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 4;
+  width: min(430px, calc(100% - 32px));
+  padding: 22px;
+  border: 1px solid rgba(240, 207, 224, 0.86);
+  border-radius: var(--radius);
+  color: var(--ink);
+  background: rgba(255, 248, 251, 0.94);
+  box-shadow: 0 24px 64px rgba(74, 122, 146, 0.22);
+  backdrop-filter: blur(18px);
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+}
+
+.world-panel-kicker {
+  margin-bottom: 10px;
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 850;
+  letter-spacing: 0.11em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.world-panel h2 {
+  margin-bottom: 12px;
+  font-size: 1.55rem;
+}
+
+.world-panel p {
+  margin-bottom: 16px;
+  color: var(--muted);
+}
+
+.world-panel dl {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.world-panel dl div {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.world-panel dt {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.world-panel dd {
+  min-width: 0;
+  margin: 0;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.world-panel button {
+  width: 100%;
+  color: var(--white);
+  background: var(--accent);
 }
 
 .startup-screen {
@@ -686,6 +876,18 @@ h3 {
   .fallback-links {
     grid-template-columns: 1fr;
   }
+
+  .world-interaction-bar {
+    bottom: 14px;
+    width: min(100% - 24px, 680px);
+    padding: 10px 12px;
+  }
+
+  .world-touch-actions {
+    right: 12px;
+    bottom: 106px;
+    display: flex;
+  }
 }
 
 @media (max-width: 480px) {
@@ -708,5 +910,24 @@ h3 {
 
   .button {
     width: 100%;
+  }
+
+  .world-panel {
+    top: 48%;
+    padding: 18px;
+  }
+
+  .world-panel h2 {
+    font-size: 1.32rem;
+  }
+
+  .world-panel dl div {
+    grid-template-columns: 62px minmax(0, 1fr);
+  }
+}
+
+@media (pointer: coarse) {
+  .world-touch-actions {
+    display: flex;
   }
 }

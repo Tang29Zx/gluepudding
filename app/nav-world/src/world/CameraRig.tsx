@@ -1,13 +1,16 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
-import { usePlayerController } from "./PlayerController";
+import type { PlayerControllerState } from "./PlayerController";
 
-export function CameraRig() {
+interface CameraRigProps {
+  player: PlayerControllerState;
+}
+
+export function CameraRig({ player }: CameraRigProps) {
   const camera = useThree((state) => state.camera);
   const domElement = useThree((state) => state.gl.domElement);
   const isPointerLockedRef = useRef(false);
-  const player = usePlayerController();
-  const { clearMovement, rotateView } = player;
+  const { clearMovement, clearMovementInput, rotateView } = player;
 
   useEffect(() => {
     camera.rotation.order = "YXZ";
@@ -15,6 +18,10 @@ export function CameraRig() {
 
   useEffect(() => {
     const requestPointerLock = () => {
+      if (!player.isMovementEnabled) {
+        return;
+      }
+
       if (document.pointerLockElement === domElement) {
         return;
       }
@@ -32,12 +39,12 @@ export function CameraRig() {
       isPointerLockedRef.current = document.pointerLockElement === domElement;
 
       if (!isPointerLockedRef.current) {
-        clearMovement();
+        clearMovementInput();
       }
     };
 
     const handleMouseMove = (event: MouseEvent) => {
-      if (!isPointerLockedRef.current) {
+      if (!isPointerLockedRef.current || !player.isMovementEnabled) {
         return;
       }
 
@@ -58,12 +65,25 @@ export function CameraRig() {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("pointerlockchange", handlePointerLockChange);
       document.removeEventListener("pointerlockerror", handlePointerLockError);
+    };
+  }, [clearMovementInput, domElement, player.isMovementEnabled, rotateView]);
 
+  useEffect(() => {
+    return () => {
       if (document.pointerLockElement === domElement) {
         document.exitPointerLock();
       }
     };
-  }, [clearMovement, domElement, rotateView]);
+  }, [domElement]);
+
+  useEffect(() => {
+    if (player.isMovementEnabled || document.pointerLockElement !== domElement) {
+      return;
+    }
+
+    document.exitPointerLock();
+    clearMovementInput();
+  }, [clearMovementInput, domElement, player.isMovementEnabled]);
 
   useFrame(() => {
     const { position, pitch, spawn, yaw } = player;

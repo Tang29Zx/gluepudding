@@ -10,12 +10,17 @@ import {
 
 export interface PlayerControllerState {
   spawn: PlayerSpawn;
-  isMovementEnabled: true;
+  isMovementEnabled: boolean;
   pitch: MutableRefObject<number>;
   position: MutableRefObject<Vector3>;
   yaw: MutableRefObject<number>;
+  clearMovementInput: () => void;
   clearMovement: () => void;
   rotateView: (movementX: number, movementY: number) => void;
+}
+
+interface UsePlayerControllerOptions {
+  isMovementEnabled: boolean;
 }
 
 type MovementKey = "KeyW" | "KeyA" | "KeyS" | "KeyD";
@@ -23,6 +28,8 @@ type SprintKey = "ShiftLeft" | "ShiftRight";
 
 const movementKeys = new Set<string>(["KeyW", "KeyA", "KeyS", "KeyD"]);
 const sprintKeys = new Set<string>(["ShiftLeft", "ShiftRight"]);
+const emptyMovementKeys = new Set<MovementKey>();
+const emptySprintKeys = new Set<SprintKey>();
 const forwardVector = new Vector3();
 const rightVector = new Vector3();
 const movementVector = new Vector3();
@@ -100,7 +107,9 @@ function writeHorizontalVelocity(
     .multiplyScalar(playerControls.moveSpeed * speedMultiplier);
 }
 
-export function usePlayerController(): PlayerControllerState {
+export function usePlayerController({
+  isMovementEnabled,
+}: UsePlayerControllerOptions): PlayerControllerState {
   const activeKeysRef = useRef<Set<MovementKey>>(new Set());
   const horizontalVelocityRef = useRef(new Vector3());
   const jumpBufferTimerRef = useRef(0);
@@ -110,26 +119,48 @@ export function usePlayerController(): PlayerControllerState {
   const verticalVelocityRef = useRef(0);
   const yawRef = useRef(0);
 
-  const clearMovement = useCallback(() => {
+  const clearMovementInput = useCallback(() => {
     activeKeysRef.current.clear();
-    horizontalVelocityRef.current.set(0, 0, 0);
     jumpBufferTimerRef.current = 0;
     sprintKeysRef.current.clear();
   }, []);
 
+  const clearMovement = useCallback(() => {
+    clearMovementInput();
+    horizontalVelocityRef.current.set(0, 0, 0);
+  }, [clearMovementInput]);
+
   const rotateView = useCallback((movementX: number, movementY: number) => {
+    if (!isMovementEnabled) {
+      return;
+    }
+
     yawRef.current -= movementX * playerControls.lookSensitivity;
     pitchRef.current = clamp(
       pitchRef.current - movementY * playerControls.lookSensitivity,
       playerControls.minPitch,
       playerControls.maxPitch,
     );
-  }, []);
+  }, [isMovementEnabled]);
+
+  useEffect(() => {
+    if (!isMovementEnabled) {
+      clearMovementInput();
+    }
+  }, [clearMovementInput, isMovementEnabled]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.code === "Escape") {
-        clearMovement();
+        if (isMovementEnabled) {
+          clearMovement();
+        } else {
+          clearMovementInput();
+        }
+        return;
+      }
+
+      if (!isMovementEnabled) {
         return;
       }
 
@@ -159,6 +190,10 @@ export function usePlayerController(): PlayerControllerState {
     };
 
     const handleKeyUp = (event: KeyboardEvent) => {
+      if (!isMovementEnabled) {
+        return;
+      }
+
       if (isMovementKey(event.code)) {
         event.preventDefault();
         activeKeysRef.current.delete(event.code);
@@ -183,10 +218,15 @@ export function usePlayerController(): PlayerControllerState {
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", clearMovement);
     };
-  }, [clearMovement]);
+  }, [clearMovement, clearMovementInput, isMovementEnabled]);
 
   useFrame((_, delta) => {
-    const activeKeys = activeKeysRef.current;
+    const activeKeys = isMovementEnabled
+      ? activeKeysRef.current
+      : emptyMovementKeys;
+    const sprintKeys = isMovementEnabled
+      ? sprintKeysRef.current
+      : emptySprintKeys;
     const groundY = playerSpawn.position[1];
     const horizontalVelocity = horizontalVelocityRef.current;
     let isGrounded =
@@ -197,7 +237,7 @@ export function usePlayerController(): PlayerControllerState {
       verticalVelocityRef.current = 0;
       writeHorizontalVelocity(
         activeKeys,
-        sprintKeysRef.current,
+        sprintKeys,
         yawRef.current,
         horizontalVelocity,
       );
@@ -226,7 +266,7 @@ export function usePlayerController(): PlayerControllerState {
         isGrounded = true;
         writeHorizontalVelocity(
           activeKeys,
-          sprintKeysRef.current,
+          sprintKeys,
           yawRef.current,
           horizontalVelocity,
         );
@@ -262,7 +302,8 @@ export function usePlayerController(): PlayerControllerState {
 
   return {
     clearMovement,
-    isMovementEnabled: true,
+    clearMovementInput,
+    isMovementEnabled,
     pitch: pitchRef,
     position: positionRef,
     rotateView,

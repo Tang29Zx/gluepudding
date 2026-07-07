@@ -1,4 +1,8 @@
-import { InteractionSystem } from "./InteractionSystem";
+import {
+  InteractionSystem,
+  type InteractionTargetId,
+} from "./InteractionSystem";
+import type { PlayerControllerState } from "./PlayerController";
 import { landmarkPositions, worldColors, worldScale } from "./sceneConfig";
 
 function DivinationHouse() {
@@ -102,7 +106,25 @@ function ReferenceLandmarks() {
   );
 }
 
-export function WorldScene() {
+interface WorldSceneProps {
+  isPanelOpen: boolean;
+  player: PlayerControllerState;
+  selectedTargetId: InteractionTargetId | null;
+  onActivateArea: (targetId: InteractionTargetId) => void;
+  onAimedTargetChange: (targetId: InteractionTargetId | null) => void;
+  onNearestTargetChange: (targetId: InteractionTargetId | null) => void;
+  onSelectObject: (targetId: InteractionTargetId) => void;
+}
+
+export function WorldScene({
+  isPanelOpen,
+  onActivateArea,
+  onAimedTargetChange,
+  onNearestTargetChange,
+  onSelectObject,
+  player,
+  selectedTargetId,
+}: WorldSceneProps) {
   return (
     <>
       <color attach="background" args={[worldColors.sky]} />
@@ -126,7 +148,15 @@ export function WorldScene() {
       />
 
       <ReferenceLandmarks />
-      <InteractionSystem />
+      <InteractionSystem
+        isPanelOpen={isPanelOpen}
+        onActivateArea={onActivateArea}
+        onAimedTargetChange={onAimedTargetChange}
+        onNearestTargetChange={onNearestTargetChange}
+        onSelectObject={onSelectObject}
+        player={player}
+        selectedTargetId={selectedTargetId}
+      />
     </>
   );
 }
