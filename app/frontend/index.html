@@ -5,117 +5,156 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="汤源梦影 的站点导航页"
+      content="gluepudding 3D 大世界的 WebGL 不可用时 2D 兜底入口，包含占卜屋、实验室和五子棋能力说明。"
     />
-    <title>汤源梦影 | 站点导航</title>
+    <title>gluepudding | 3D 大世界兜底入口</title>
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23fff8fb'/%3E%3Ccircle cx='32' cy='31' r='21' fill='%23ef7aa8'/%3E%3Ccircle cx='24' cy='29' r='3' fill='%235a4b67'/%3E%3Ccircle cx='40' cy='29' r='3' fill='%235a4b67'/%3E%3Cpath d='M24 40 Q32 46 40 40' stroke='%235a4b67' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23f4fbff'/%3E%3Cpath d='M18 25 32 16l14 9v16L32 50 18 41Z' fill='%23568fd6'/%3E%3Cpath d='M18 25 32 34l14-9M32 34v16' fill='none' stroke='%23fffefd' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='48' cy='17' r='6' fill='%23ef7aa8'/%3E%3C/svg%3E"
     />
     <link rel="stylesheet" href="styles.css?v=20260530" />
   </head>
   <body>
     <header class="site-header">
-      <a class="brand" href="#top" aria-label="回到首页">
-        <span class="brand-mark"></span>
-        <span>站点导航</span>
+      <a class="brand" href="#top" aria-label="回到 3D 大世界兜底入口">
+        <span class="brand-mark" aria-hidden="true">3D</span>
+        <span>gluepudding 3D World</span>
       </a>
 
       <nav class="site-nav" aria-label="主导航">
-        <a href="#sites">站点</a>
-        <a href="https://home.gluepudding.com">个人主页</a>
+        <a href="#sites">能力说明</a>
+        <a href="#fallback">降级入口</a>
       </nav>
     </header>
 
     <main id="top">
       <section class="hero section-shell">
         <div class="hero-copy reveal">
-          <p class="eyebrow">Site Navigation / Learning Space</p>
-          <h1>站点导航</h1>
+          <p class="eyebrow">WebGL Fallback / 2D Entry</p>
+          <h1>3D 大世界兜底入口</h1>
           <p class="hero-intro">
-            这里收藏着学习时做出来的小站点：个人主页、工具页面、小游戏等等
+            当 3D 初始化失败、浏览器不支持 WebGL，或设备性能不足时，
+            这个页面会作为 2D 兜底内容，说明 gluepudding 大世界的核心区域和独立降级入口。
           </p>
 
           <div class="hero-actions">
-            <a class="button primary" href="#sites">查看站点</a>
-            <a class="button secondary" href="https://home.gluepudding.com">打开个人主页</a>
+            <a class="button primary" href="#sites">查看世界区域</a>
+            <a class="button secondary" href="#fallback">查看降级入口</a>
           </div>
         </div>
 
-        <aside class="quick-panel reveal" aria-label="快速入口">
-          <p class="panel-kicker">Quick Access</p>
-          <a class="quick-row" href="https://home.gluepudding.com">
+        <aside class="quick-panel reveal" aria-label="3D 大世界区域概览">
+          <p class="panel-kicker">World Areas</p>
+          <a class="quick-row" href="#divination">
             <span>01</span>
-            <strong>个人主页</strong>
+            <strong>占卜屋</strong>
+            <small>塔罗、星座、周易的世界内交互区域。</small>
           </a>
-          <a class="quick-row" href="https://iot.gluepudding.com">
+          <a class="quick-row" href="#laboratory">
             <span>02</span>
-            <strong>物联网</strong>
+            <strong>实验室</strong>
+            <small>WebRTC 大屏、RDK 展示台和门禁控制台。</small>
           </a>
-          <a class="quick-row" href="https://game.gluepudding.com">
+          <a class="quick-row" href="#gomoku">
             <span>03</span>
-            <strong>小游戏</strong>
+            <strong>五子棋</strong>
+            <small>后续在同一个 3D 世界内打开的棋局区域。</small>
           </a>
         </aside>
       </section>
 
       <section id="sites" class="section-shell">
         <div class="section-heading reveal">
-          <p class="eyebrow">Navigation</p>
-          <h2>站点入口</h2>
+          <p class="eyebrow">Fallback Map</p>
+          <h2>世界区域说明</h2>
+          <p>
+            Layer 0 只提供可读、可导航的静态兜底内容。真实 3D 移动、射线交互和世界内模块会在后续层接入。
+          </p>
         </div>
 
         <div class="nav-grid">
-          <article class="nav-card reveal">
-            <span class="card-icon card-icon-home" aria-hidden="true"></span>
-            <p class="card-type">Homepage</p>
-            <h3>个人主页</h3>
+          <article id="divination" class="nav-card reveal">
+            <span class="card-icon card-icon-divination" aria-hidden="true"></span>
+            <p class="card-type">Divination Area</p>
+            <h3>占卜屋</h3>
             <p>
-              记录主页、练习作品和一些 three.js 小实验。
+              未来在 3D 桌面上完成塔罗选牌、星座查询和周易起卦；当前兜底页只展示能力范围。
             </p>
-            <ul class="card-tags" aria-label="页面标签">
-              <li>Three.js</li>
-              <li>Profile</li>
-              <li>HTML</li>
+            <ul class="card-tags" aria-label="能力标签">
+              <li>Tarot</li>
+              <li>Zodiac</li>
+              <li>I Ching</li>
             </ul>
-            <a class="card-link" href="https://home.gluepudding.com">进入页面</a>
+            <a class="card-link" href="#fallback">查看独立降级入口</a>
           </article>
 
-          <article class="nav-card reveal">
-            <span class="card-icon card-icon-iot" aria-hidden="true"></span>
-            <p class="card-type">IoT</p>
-            <h3>物联网</h3>
+          <article id="laboratory" class="nav-card reveal">
+            <span class="card-icon card-icon-laboratory" aria-hidden="true"></span>
+            <p class="card-type">Laboratory</p>
+            <h3>实验室</h3>
             <p>
-              收纳物联网相关页面和调试小工具。
+              未来承载 WebRTC 大屏、RDK 世界模型展示台和门禁控制台；外部服务不可用时需要世界内离线状态。
             </p>
-            <ul class="card-tags" aria-label="页面标签">
-              <li>Mqtt</li>
-              <li>Tool</li>
-              <li>Demo</li>
+            <ul class="card-tags" aria-label="能力标签">
+              <li>WebRTC</li>
+              <li>RDK</li>
+              <li>Door</li>
             </ul>
-            <a class="card-link" href="https://iot.gluepudding.com">进入页面</a>
+            <a class="card-link" href="#fallback">查看独立降级入口</a>
           </article>
 
-          <article class="nav-card reveal">
-            <span class="card-icon card-icon-game" aria-hidden="true"></span>
-            <p class="card-type">Mini Game</p>
-            <h3>小游戏</h3>
+          <article id="gomoku" class="nav-card reveal">
+            <span class="card-icon card-icon-gomoku" aria-hidden="true"></span>
+            <p class="card-type">Gomoku Area</p>
+            <h3>五子棋</h3>
             <p>
-              小游戏练习区。
+              五子棋最终会在 3D 世界内打开和操作；第一阶段先保证兜底说明和独立入口可用。
             </p>
-            <ul class="card-tags" aria-label="页面标签">
-              <li>Game</li>
-              <li>JavaScript</li>
-              <li>UI</li>
+            <ul class="card-tags" aria-label="能力标签">
+              <li>Gomoku</li>
+              <li>Board</li>
+              <li>AI</li>
             </ul>
-            <a class="card-link" href="https://game.gluepudding.com">进入页面</a>
+            <a class="card-link" href="#fallback">查看独立降级入口</a>
           </article>
+        </div>
+      </section>
+
+      <section id="fallback" class="section-shell fallback-section">
+        <div class="fallback-panel reveal">
+          <div class="fallback-copy">
+            <p class="eyebrow">Standalone Fallback</p>
+            <h2>独立降级入口</h2>
+            <p>
+              核心目标仍是在同一个 3D 大世界内操作能力。下面链接只用于 WebGL 不可用、
+              调试或外部系统临时独立访问，不代表最终的世界内交互路径。
+            </p>
+          </div>
+
+          <div class="fallback-links" aria-label="独立降级入口列表">
+            <a class="fallback-link" href="https://home.gluepudding.com">
+              <span>Home</span>
+              <strong>Home 独立入口</strong>
+            </a>
+            <a class="fallback-link" href="https://iot.gluepudding.com">
+              <span>IoT</span>
+              <strong>IoT 独立入口</strong>
+            </a>
+            <a class="fallback-link" href="https://game.gluepudding.com">
+              <span>Game</span>
+              <strong>Game 独立入口</strong>
+            </a>
+          </div>
+
+          <p class="fallback-note">
+            当前页面不连接真实 WebRTC、RDK、IoT、认证或五子棋服务，也不包含内部配置或设备控制信息。
+          </p>
         </div>
       </section>
     </main>
 
     <footer class="site-footer">
-      <p>© 2026 汤源梦影 个人学习与作品导航</p>
+      <p>© 2026 gluepudding 3D World fallback</p>
       <div class="filing-links" aria-label="备案信息模板">
         <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer">
           ICP备案号：沪ICP备2026022375号-1
