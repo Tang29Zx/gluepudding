@@ -22,6 +22,17 @@ export const cameraConfig = {
   far: 220,
 };
 
+export const playerControls = {
+  gravity: 34,
+  jumpBufferSeconds: 0.12,
+  jumpVelocity: 8.8,
+  lookSensitivity: 0.0022,
+  maxPitch: Math.PI / 2.8,
+  minPitch: -Math.PI / 2.8,
+  moveSpeed: 8.5,
+  sprintMultiplier: 1.75,
+};
+
 export const worldScale = {
   groundRadius: 95,
   gridSize: 190,

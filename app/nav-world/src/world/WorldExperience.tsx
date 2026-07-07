@@ -34,15 +34,9 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
       </Canvas>
 
       <div className="world-hud" aria-label="3D 世界状态">
-        <a className="world-brand" href="/">
-          <span className="brand-mark" aria-hidden="true">
-            3D
-          </span>
-          <span>gluepudding 3D World</span>
-        </a>
         <div className="world-status">
-          <span>Layer 1</span>
-          <strong>WebGL Active</strong>
+          <span>Layer 2</span>
+          <strong>Movement Active</strong>
         </div>
       </div>
     </main>
