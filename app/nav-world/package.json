@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && npm run assets:prune",
+    "assets:check": "node scripts/prune-untracked-frontend-assets.mjs --check",
+    "assets:prune": "node scripts/prune-untracked-frontend-assets.mjs",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
