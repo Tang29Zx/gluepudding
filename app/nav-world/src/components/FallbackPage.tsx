@@ -1,0 +1,182 @@
+export type FallbackReason = "starting" | "webgl-unavailable" | "error";
+
+interface FallbackPageProps {
+  reason: FallbackReason;
+}
+
+const statusCopy: Record<FallbackReason, string> = {
+  starting: "3D 世界正在启动，兜底内容会在加载期间保持可读。",
+  "webgl-unavailable": "当前环境无法启动 WebGL，已切换到 2D 兜底入口。",
+  error: "3D 初始化未完成，已切换到 2D 兜底入口。",
+};
+
+export function FallbackPage({ reason }: FallbackPageProps) {
+  return (
+    <div className="fallback-page">
+      <header className="site-header">
+        <a className="brand" href="#top" aria-label="回到 3D 大世界兜底入口">
+          <span className="brand-mark" aria-hidden="true">
+            3D
+          </span>
+          <span>gluepudding 3D World</span>
+        </a>
+
+        <nav className="site-nav" aria-label="主导航">
+          <a href="#sites">能力说明</a>
+          <a href="#fallback">降级入口</a>
+        </nav>
+      </header>
+
+      <main id="top">
+        <section className="hero section-shell">
+          <div className="hero-copy reveal is-visible">
+            <p className="eyebrow">WebGL Fallback / 2D Entry</p>
+            <h1>3D 大世界兜底入口</h1>
+            <p className="hero-intro">
+              当 3D 初始化失败、浏览器不支持 WebGL，或设备性能不足时，
+              这个页面会作为 2D 兜底内容，说明 gluepudding 大世界的核心区域和独立降级入口。
+            </p>
+            <p className="fallback-status" role="status">
+              {statusCopy[reason]}
+            </p>
+
+            <div className="hero-actions">
+              <a className="button primary" href="#sites">
+                查看世界区域
+              </a>
+              <a className="button secondary" href="#fallback">
+                查看降级入口
+              </a>
+            </div>
+          </div>
+
+          <aside className="quick-panel reveal is-visible" aria-label="3D 大世界区域概览">
+            <p className="panel-kicker">World Areas</p>
+            <a className="quick-row" href="#divination">
+              <span>01</span>
+              <strong>占卜屋</strong>
+              <small>塔罗、星座、周易的世界内交互区域。</small>
+            </a>
+            <a className="quick-row" href="#laboratory">
+              <span>02</span>
+              <strong>实验室</strong>
+              <small>WebRTC 大屏、RDK 展示台和门禁控制台。</small>
+            </a>
+            <a className="quick-row" href="#gomoku">
+              <span>03</span>
+              <strong>五子棋</strong>
+              <small>后续在同一个 3D 世界内打开的棋局区域。</small>
+            </a>
+          </aside>
+        </section>
+
+        <section id="sites" className="section-shell">
+          <div className="section-heading reveal is-visible">
+            <p className="eyebrow">Fallback Map</p>
+            <h2>世界区域说明</h2>
+            <p>
+              Layer 0 提供可读、可导航的静态兜底内容。真实 3D 移动、射线交互和世界内模块会在后续层接入。
+            </p>
+          </div>
+
+          <div className="nav-grid">
+            <article id="divination" className="nav-card reveal is-visible">
+              <span className="card-icon card-icon-divination" aria-hidden="true" />
+              <p className="card-type">Divination Area</p>
+              <h3>占卜屋</h3>
+              <p>未来在 3D 桌面上完成塔罗选牌、星座查询和周易起卦；当前兜底页只展示能力范围。</p>
+              <ul className="card-tags" aria-label="能力标签">
+                <li>Tarot</li>
+                <li>Zodiac</li>
+                <li>I Ching</li>
+              </ul>
+              <a className="card-link" href="#fallback">
+                查看独立降级入口
+              </a>
+            </article>
+
+            <article id="laboratory" className="nav-card reveal is-visible">
+              <span className="card-icon card-icon-laboratory" aria-hidden="true" />
+              <p className="card-type">Laboratory</p>
+              <h3>实验室</h3>
+              <p>未来承载 WebRTC 大屏、RDK 世界模型展示台和门禁控制台；外部服务不可用时需要世界内离线状态。</p>
+              <ul className="card-tags" aria-label="能力标签">
+                <li>WebRTC</li>
+                <li>RDK</li>
+                <li>Door</li>
+              </ul>
+              <a className="card-link" href="#fallback">
+                查看独立降级入口
+              </a>
+            </article>
+
+            <article id="gomoku" className="nav-card reveal is-visible">
+              <span className="card-icon card-icon-gomoku" aria-hidden="true" />
+              <p className="card-type">Gomoku Area</p>
+              <h3>五子棋</h3>
+              <p>五子棋最终会在 3D 世界内打开和操作；第一阶段先保证兜底说明和独立入口可用。</p>
+              <ul className="card-tags" aria-label="能力标签">
+                <li>Gomoku</li>
+                <li>Board</li>
+                <li>AI</li>
+              </ul>
+              <a className="card-link" href="#fallback">
+                查看独立降级入口
+              </a>
+            </article>
+          </div>
+        </section>
+
+        <section id="fallback" className="section-shell fallback-section">
+          <div className="fallback-panel reveal is-visible">
+            <div className="fallback-copy">
+              <p className="eyebrow">Standalone Fallback</p>
+              <h2>独立降级入口</h2>
+              <p>
+                核心目标仍是在同一个 3D 大世界内操作能力。下面链接只用于 WebGL 不可用、
+                调试或外部系统临时独立访问，不代表最终的世界内交互路径。
+              </p>
+            </div>
+
+            <div className="fallback-links" aria-label="独立降级入口列表">
+              <a className="fallback-link" href="https://home.gluepudding.com">
+                <span>Home</span>
+                <strong>Home 独立入口</strong>
+              </a>
+              <a className="fallback-link" href="https://iot.gluepudding.com">
+                <span>IoT</span>
+                <strong>IoT 独立入口</strong>
+              </a>
+              <a className="fallback-link" href="https://game.gluepudding.com">
+                <span>Game</span>
+                <strong>Game 独立入口</strong>
+              </a>
+            </div>
+
+            <p className="fallback-note">
+              当前页面不连接真实 WebRTC、RDK、IoT、认证或五子棋服务，也不包含内部配置或设备控制信息。
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <footer className="site-footer">
+        <p>© 2026 gluepudding 3D World fallback</p>
+        <div className="filing-links" aria-label="备案信息模板">
+          <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer">
+            ICP备案号：沪ICP备2026022375号-1
+          </a>
+          <a href="https://beian.mps.gov.cn/#/query/webSearch" target="_blank" rel="noreferrer">
+            <img
+              className="filing-icon"
+              src="https://qcloudimg.tencent-cloud.cn/raw/eed02831a0e201b8d794c8282c40cf2e.png"
+              alt=""
+              aria-hidden="true"
+            />
+            公安备案号：沪公网安备31011202022649号
+          </a>
+        </div>
+      </footer>
+    </div>
+  );
+}

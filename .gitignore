@@ -38,6 +38,7 @@ instance/
 node_modules/
 dist/
 build/
+*.tsbuildinfo
 .vite/
 .next/
 .nuxt/
