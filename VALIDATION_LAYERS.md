@@ -228,7 +228,7 @@
 
 ## Layer 4.5：资源接入准备层
 
-目标：在进入真实占卜屋和大场景接入前，先确认 `resources/` 里的已有文件如何进入大世界，避免把资源整理、模型比例和业务接入混在同一层。
+目标：在进入真实占卜屋业务接入前，先确认并接入 `resources/` 里的大场景资源，避免把资源整理、模型比例、地形移动和占卜业务接入混在同一层。
 
 进入本层前必须满足：
 
@@ -243,15 +243,26 @@
 
 本层最小验证目标：
 
-- 只做资源清点和接入规划，不移动、不解压、不集成资源。
 - 确认大场景资源下一步先作为世界场景资产接入，而不是放到占卜业务层处理。
 - 确认占卜屋代码下一步作为 Layer 5 输入，优先复用类型、API 适配和 mock 流程。
 - 明确 `resources/fortune/node_modules/`、`resources/fortune/dist/` 和 `.env` 不作为主工程源码接入输入。
+- 将浮岛 GLB 作为世界基础地形接入，并保留旧圆形地板作为 GLB 加载失败兜底。
+- 玩家移动高度来自 GLB 主岛体最高朝上命中面，不再固定为 `y=0`。
+- 出生点、占卜屋、实验室和五子棋区域放在浮岛可行走空地上。
 
 通过标准：
 
 - `TODO.md` 和 `Tech-Spec.md` 已记录资源路径、接入顺序和不接入范围。
-- 没有用户可见画面变化，因此本层不要求截图。
+- `app/nav-world/public/models/world/island.glb` 存在并由 Git LFS 管理；`app/frontend/models/world/island.glb` 作为构建输出不进入 Git。
+- `npm run build` 和 `npm run assets:check` 通过。
+- 桌面端和移动端截图显示玩家位于 GLB 浮岛上方草地，而不是旧圆形地板或下层平面。
+
+验证截图：
+
+- 桌面端 GLB 浮岛地形和常驻模块表面：![Layer 4.5 桌面端 GLB 浮岛地形](validation/layer-4-5/island-desktop.png)
+- 移动端 GLB 浮岛地形和触屏操作按钮：![Layer 4.5 移动端 GLB 浮岛地形](validation/layer-4-5/island-mobile.png)
+- 桌面端首次加载提示：![Layer 4.5 桌面端首次加载提示](validation/layer-4-5/startup-desktop.png)
+- 移动端首次加载提示：![Layer 4.5 移动端首次加载提示](validation/layer-4-5/startup-mobile.png)
 
 调试记录：
 

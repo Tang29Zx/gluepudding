@@ -40,6 +40,12 @@
 - 2026-07-08：用户确认 `gluepudding/resources/` 里的内容都不要进 Git；`gluepudding/.gitignore` 已用 `resources/` 忽略整个目录，`git ls-files resources` 为空，`git check-ignore` 确认 zip、fortune demo 和 `.env` 都被忽略。后续只把 resources 当本地参考输入，不作为仓库交付物。
 - 2026-07-08：新增中文 `README.md` 作为协作者启动入口，记录主工程启动、build / preview、SSH 隧道预览、`resources/` 本地参考不进 Git、验证归档和 Layer 4 当前交互口径。
 - 2026-07-08：用户明确本项目面向中文用户；后续 README、技术文档、产品 UI 文案、验证记录和协作文档默认中文，代码标识、文件名、接口路径、命令、环境变量和第三方协议名保持英文。
+- 2026-07-08：`resources/float-island-low-ploy.zip` 内的 `source/island.glb` 已按用户要求删除浮岛上的动物节点；动物通过 `goat material` 定位，共移除 9 个动物 mesh，并用 `@gltf-transform/cli prune` 清理未引用资源。原始资源备份在 `resources/float-island-low-ploy.original.zip`，该目录仍不进 Git。
+- 2026-07-08：Layer 4.5 已把浮岛 GLB 接入为基础地形；源模型 `app/nav-world/public/models/world/island.glb` 约 86MB，已改由 Git LFS 管理，也可通过 `npm run assets:world:prepare` 从本地 `resources/float-island-low-ploy.zip` 重新生成；构建输出 `app/frontend/models/world/island.glb` 继续被 `.gitignore` 忽略。玩家贴地采样 GLB 主岛体 `Icosphere`，选择最高的朝上可走命中面；第一版不做树木、墙体或装饰物碰撞。
+- 2026-07-08：Layer 4.5 接入 86MB GLB 后，App 启动超时窗口已调整：动态 `WorldExperience` chunk 下载等待 90 秒，3D 世界 ready 等待 180 秒。原因是 `onReady()` 现在要等 GLB 下载、解析和地形采样准备；SSH 转发或慢速浏览器下 15 秒会误切到 2D 兜底页。
+- 2026-07-08：常驻 3D 模块表面的文字容量有限，默认面板不适合放长状态说明；`WorldModulePanels` 已改用短状态文案和固定分区坐标，避免状态说明、按钮、能力列表和底部提示重合。后续真实业务内容变多时，应改为区域内近距离大屏或分步交互，不要继续往默认小面板塞长文。
+- 2026-07-08：README 面向普通协作者时不默认他们拥有项目服务器或 SSH 配置；协作者预览路径以本地 clone、本地 `npm run preview` 和 `127.0.0.1` 为准。
+- 2026-07-08：Layer 4.5 启动页已提示“首次加载需要下载 3D 模型，可能需要较长时间。”，用于解释 86MB GLB 首次下载和解析等待。
 
 ## /new handoff
 

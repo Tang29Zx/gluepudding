@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
+    "assets:world:prepare": "node scripts/prepare-world-assets.mjs",
     "build": "tsc --noEmit && vite build && npm run assets:prune",
     "assets:check": "node scripts/prune-untracked-frontend-assets.mjs --check",
     "assets:prune": "node scripts/prune-untracked-frontend-assets.mjs",

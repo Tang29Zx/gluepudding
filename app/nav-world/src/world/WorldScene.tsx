@@ -1,7 +1,12 @@
+import { Suspense } from "react";
 import {
   InteractionSystem,
   type InteractionTargetId,
 } from "./InteractionSystem";
+import {
+  IslandTerrain,
+  WorldTerrainErrorBoundary,
+} from "./IslandTerrain";
 import { WorldModulePanels } from "../modules/WorldModulePanels";
 import type { AimedWorldModuleControl } from "../modules/types";
 import type {
@@ -9,6 +14,7 @@ import type {
   WorldModuleStatus,
 } from "../modules/types";
 import type { PlayerControllerState } from "./PlayerController";
+import type { TerrainSampler } from "./terrainSampler";
 import { landmarkPositions, worldColors, worldScale } from "./sceneConfig";
 
 function DivinationHouse() {
@@ -88,7 +94,7 @@ function GomokuArea() {
 
 function SpawnScaleMarker() {
   return (
-    <group position={[-5.4, 0, -30.8]}>
+    <group position={[4.8, 1.58, 36]}>
       <mesh castShadow position={[0, 0.86, 0]}>
         <capsuleGeometry args={[0.32, 1.08, 12, 24]} />
         <meshStandardMaterial color={worldColors.player} roughness={0.62} />
@@ -98,6 +104,26 @@ function SpawnScaleMarker() {
         <meshStandardMaterial color={worldColors.playerAccent} roughness={0.54} />
       </mesh>
     </group>
+  );
+}
+
+function FallbackGround() {
+  return (
+    <>
+      <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[worldScale.groundRadius, 128]} />
+        <meshStandardMaterial color={worldColors.ground} roughness={0.96} />
+      </mesh>
+      <gridHelper
+        args={[
+          worldScale.gridSize,
+          worldScale.gridDivisions,
+          "#4e8fd6",
+          worldColors.grid,
+        ]}
+        position={[0, 0.012, 0]}
+      />
+    </>
   );
 }
 
@@ -128,6 +154,8 @@ interface WorldSceneProps {
   ) => void;
   onNearestTargetChange: (targetId: InteractionTargetId | null) => void;
   onSelectObject: (targetId: InteractionTargetId) => void;
+  onTerrainReadyChange: (isReady: boolean) => void;
+  onTerrainSamplerChange: (sampler: TerrainSampler | null) => void;
 }
 
 export function WorldScene({
@@ -139,6 +167,8 @@ export function WorldScene({
   onModuleStatusChange,
   onNearestTargetChange,
   onSelectObject,
+  onTerrainReadyChange,
+  onTerrainSamplerChange,
   player,
   selectedTargetId,
 }: WorldSceneProps) {
@@ -155,14 +185,20 @@ export function WorldScene({
         shadow-mapSize={[1024, 1024]}
       />
 
-      <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[worldScale.groundRadius, 128]} />
-        <meshStandardMaterial color={worldColors.ground} roughness={0.96} />
-      </mesh>
-      <gridHelper
-        args={[worldScale.gridSize, worldScale.gridDivisions, "#4e8fd6", worldColors.grid]}
-        position={[0, 0.012, 0]}
-      />
+      <WorldTerrainErrorBoundary
+        fallback={<FallbackGround />}
+        onError={() => {
+          onTerrainSamplerChange(null);
+          onTerrainReadyChange(true);
+        }}
+      >
+        <Suspense fallback={null}>
+          <IslandTerrain
+            onTerrainReadyChange={onTerrainReadyChange}
+            onTerrainSamplerChange={onTerrainSamplerChange}
+          />
+        </Suspense>
+      </WorldTerrainErrorBoundary>
 
       <ReferenceLandmarks />
       <InteractionSystem
@@ -175,12 +211,14 @@ export function WorldScene({
         player={player}
         selectedTargetId={selectedTargetId}
       />
-      <WorldModulePanels
-        aimedModuleControl={aimedModuleControl}
-        moduleStatuses={moduleStatuses}
-        onAimedModuleControlChange={onAimedModuleControlChange}
-        onModuleStatusChange={onModuleStatusChange}
-      />
+      <Suspense fallback={null}>
+        <WorldModulePanels
+          aimedModuleControl={aimedModuleControl}
+          moduleStatuses={moduleStatuses}
+          onAimedModuleControlChange={onAimedModuleControlChange}
+          onModuleStatusChange={onModuleStatusChange}
+        />
+      </Suspense>
     </>
   );
 }

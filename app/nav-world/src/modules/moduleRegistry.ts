@@ -1,5 +1,5 @@
 import type { InteractionTargetId } from "../world/InteractionSystem";
-import type { Vector3Tuple } from "../world/sceneConfig";
+import { landmarkPositions, type Vector3Tuple } from "../world/sceneConfig";
 import type {
   WorldModuleId,
   WorldModuleStatus,
@@ -37,12 +37,24 @@ const sharedStatusCopy = {
   ready: "Shell is ready. Business logic is intentionally not connected yet.",
 } satisfies Record<WorldModuleStatus, string>;
 
+const [
+  divinationHouseX,
+  divinationHouseY,
+  divinationHouseZ,
+] = landmarkPositions.divinationHouse;
+const [laboratoryX, laboratoryY, laboratoryZ] = landmarkPositions.laboratory;
+const [gomokuBoardX, gomokuBoardY, gomokuBoardZ] = landmarkPositions.gomokuBoard;
+
 export const worldModuleDefinitions = {
   divination: {
     accentColor: "#a99bea",
     capabilities: ["Zodiac shell", "Tarot table slot", "I Ching desk slot"],
     id: "divination",
-    panelPosition: [0, 3.08, -29.78],
+    panelPosition: [
+      divinationHouseX,
+      divinationHouseY + 3.08,
+      divinationHouseZ + 4.22,
+    ],
     panelRotation: [0, 0, 0],
     panelSize: [5.25, 2.85],
     statusCopy: sharedStatusCopy,
@@ -54,7 +66,7 @@ export const worldModuleDefinitions = {
     accentColor: "#77aee8",
     capabilities: ["WebRTC screen slot", "RDK model slot", "Door console slot"],
     id: "laboratory",
-    panelPosition: [26, 3.05, -42.1],
+    panelPosition: [laboratoryX, laboratoryY + 3.05, laboratoryZ + 3.9],
     panelRotation: [0, 0, 0],
     panelSize: [5.65, 2.55],
     statusCopy: sharedStatusCopy,
@@ -66,7 +78,7 @@ export const worldModuleDefinitions = {
     accentColor: "#ffd977",
     capabilities: ["Board shell", "Move input slot", "Game state slot"],
     id: "gomoku",
-    panelPosition: [-24, 1.85, -19.85],
+    panelPosition: [gomokuBoardX, gomokuBoardY + 1.85, gomokuBoardZ + 4.15],
     panelRotation: [-0.32, 0, 0],
     panelSize: [4.8, 2.55],
     statusCopy: sharedStatusCopy,

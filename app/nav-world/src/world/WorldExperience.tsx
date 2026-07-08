@@ -1,5 +1,5 @@
 import { Canvas } from "@react-three/fiber";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createDefaultWorldModuleStatuses,
   getWorldModuleById,
@@ -16,6 +16,7 @@ import {
   type InteractionTargetId,
 } from "./InteractionSystem";
 import { usePlayerController } from "./PlayerController";
+import type { TerrainSampler } from "./terrainSampler";
 import { WorldScene } from "./WorldScene";
 import { cameraConfig, worldColors } from "./sceneConfig";
 
@@ -37,6 +38,7 @@ interface WorldRuntimeProps {
   ) => void;
   onNearestTargetChange: (targetId: InteractionTargetId | null) => void;
   onSelectObject: (targetId: InteractionTargetId) => void;
+  onTerrainReadyChange: (isReady: boolean) => void;
   selectedTargetId: InteractionTargetId | null;
 }
 
@@ -49,9 +51,17 @@ function WorldRuntime({
   onModuleStatusChange,
   onNearestTargetChange,
   onSelectObject,
+  onTerrainReadyChange,
   selectedTargetId,
 }: WorldRuntimeProps) {
-  const player = usePlayerController({ isMovementEnabled: true });
+  const terrainSamplerRef = useRef<TerrainSampler | null>(null);
+  const setTerrainSampler = useCallback((sampler: TerrainSampler | null) => {
+    terrainSamplerRef.current = sampler;
+  }, []);
+  const player = usePlayerController({
+    isMovementEnabled: true,
+    terrainSamplerRef,
+  });
 
   return (
     <>
@@ -59,6 +69,8 @@ function WorldRuntime({
       <WorldScene
         aimedModuleControl={aimedModuleControl}
         moduleStatuses={moduleStatuses}
+        onTerrainReadyChange={onTerrainReadyChange}
+        onTerrainSamplerChange={setTerrainSampler}
         onActivateArea={onActivateArea}
         onAimedModuleControlChange={onAimedModuleControlChange}
         onAimedTargetChange={onAimedTargetChange}
@@ -75,6 +87,8 @@ function WorldRuntime({
 export function WorldExperience({ onReady }: WorldExperienceProps) {
   const [aimedModuleControl, setAimedModuleControl] =
     useState<AimedWorldModuleControl | null>(null);
+  const [isCanvasReady, setIsCanvasReady] = useState(false);
+  const [isTerrainReady, setIsTerrainReady] = useState(false);
   const [aimedTargetId, setAimedTargetId] =
     useState<InteractionTargetId | null>(null);
   const [focusedModuleId, setFocusedModuleId] =
@@ -94,6 +108,14 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
   const nearestTarget = getInteractionTargetById(nearestTargetId);
   const selectedTarget = getInteractionTargetById(selectedTargetId);
   const selectableTarget = aimedTarget ?? nearestTarget;
+
+  useEffect(() => {
+    if (!isCanvasReady || !isTerrainReady) {
+      return;
+    }
+
+    onReady();
+  }, [isCanvasReady, isTerrainReady, onReady]);
 
   const changeModuleStatus = useCallback((
     moduleId: WorldModuleId,
@@ -198,7 +220,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
         onCreated={({ gl }) => {
           gl.setClearColor(worldColors.sky);
           gl.domElement.tabIndex = 0;
-          onReady();
+          setIsCanvasReady(true);
         }}
         shadows
       >
@@ -212,6 +234,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
             onModuleStatusChange={changeModuleStatus}
             onNearestTargetChange={setNearestTargetId}
             onSelectObject={selectObject}
+            onTerrainReadyChange={setIsTerrainReady}
             selectedTargetId={selectedTargetId}
           />
         </Suspense>
@@ -219,7 +242,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
 
       <div className="world-hud" aria-label="3D 世界状态">
         <div className="world-status">
-          <span>Layer 4</span>
+          <span>Layer 4.5</span>
           <strong>
             {aimedModuleControl
               ? "Surface Control"

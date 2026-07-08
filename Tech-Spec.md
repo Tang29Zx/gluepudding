@@ -47,9 +47,9 @@ gomoku-board     -> gomoku
 - 连续切换三个模块状态后，玩家仍停留在同一个世界中，移动和视角不被模块操作打断。
 - 桌面端和移动端截图必须归档到 `validation/layer-4/` 并写入 `VALIDATION_LAYERS.md`。
 
-## Layer 4.5：资源接入准备层
+## Layer 4.5：GLB 地形替换和资源接入准备层
 
-目标：只记录 `resources/` 中已有资源如何进入后续层，不做资源迁移、解压或代码集成。
+目标：把 `resources/` 中的大场景 GLB 作为世界基础地形接入，同时继续把占卜屋代码留作 Layer 5 输入。
 
 ### 已有输入
 
@@ -58,12 +58,16 @@ gomoku-board     -> gomoku
 
 ### 接入边界
 
-- 大场景资源优先在 Layer 4.5 后续实现中接入，用于确定世界比例、出生点、交互点和性能边界。
+- 大场景源模型位于 `app/nav-world/public/models/world/island.glb`，体积约 86MB，已通过 Git LFS 管理；也可通过 `npm run assets:world:prepare` 从本地 `resources/float-island-low-ploy.zip` 重新生成。
+- 构建后模型会复制到 `app/frontend/models/world/island.glb`；该构建输出继续被 `.gitignore` 忽略，不提交普通 Git。
+- GLB 使用 `scale = 6`、`position = [-14.4, -10, 3.5]`，作为世界基础地形；旧圆形地板和网格只作为 GLB 加载中或加载失败兜底。
+- 玩家贴地对 GLB 主岛体 `Icosphere` 做射线采样，并选择最高的朝上可走命中；树木、房屋墙体和装饰物第一版不参与碰撞。
+- 无地形命中或坡度过陡时阻止水平移动，避免玩家走出浮岛。
+- 出生点、占卜屋、实验室和五子棋区域已重排到浮岛空地，模块表面和交互命中点跟随新锚点。
 - 占卜屋代码作为 Layer 5 输入，优先复用 `resources/fortune/src/types/fortuneTypes.ts`、`resources/fortune/src/adapters/fortuneApi.ts`、mock 流程和 UI 状态设计。
 - `resources/fortune/node_modules/`、`resources/fortune/dist/` 和 `resources/fortune/.env` 不进入主工程源码；不要读取或记录 `.env` 内容。
 - Python/FastAPI 部分只作为接口行为参考，是否接真实后端留到后续接口层决定。
 
 ### 下一步
 
-- 先检查大场景压缩包里的模型格式、贴图结构和比例，再决定迁移到 `gluepudding/app/nav-world/public/models/world/` 或等价资源目录。
 - 再梳理占卜屋 demo 的可复用前端代码，并拆成 Layer 5 的最小 mock 接入任务。

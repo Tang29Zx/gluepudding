@@ -9,11 +9,12 @@
 ## 当前状态
 
 - 当前已确认：Layer 4 模块外壳层。
-- 当前推进：Layer 4.5 资源接入准备层。
+- 当前推进：Layer 4.5 GLB 地形替换和资源接入准备层。
 - 目标用户：中文用户。
 - 主前端工程：`app/nav-world/`。
 - 构建输出目录：`app/frontend/`。
 - 资源参考目录：`resources/`，只作本地输入，不进 Git。
+- 世界源模型：`app/nav-world/public/models/world/island.glb` 通过 Git LFS 管理。
 
 ## 先读这些文档
 
@@ -41,14 +42,17 @@ npm run dev
 http://127.0.0.1:5173/
 ```
 
-Vite 使用 `--host 0.0.0.0`，同一局域网或服务器环境可以按实际地址访问。
+协作者默认只需要本地浏览器访问上面的地址，不需要额外远程环境。
 
-## 构建和预览
+## 构建和本地预览
+
+别人 clone 后按本地预览即可，不需要访问项目服务器。首次运行先安装依赖：
 
 ```bash
 cd app/nav-world
+npm install
 npm run build
-npm run preview -- --host 0.0.0.0 --port 4174
+npm run preview -- --host 127.0.0.1 --port 4174
 ```
 
 本机预览：
@@ -59,24 +63,10 @@ http://127.0.0.1:4174/
 
 构建脚本会先运行 TypeScript 检查，再执行 Vite build，并清理未跟踪且不被当前 `index.html` 引用的前端构建资源。
 
-## SSH 隧道预览
-
-如果预览服务跑在服务器 `127.0.0.1:4174`，本机可以转发：
+如果本机 `4174` 已被占用，可以换本机端口：
 
 ```bash
-ssh -N -L 4174:127.0.0.1:4174 sh_vps
-```
-
-然后在本机打开：
-
-```text
-http://127.0.0.1:4174/
-```
-
-如果本机 `4174` 已被占用：
-
-```bash
-ssh -N -L 4175:127.0.0.1:4174 sh_vps
+npm run preview -- --host 127.0.0.1 --port 4175
 ```
 
 然后打开：
@@ -85,24 +75,39 @@ ssh -N -L 4175:127.0.0.1:4174 sh_vps
 http://127.0.0.1:4175/
 ```
 
-如果提示无法解析 `sh_vps`，需要先在本机 SSH 配置里添加同名 `Host`，或直接使用服务器真实域名 / IP。
-
 ## 常用命令
 
 ```bash
 cd app/nav-world
 npm run dev
+npm run assets:world:prepare
 npm run build
 npm run assets:check
-npm run preview -- --host 0.0.0.0 --port 4174
+npm run preview -- --host 127.0.0.1 --port 4174
 ```
 
 说明：
 
 - `npm run dev`：启动开发服务器。
+- `npm run assets:world:prepare`：从 `resources/float-island-low-ploy.zip` 解出 `source/island.glb` 到 `app/nav-world/public/models/world/island.glb`，只在本地重新生成源模型时需要。
 - `npm run build`：类型检查、构建并清理未跟踪旧资源。
 - `npm run assets:check`：只检查构建资源清理状态，不修改文件。
 - `npm run preview`：预览构建结果。
+
+## Git LFS
+
+世界源模型较大，仓库使用 Git LFS 管理：
+
+- `app/nav-world/public/models/world/island.glb`
+
+首次 clone 后确认拉取 LFS 对象：
+
+```bash
+git lfs install
+git lfs pull
+```
+
+如果 `island.glb` 只有几行 pointer 文本，不是真实约 86MB 文件，说明还没有执行 `git lfs pull` 或 LFS 流量 / 权限不可用。
 
 ## resources 目录规则
 
@@ -121,6 +126,13 @@ npm run preview -- --host 0.0.0.0 --port 4174
 - 不要在没有任务说明时移动、解压或删除 `resources/` 里的文件。
 
 `.gitignore` 已经忽略整个 `resources/`。
+
+Layer 4.5 还会生成运行时模型文件：
+
+- `app/nav-world/public/models/world/island.glb`
+- `app/frontend/models/world/island.glb`
+
+其中 `app/nav-world/public/models/world/island.glb` 是源模型，已通过 Git LFS 进入仓库；`app/frontend/models/world/island.glb` 是构建输出，继续被 `.gitignore` 忽略，不要提交。
 
 ## 协作者适合做的工作
 
@@ -163,9 +175,11 @@ npm run assets:check
 
 ## 当前交互口径
 
-Layer 4 已确认的方向：
+Layer 4 / 4.5 已确认的方向：
 
 - 模块表面常驻贴在 3D 世界物体上。
+- 世界基础地形使用 Git LFS 管理的 `app/nav-world/public/models/world/island.glb`；`resources/float-island-low-ploy.zip` 只在需要重新生成源模型时使用。
+- 玩家贴地使用 GLB 主岛体 `Icosphere` 的最高朝上命中面，不做树木、房屋墙体或装饰物碰撞。
 - 占卜屋、实验室、五子棋不通过整页跳转打开。
 - 主交互保持在 Canvas 内。
 - 鼠标焦点不应因为模块操作离开 Canvas。
@@ -188,6 +202,7 @@ git diff --stat
 - `node_modules/`
 - `dist/`
 - `resources/`
+- `app/frontend/models/world/*.glb`
 - 临时截图或未归档截图
 
 如果工作区已有别人改动，不要回滚；只处理自己任务相关文件。

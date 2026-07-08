@@ -192,3 +192,25 @@
 截图：沿用 `validation/layer-4/modules-desktop.png`、`validation/layer-4/modules-mobile.png`。
 
 剩余风险：Layer 4 只完成模块外壳，不包含大场景模型和真实占卜业务；这些进入 Layer 4.5 / Layer 5。
+
+## 2026-07-08 / Layer 4 常驻模块表面文字间距修复
+
+日期：2026-07-08
+
+版本 / Layer：Layer 4 模块外壳层
+
+现象：用户在 Layer 4.5 GLB 场景中反馈常驻模块表面的文字有重合。
+
+原因判断：`WorldModulePanels` 的状态说明、状态按钮、能力列表和底部操作提示在固定高度的 3D 面板里使用了过大的字号和过紧的 y 轴间距；尤其五子棋面板高度较小，长状态说明会挤到状态按钮，能力列表也容易贴近面板底部。
+
+解决方案：将状态说明改为短句；缩小状态按钮文字、状态说明和能力列表字号；把面板内容按标题区、状态区、按钮区、提示区、能力区重新计算 y 轴位置；能力列表使用更紧凑但不重叠的行距。
+
+涉及文件：`app/nav-world/src/modules/WorldModulePanels.tsx`。
+
+验证结果：`npm run build` 通过；`npm run assets:check` 通过；Vite preview + Chromium + SwiftShader 重新生成 Layer 4.5 桌面端和移动端截图。截图中五子棋模块状态说明、按钮和能力列表不再互相重叠，三条能力项仍在面板内。
+
+画面变化：有。常驻模块表面的文字更小、更疏，长说明被压缩为短句。
+
+截图：`validation/layer-4-5/island-desktop.png`、`validation/layer-4-5/island-mobile.png`。
+
+剩余风险：当前截图验证的是 Layer 4.5 GLB 场景中的默认视角；如果后续真实业务内容变多，仍需重新设计面板容量或改为区域内近距离大屏。

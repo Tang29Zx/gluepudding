@@ -50,6 +50,12 @@ const statusColors = {
   offline: "#6a7482",
   ready: "#5a9b82",
 } satisfies Record<WorldModuleStatus, string>;
+const compactStatusCopy = {
+  error: "Module error is isolated.",
+  loading: "Preview loading state.",
+  offline: "Offline placeholder is active.",
+  ready: "Shell ready. Logic comes later.",
+} satisfies Record<WorldModuleStatus, string>;
 
 function getModuleControlId(
   moduleId: WorldModuleId,
@@ -122,6 +128,7 @@ function ModuleButton({
   isAimed,
   registerControlMesh,
   width,
+  y,
 }: {
   control: ModuleControlDefinition;
   isActive: boolean;
@@ -131,13 +138,14 @@ function ModuleButton({
     mesh: Mesh | null,
   ) => void;
   width: number;
+  y: number;
 }) {
   const baseColor = statusColors[control.status];
   const fillColor = isActive || isAimed ? baseColor : "#f8fbff";
   const textColor = isActive || isAimed ? "#ffffff" : baseColor;
 
   return (
-    <group position={[control.x, -0.34, 0.068]}>
+    <group position={[control.x, y, 0.068]}>
       <mesh
         ref={(mesh) => registerControlMesh(control, mesh)}
         scale={[isAimed ? 1.04 : 1, isAimed ? 1.08 : 1, 1]}
@@ -157,7 +165,7 @@ function ModuleButton({
         anchorX="center"
         anchorY="middle"
         color={textColor}
-        fontSize={0.125}
+        fontSize={0.105}
         maxWidth={width - 0.08}
         position={[0, 0.005, 0.06]}
       >
@@ -229,6 +237,14 @@ function ModulePanel({
   const controls = createControls(definition);
   const buttonWidth =
     (width - 0.82 - 0.12 * (statusOrder.length - 1)) / statusOrder.length;
+  const titleY = height / 2 - 0.58;
+  const eyebrowY = titleY + 0.31;
+  const subtitleY = titleY - 0.25;
+  const statusY = subtitleY - 0.27;
+  const statusCopyY = statusY - 0.21;
+  const controlsY = statusCopyY - 0.33;
+  const hintY = controlsY - 0.34;
+  const capabilitiesStartY = hintY - 0.2;
 
   return (
     <group
@@ -255,48 +271,48 @@ function ModulePanel({
 
       <ModuleText
         color={definition.accentColor}
-        fontSize={0.17}
+        fontSize={0.135}
         maxWidth={contentWidth}
         x={contentX}
-        y={height / 2 - 0.3}
+        y={eyebrowY}
       >
         Layer 4 Surface
       </ModuleText>
       <ModuleText
         color="#1e2738"
-        fontSize={0.31}
+        fontSize={0.285}
         maxWidth={contentWidth}
         x={contentX}
-        y={height / 2 - 0.62}
+        y={titleY}
       >
         {definition.title}
       </ModuleText>
       <ModuleText
         color="#556070"
-        fontSize={0.145}
+        fontSize={0.112}
         maxWidth={contentWidth}
         x={contentX}
-        y={height / 2 - 0.92}
+        y={subtitleY}
       >
         {definition.subtitle}
       </ModuleText>
       <ModuleText
         color={statusColors[status]}
-        fontSize={0.18}
+        fontSize={0.15}
         maxWidth={contentWidth}
         x={contentX}
-        y={height / 2 - 1.2}
+        y={statusY}
       >
         {`Status: ${statusLabels[status]}`}
       </ModuleText>
       <ModuleText
         color="#374151"
-        fontSize={0.13}
+        fontSize={0.095}
         maxWidth={contentWidth}
         x={contentX}
-        y={height / 2 - 1.47}
+        y={statusCopyY}
       >
-        {definition.statusCopy[status]}
+        {compactStatusCopy[status]}
       </ModuleText>
 
       {controls.map((control) => (
@@ -307,30 +323,32 @@ function ModulePanel({
           key={control.actionId}
           registerControlMesh={registerControlMesh}
           width={buttonWidth}
+          y={controlsY}
         />
       ))}
+
+      <ModuleText
+        color="#6b7280"
+        fontSize={0.086}
+        maxWidth={contentWidth}
+        x={contentX}
+        y={hintY}
+      >
+        Aim chip, click or press E.
+      </ModuleText>
 
       {definition.capabilities.map((capability, index) => (
         <ModuleText
           color="#3f4859"
-          fontSize={0.13}
+          fontSize={0.096}
           key={capability}
           maxWidth={contentWidth}
           x={contentX}
-          y={-0.72 - index * 0.24}
+          y={capabilitiesStartY - index * 0.15}
         >
           {`- ${capability}`}
         </ModuleText>
       ))}
-      <ModuleText
-        color="#6b7280"
-        fontSize={0.118}
-        maxWidth={contentWidth}
-        x={contentX}
-        y={-height / 2 + 0.22}
-      >
-        Aim at a status chip, then left click or press E.
-      </ModuleText>
     </group>
   );
 }

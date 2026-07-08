@@ -4,9 +4,11 @@ import { Vector3 } from "three";
 import {
   playerControls,
   playerSpawn,
+  worldTerrain,
   worldScale,
   type PlayerSpawn,
 } from "./sceneConfig";
+import type { TerrainSample, TerrainSampler } from "./terrainSampler";
 
 export interface PlayerControllerState {
   spawn: PlayerSpawn;
@@ -21,6 +23,7 @@ export interface PlayerControllerState {
 
 interface UsePlayerControllerOptions {
   isMovementEnabled: boolean;
+  terrainSamplerRef: MutableRefObject<TerrainSampler | null>;
 }
 
 type MovementKey = "KeyW" | "KeyA" | "KeyS" | "KeyD";
@@ -31,9 +34,11 @@ const sprintKeys = new Set<string>(["ShiftLeft", "ShiftRight"]);
 const emptyMovementKeys = new Set<MovementKey>();
 const emptySprintKeys = new Set<SprintKey>();
 const forwardVector = new Vector3();
+const fallbackGroundNormal = new Vector3(0, 1, 0);
 const rightVector = new Vector3();
 const movementVector = new Vector3();
 const candidatePosition = new Vector3();
+const groundedEpsilon = 0.04;
 
 function isMovementKey(code: string): code is MovementKey {
   return movementKeys.has(code);
@@ -60,6 +65,33 @@ function isEditableElement(element: Element | null): boolean {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function sampleWalkableGround(
+  terrainSampler: TerrainSampler | null,
+  x: number,
+  z: number,
+): TerrainSample | null {
+  if (!terrainSampler) {
+    const maxDistanceFromCenter = worldScale.groundRadius - playerSpawn.radius;
+
+    if (Math.hypot(x, z) > maxDistanceFromCenter) {
+      return null;
+    }
+
+    return {
+      normal: fallbackGroundNormal,
+      y: 0,
+    };
+  }
+
+  const sample = terrainSampler.sampleGround(x, z);
+
+  if (!sample || sample.normal.y < worldTerrain.minWalkableNormalY) {
+    return null;
+  }
+
+  return sample;
 }
 
 function writeHorizontalVelocity(
@@ -109,11 +141,14 @@ function writeHorizontalVelocity(
 
 export function usePlayerController({
   isMovementEnabled,
+  terrainSamplerRef,
 }: UsePlayerControllerOptions): PlayerControllerState {
   const activeKeysRef = useRef<Set<MovementKey>>(new Set());
   const horizontalVelocityRef = useRef(new Vector3());
   const jumpBufferTimerRef = useRef(0);
-  const pitchRef = useRef(0);
+  const jumpGroundDetachTimerRef = useRef(0);
+  const lastGroundYRef = useRef(playerSpawn.position[1]);
+  const pitchRef = useRef(playerControls.initialPitch);
   const positionRef = useRef(new Vector3(...playerSpawn.position));
   const sprintKeysRef = useRef<Set<SprintKey>>(new Set());
   const verticalVelocityRef = useRef(0);
@@ -221,19 +256,38 @@ export function usePlayerController({
   }, [clearMovement, clearMovementInput, isMovementEnabled]);
 
   useFrame((_, delta) => {
+    if (jumpGroundDetachTimerRef.current > 0) {
+      jumpGroundDetachTimerRef.current = Math.max(
+        0,
+        jumpGroundDetachTimerRef.current - delta,
+      );
+    }
+
     const activeKeys = isMovementEnabled
       ? activeKeysRef.current
       : emptyMovementKeys;
     const sprintKeys = isMovementEnabled
       ? sprintKeysRef.current
       : emptySprintKeys;
-    const groundY = playerSpawn.position[1];
     const horizontalVelocity = horizontalVelocityRef.current;
+    const currentGroundSample = sampleWalkableGround(
+      terrainSamplerRef.current,
+      positionRef.current.x,
+      positionRef.current.z,
+    );
+    const currentGroundY = currentGroundSample?.y ?? lastGroundYRef.current;
+
+    if (currentGroundSample) {
+      lastGroundYRef.current = currentGroundY;
+    }
+
     let isGrounded =
-      positionRef.current.y <= groundY && verticalVelocityRef.current <= 0;
+      positionRef.current.y <= currentGroundY + groundedEpsilon &&
+      verticalVelocityRef.current <= 0;
 
     if (isGrounded) {
-      positionRef.current.y = groundY;
+      jumpGroundDetachTimerRef.current = 0;
+      positionRef.current.y = currentGroundY;
       verticalVelocityRef.current = 0;
       writeHorizontalVelocity(
         activeKeys,
@@ -248,6 +302,8 @@ export function usePlayerController({
       isGrounded
     ) {
       verticalVelocityRef.current = playerControls.jumpVelocity;
+      jumpGroundDetachTimerRef.current =
+        playerControls.jumpGroundDetachSeconds;
       jumpBufferTimerRef.current = 0;
       isGrounded = false;
     }
@@ -260,8 +316,23 @@ export function usePlayerController({
       verticalVelocityRef.current -= playerControls.gravity * delta;
       positionRef.current.y += verticalVelocityRef.current * delta;
 
-      if (positionRef.current.y <= groundY) {
-        positionRef.current.y = groundY;
+      const landingGroundSample = sampleWalkableGround(
+        terrainSamplerRef.current,
+        positionRef.current.x,
+        positionRef.current.z,
+      );
+      const landingGroundY = landingGroundSample?.y ?? lastGroundYRef.current;
+
+      if (landingGroundSample) {
+        lastGroundYRef.current = landingGroundY;
+      }
+
+      if (
+        jumpGroundDetachTimerRef.current <= 0 &&
+        verticalVelocityRef.current <= 0 &&
+        positionRef.current.y <= landingGroundY + groundedEpsilon
+      ) {
+        positionRef.current.y = landingGroundY;
         verticalVelocityRef.current = 0;
         isGrounded = true;
         writeHorizontalVelocity(
@@ -273,6 +344,8 @@ export function usePlayerController({
 
         if (jumpBufferTimerRef.current > 0) {
           verticalVelocityRef.current = playerControls.jumpVelocity;
+          jumpGroundDetachTimerRef.current =
+            playerControls.jumpGroundDetachSeconds;
           jumpBufferTimerRef.current = 0;
           isGrounded = false;
         }
@@ -287,16 +360,30 @@ export function usePlayerController({
       .copy(positionRef.current)
       .addScaledVector(horizontalVelocity, delta);
 
-    const maxDistanceFromCenter = worldScale.groundRadius - playerSpawn.radius;
-    const distanceFromCenter = Math.hypot(candidatePosition.x, candidatePosition.z);
+    const candidateGroundSample = sampleWalkableGround(
+      terrainSamplerRef.current,
+      candidatePosition.x,
+      candidatePosition.z,
+    );
 
-    if (distanceFromCenter > maxDistanceFromCenter) {
-      const scale = maxDistanceFromCenter / distanceFromCenter;
-      candidatePosition.x *= scale;
-      candidatePosition.z *= scale;
+    if (!candidateGroundSample) {
+      horizontalVelocity.set(0, 0, 0);
+      return;
     }
 
-    candidatePosition.y = positionRef.current.y;
+    lastGroundYRef.current = candidateGroundSample.y;
+
+    if (isGrounded) {
+      candidatePosition.y = candidateGroundSample.y;
+    } else if (
+      jumpGroundDetachTimerRef.current <= 0 &&
+      verticalVelocityRef.current <= 0 &&
+      candidatePosition.y <= candidateGroundSample.y + groundedEpsilon
+    ) {
+      candidatePosition.y = candidateGroundSample.y;
+      verticalVelocityRef.current = 0;
+    }
+
     positionRef.current.copy(candidatePosition);
   });
 

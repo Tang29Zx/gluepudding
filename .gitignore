@@ -60,3 +60,4 @@ Thumbs.db
 
 # Resources
 resources/
+app/frontend/models/world/*.glb

@@ -10,8 +10,8 @@ import { FallbackPage, type FallbackReason } from "./components/FallbackPage";
 
 type RuntimeState = "checking" | "ready" | "fallback" | "error";
 
-const worldStartupTimeoutMs = 15000;
-const worldDownloadTimeoutMs = 45000;
+const worldStartupTimeoutMs = 180000;
+const worldDownloadTimeoutMs = 90000;
 const startupInitialProgress = 8;
 const startupDownloadSoftTarget = 88;
 const startupDownloadTarget = 98;
@@ -118,7 +118,7 @@ function getStartupLabel(
     return "Preparing Fallback";
   }
 
-  return "Starting WebGL";
+  return "Loading 3D World Assets";
 }
 
 function StartupScreen({
@@ -145,6 +145,9 @@ function StartupScreen({
         <span style={{ width: `${roundedProgress}%` }} />
       </div>
       <span className="startup-progress-text">{roundedProgress}%</span>
+      <span className="startup-note">
+        首次加载需要下载 3D 模型，可能需要较长时间。
+      </span>
     </div>
   );
 }
@@ -267,7 +270,7 @@ export function App() {
       <WorldErrorBoundary
         onWorldError={() =>
           setRuntimeState((currentState) =>
-            currentState === "checking" ? currentState : "error",
+            currentState === "checking" ? "error" : currentState,
           )
         }
       >

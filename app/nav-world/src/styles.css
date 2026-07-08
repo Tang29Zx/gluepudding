@@ -541,6 +541,17 @@ h3 {
   line-height: 1.2;
 }
 
+.startup-note {
+  width: min(360px, calc(100vw - 48px));
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: center;
+  text-transform: none;
+}
+
 .startup-mark {
   display: block;
   width: 42px;

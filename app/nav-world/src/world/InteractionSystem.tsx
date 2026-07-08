@@ -47,13 +47,24 @@ interface InteractionSystemProps {
 
 const screenCenter = new Vector2(0, 0);
 const playerGroundPosition = new Vector3();
+const [
+  divinationHouseX,
+  divinationHouseY,
+  divinationHouseZ,
+] = landmarkPositions.divinationHouse;
+const [laboratoryX, laboratoryY, laboratoryZ] = landmarkPositions.laboratory;
+const [gomokuBoardX, gomokuBoardY, gomokuBoardZ] = landmarkPositions.gomokuBoard;
 
 export const interactionTargets: readonly InteractionTarget[] = [
   {
     id: "divination-house",
     label: "占卜屋",
-    position: [0, 0, -30.2],
-    aimPosition: [0, 2.35, -30.2],
+    position: [divinationHouseX, divinationHouseY, divinationHouseZ + 3.84],
+    aimPosition: [
+      divinationHouseX,
+      divinationHouseY + 2.35,
+      divinationHouseZ + 3.84,
+    ],
     proximityRadius: 12,
     raycastRadius: 4.2,
     enabled: true,
@@ -67,8 +78,8 @@ export const interactionTargets: readonly InteractionTarget[] = [
   {
     id: "laboratory",
     label: "实验室",
-    position: [26, 0, -42.2],
-    aimPosition: [26, 2.45, -42.2],
+    position: [laboratoryX, laboratoryY, laboratoryZ + 3.82],
+    aimPosition: [laboratoryX, laboratoryY + 2.45, laboratoryZ + 3.82],
     proximityRadius: 13,
     raycastRadius: 4.6,
     enabled: true,
@@ -83,7 +94,7 @@ export const interactionTargets: readonly InteractionTarget[] = [
     id: "gomoku-board",
     label: "五子棋",
     position: landmarkPositions.gomokuBoard,
-    aimPosition: [-24, 1.05, -24],
+    aimPosition: [gomokuBoardX, gomokuBoardY + 1.05, gomokuBoardZ],
     proximityRadius: 9.5,
     raycastRadius: 3.8,
     enabled: true,
@@ -320,7 +331,7 @@ export function InteractionSystem({
         return (
           <group key={target.id}>
             <mesh
-              position={[target.position[0], 0.055, target.position[2]]}
+              position={[target.position[0], target.position[1] + 0.055, target.position[2]]}
               rotation={[Math.PI / 2, 0, 0]}
               scale={[ringScale, ringScale, ringScale]}
             >
