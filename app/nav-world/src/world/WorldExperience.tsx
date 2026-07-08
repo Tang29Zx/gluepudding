@@ -1,6 +1,11 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Vector3 } from "three";
+import {
+  ACESFilmicToneMapping,
+  PCFSoftShadowMap,
+  SRGBColorSpace,
+  Vector3,
+} from "three";
 import { fortuneAssetLoadingConfig } from "../modules/divination/fortuneModelAssets";
 import {
   createDefaultWorldModuleStatuses,
@@ -306,7 +311,11 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
         dpr={[1, 1.75]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
         onCreated={({ gl }) => {
+          gl.outputColorSpace = SRGBColorSpace;
+          gl.toneMapping = ACESFilmicToneMapping;
+          gl.toneMappingExposure = 0.96;
           gl.setClearColor(worldColors.sky);
+          gl.shadowMap.type = PCFSoftShadowMap;
           gl.domElement.tabIndex = 0;
           setIsCanvasReady(true);
         }}
@@ -332,7 +341,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
 
       <div className="world-hud" aria-label="3D 世界状态">
         <div className="world-status">
-          <span>Layer 5A</span>
+          <span>Layer 5.5</span>
           <strong>
             {aimedModuleControl
               ? "Surface Control"

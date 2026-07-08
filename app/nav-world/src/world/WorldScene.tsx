@@ -147,13 +147,22 @@ export function WorldScene({
     <>
       <color attach="background" args={[worldColors.sky]} />
       <fog attach="fog" args={[worldColors.sky, 70, 150]} />
-      <ambientLight intensity={0.76} />
-      <hemisphereLight args={["#f8fdff", "#72a685", 0.92]} />
+      <ambientLight intensity={0.28} />
+      <hemisphereLight args={["#f5fbff", "#5e876d", 0.64]} />
       <directionalLight
         castShadow
-        intensity={2.6}
-        position={[5.5, 8.2, 4.6]}
-        shadow-mapSize={[1024, 1024]}
+        color="#fff0d8"
+        intensity={3.1}
+        position={[-8.5, 14, 7.2]}
+        shadow-bias={-0.00015}
+        shadow-camera-bottom={-48}
+        shadow-camera-far={90}
+        shadow-camera-left={-48}
+        shadow-camera-near={0.5}
+        shadow-camera-right={48}
+        shadow-camera-top={48}
+        shadow-mapSize={[2048, 2048]}
+        shadow-normalBias={0.04}
       />
 
       <WorldTerrainErrorBoundary

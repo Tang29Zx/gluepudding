@@ -50,8 +50,9 @@
 - 2026-07-08：Layer 5A 只接入占卜屋轻量模型外壳和室内道具，不接业务逻辑；完整塔罗牌面贴图目录约 80.8MB，不能随首屏或占卜屋模型包一次性下载。当前运行时只复制 allowlist GLB 到 `app/nav-world/public/models/fortune/`，用 `?fortuneAssets=shell|interior` 做截图验证，真实访问仍按靠近/聚焦触发加载。
 - 2026-07-08：Layer 5 已按用户要求正式缩小为“占卜屋模型摆放验收层”并确认验收；点击、选中、高亮、卡牌翻面、星座选择、周易起卦、mock 和真实占卜接口均下放到 Layer 8。用户将并行开发 Layer 6 和 Layer 12，协作者将在新分支 `fortune` 开发 Layer 8，交接文档为 `validation/layer-8/fortune-handoff.md`。
 - 2026-07-08：`resources/fortune/textures/` 下没有 JS/MJS；可复用脚本实际在 `resources/fortune/*.mjs`。塔罗牌面资源有 `textures/rws/` 原图约 67MB 和 `textures/rws-web/` 压缩图约 15MB。Layer 8 应避免一次性加载 78 张高清图，建议复制并懒加载 `rws-web` 中被选中的 3 张。
-- 2026-07-08：`app/nav-world/package-lock.json` 曾锁到 `http://mirrors.tencentyun.com/npm/` tarball，导致 `npm install` 下载 `zustand` 时 `ECONNRESET/socket hang up`；已改为 `https://registry.npmjs.org/` tarball。协作者若觉得 `npm install` 像卡死，可用 `npm install --loglevel=http` 查看下载/缓存命中进度。
+- 2026-07-08：`app/nav-world` 使用项目级 `.npmrc` 固定 npm 源为 `https://registry.npmmirror.com/`，`package-lock.json` 的 `resolved` tarball 也同步为 `registry.npmmirror.com`，方便国内网络环境执行 `npm install` / `npm ci`。协作者若觉得 `npm install` 像卡死，可用 `npm install --loglevel=http` 查看下载/缓存命中进度。
 - 2026-07-08：用户明确当前 Codex 截图验证难度和成本过高，模型摆位微调的截图由用户实机验证即可；Codex 不再为这类小步视觉调整强行生成桌面/移动截图。后续仍需运行可用的构建、资源检查或类型检查，并在对应 Layer 的 `debug.md` 记录“截图由用户实机验证”。
+- 2026-07-08：新增 Layer 5.5 作为 235 视觉渲染基线层，范围只包括光照基线、屏幕材质和低成本“光追感”；当前不新增后处理依赖，不接真实 path tracing，不迁移 WebGPU，也不调整 Layer 5 已验收的占卜屋模型坐标。实现口径是 sRGB + ACES tone mapping、PCF soft shadow、低环境光 + 暖色主光 + 柔和天光、占卜屋深色发光内容屏、占卜屋局部氛围灯、实验室 / 五子棋模块面板屏幕质感，并移除室内临时坐标辅助。
 
 ## /new handoff
 

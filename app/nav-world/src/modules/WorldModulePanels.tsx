@@ -253,20 +253,36 @@ function ModulePanel({
     >
       <mesh>
         <planeGeometry args={[width, height]} />
-        <meshBasicMaterial
-          color="#fbfbff"
+        <meshStandardMaterial
+          color="#111827"
+          emissive="#17223d"
+          emissiveIntensity={0.18}
+          metalness={0.16}
+          opacity={0.88}
+          roughness={0.46}
           side={DoubleSide}
           transparent
-          opacity={0.94}
         />
       </mesh>
       <mesh position={[-width / 2 + 0.04, 0, 0.032]}>
         <boxGeometry args={[0.08, height, 0.025]} />
-        <meshBasicMaterial color={definition.accentColor} />
+        <meshStandardMaterial
+          color={definition.accentColor}
+          emissive={definition.accentColor}
+          emissiveIntensity={0.24}
+          roughness={0.5}
+        />
       </mesh>
       <mesh position={[0, height / 2 - 0.58, 0.034]}>
         <boxGeometry args={[width - 0.52, 0.03, 0.018]} />
-        <meshBasicMaterial color={definition.accentColor} transparent opacity={0.32} />
+        <meshStandardMaterial
+          color={definition.accentColor}
+          emissive={definition.accentColor}
+          emissiveIntensity={0.18}
+          opacity={0.46}
+          roughness={0.5}
+          transparent
+        />
       </mesh>
 
       <ModuleText
@@ -279,7 +295,7 @@ function ModulePanel({
         Layer 4 Surface
       </ModuleText>
       <ModuleText
-        color="#1e2738"
+        color="#f8fbff"
         fontSize={0.285}
         maxWidth={contentWidth}
         x={contentX}
@@ -288,7 +304,7 @@ function ModulePanel({
         {definition.title}
       </ModuleText>
       <ModuleText
-        color="#556070"
+        color="#c8d3e6"
         fontSize={0.112}
         maxWidth={contentWidth}
         x={contentX}
@@ -306,7 +322,7 @@ function ModulePanel({
         {`Status: ${statusLabels[status]}`}
       </ModuleText>
       <ModuleText
-        color="#374151"
+        color="#dbe7ff"
         fontSize={0.095}
         maxWidth={contentWidth}
         x={contentX}
@@ -328,7 +344,7 @@ function ModulePanel({
       ))}
 
       <ModuleText
-        color="#6b7280"
+        color="#aeb9cd"
         fontSize={0.086}
         maxWidth={contentWidth}
         x={contentX}
@@ -339,7 +355,7 @@ function ModulePanel({
 
       {definition.capabilities.map((capability, index) => (
         <ModuleText
-          color="#3f4859"
+          color="#d7def2"
           fontSize={0.096}
           key={capability}
           maxWidth={contentWidth}
