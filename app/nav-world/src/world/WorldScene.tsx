@@ -7,6 +7,7 @@ import {
   IslandTerrain,
   WorldTerrainErrorBoundary,
 } from "./IslandTerrain";
+import { FortuneAssetStage } from "../modules/divination/FortuneAssetStage";
 import { WorldModulePanels } from "../modules/WorldModulePanels";
 import type { AimedWorldModuleControl } from "../modules/types";
 import type {
@@ -16,39 +17,6 @@ import type {
 import type { PlayerControllerState } from "./PlayerController";
 import type { TerrainSampler } from "./terrainSampler";
 import { landmarkPositions, worldColors, worldScale } from "./sceneConfig";
-
-function DivinationHouse() {
-  const [x, y, z] = landmarkPositions.divinationHouse;
-
-  return (
-    <group position={[x, y, z]}>
-      <mesh receiveShadow position={[0, 0.1, 0]}>
-        <boxGeometry args={[13.2, 0.2, 10.8]} />
-        <meshStandardMaterial color="#d8c9ff" roughness={0.86} />
-      </mesh>
-      <mesh castShadow receiveShadow position={[0, 2.4, 0]}>
-        <boxGeometry args={[9.8, 4.8, 7.6]} />
-        <meshStandardMaterial color={worldColors.divination} roughness={0.7} />
-      </mesh>
-      <mesh castShadow position={[0, 5.95, 0]} rotation={[0, Math.PI / 4, 0]}>
-        <coneGeometry args={[6.9, 3.1, 4]} />
-        <meshStandardMaterial color="#7c6fd3" roughness={0.74} />
-      </mesh>
-      <mesh position={[0, 1.35, 3.84]}>
-        <boxGeometry args={[1.65, 2.7, 0.08]} />
-        <meshStandardMaterial color="#6a5279" roughness={0.72} />
-      </mesh>
-      <mesh position={[-3.05, 2.85, 3.88]}>
-        <boxGeometry args={[1.35, 1.08, 0.08]} />
-        <meshStandardMaterial color="#efe8ff" emissive="#7c6fd3" emissiveIntensity={0.12} />
-      </mesh>
-      <mesh position={[3.05, 2.85, 3.88]}>
-        <boxGeometry args={[1.35, 1.08, 0.08]} />
-        <meshStandardMaterial color="#efe8ff" emissive="#7c6fd3" emissiveIntensity={0.12} />
-      </mesh>
-    </group>
-  );
-}
 
 function LaboratoryBlock() {
   const [x, y, z] = landmarkPositions.laboratory;
@@ -130,7 +98,6 @@ function FallbackGround() {
 function ReferenceLandmarks() {
   return (
     <group>
-      <DivinationHouse />
       <LaboratoryBlock />
       <GomokuArea />
       <SpawnScaleMarker />
@@ -143,6 +110,8 @@ interface WorldSceneProps {
   moduleStatuses: Record<WorldModuleId, WorldModuleStatus>;
   player: PlayerControllerState;
   selectedTargetId: InteractionTargetId | null;
+  shouldLoadFortuneInterior: boolean;
+  shouldLoadFortuneShell: boolean;
   onActivateArea: (targetId: InteractionTargetId) => void;
   onAimedTargetChange: (targetId: InteractionTargetId | null) => void;
   onAimedModuleControlChange: (
@@ -171,6 +140,8 @@ export function WorldScene({
   onTerrainSamplerChange,
   player,
   selectedTargetId,
+  shouldLoadFortuneInterior,
+  shouldLoadFortuneShell,
 }: WorldSceneProps) {
   return (
     <>
@@ -201,6 +172,10 @@ export function WorldScene({
       </WorldTerrainErrorBoundary>
 
       <ReferenceLandmarks />
+      <FortuneAssetStage
+        shouldLoadInterior={shouldLoadFortuneInterior}
+        shouldLoadShell={shouldLoadFortuneShell}
+      />
       <InteractionSystem
         isPanelOpen={false}
         isWorldControlAimed={Boolean(aimedModuleControl)}

@@ -54,7 +54,9 @@ gomoku-board     -> gomoku
 ### 已有输入
 
 - 世界大场景候选资源：`resources/float-island-low-ploy.zip`。
-- 占卜屋现有代码：`resources/fortune/`。
+- 占卜屋模型资源压缩包：`resources/fortune.zip`。
+- 占卜屋模型资源解压目录：`resources/fortune/`。
+- 占卜屋现有功能实现代码：`resources/feature-implementation/`。
 
 ### 接入边界
 
@@ -64,10 +66,68 @@ gomoku-board     -> gomoku
 - 玩家贴地对 GLB 主岛体 `Icosphere` 做射线采样，并选择最高的朝上可走命中；树木、房屋墙体和装饰物第一版不参与碰撞。
 - 无地形命中或坡度过陡时阻止水平移动，避免玩家走出浮岛。
 - 出生点、占卜屋、实验室和五子棋区域已重排到浮岛空地，模块表面和交互命中点跟随新锚点。
-- 占卜屋代码作为 Layer 5 输入，优先复用 `resources/fortune/src/types/fortuneTypes.ts`、`resources/fortune/src/adapters/fortuneApi.ts`、mock 流程和 UI 状态设计。
-- `resources/fortune/node_modules/`、`resources/fortune/dist/` 和 `resources/fortune/.env` 不进入主工程源码；不要读取或记录 `.env` 内容。
+- 占卜屋代码作为 Layer 5 输入，优先复用 `resources/feature-implementation/src/types/fortuneTypes.ts`、`resources/feature-implementation/src/adapters/fortuneApi.ts`、mock 流程和 UI 状态设计。
+- `resources/feature-implementation/node_modules/`、`resources/feature-implementation/dist/` 和 `resources/feature-implementation/.env` 不进入主工程源码；不要读取或记录 `.env` 内容。
 - Python/FastAPI 部分只作为接口行为参考，是否接真实后端留到后续接口层决定。
 
 ### 下一步
 
 - 再梳理占卜屋 demo 的可复用前端代码，并拆成 Layer 5 的最小 mock 接入任务。
+
+## Layer 5A：占卜屋模型外壳与室内按需加载
+
+目标：先把占卜屋模型接进世界，不实现占卜业务逻辑。
+
+### 资源边界
+
+- 轻量模型从 `resources/fortune/` 通过 `npm run assets:fortune:prepare` 复制到 `app/nav-world/public/models/fortune/`。
+- `resources/fortune/textures/`、`tex_*.png`、完整塔罗牌面图和大牌面样例 GLB 不进入运行时资源目录。
+- `app/nav-world/public/models/fortune/**/*.glb` 使用 Git LFS；构建输出 `app/frontend/models/fortune/**/*.glb` 继续忽略。
+
+### 加载策略
+
+- 正常首屏不 preload 占卜屋模型。
+- 玩家靠近占卜屋中心时加载帐篷外壳。
+- 玩家更靠近、聚焦 `divination` 模块、选中占卜屋，或使用验证参数 `?fortuneAssets=interior` 时加载室内轻量道具。
+- 验证参数 `?fortuneAssets=shell` 和 `?fortuneAssets=interior` 只用于截图和网络验证，不作为真实业务入口。
+
+### 当前摆位
+
+- 帐篷中心放回占卜屋锚点，门朝出生点方向。
+- 帐篷比例放大，内部使用平整圆形基底和放大的魔法阵。
+- 塔罗桌、桌布、烛台、水晶和少量占位塔罗牌放在桌面高度；不加载 22/78 张牌面贴图。
+- 星座穹顶放在帐篷上方，周易桌、卦板和铜钱放在室内右侧。
+
+## Layer 5：占卜屋模拟业务层
+
+目标：在不依赖真实后端的情况下，让用户能在同一个 3D 世界内完成占卜屋最小演示。
+
+### 范围
+
+- 本层只做占卜屋 mock-first 前端体验，不接真实付费、认证、AI 或外部占卜服务。
+- 占卜屋仍然是 3D 世界内模块，不使用整页跳转。
+- 塔罗用 3D 卡牌占位体实现准星命中、左键或 `E` 选择和高亮。
+- 星座和周易先用 3D 表面按钮触发基础模拟结果，不做复杂表单输入。
+- 周易展示六爻时必须使用 `result.lines.slice().reverse()`，因为接口结果从下往上返回。
+
+### 接口边界
+
+- `fortuneTypes.ts` 定义星座、塔罗、周易的前端数据契约。
+- `fortuneApi.ts` 提供 `getZodiacFortune()`、`getTarotReading()`、`getIchingReading()`。
+- 默认使用模拟数据；只有 `VITE_USE_MOCK=false` 且 `VITE_FORTUNE_API_BASE_URL` 存在时才尝试真实接口。
+- 真实接口失败时返回安全错误摘要，不能暴露内部地址、token 或堆栈。
+
+### 交互边界
+
+- 占卜屋专属控件复用 Layer 4 的 Canvas 内 raycast 口径：注册可命中的 mesh，准星命中后左键或 `E` 激活。
+- 操作占卜屋控件不主动退出 Pointer Lock，不暂停玩家移动。
+- 移动端复用底部 `Interact` / `Select` 按钮触发当前命中的占卜控件。
+- `single` 模式最多选 1 张牌，`three_card` 模式最多选 3 张牌；切换模式会清空当前选牌和结果。
+
+### 验收
+
+- `npm run build` 通过。
+- `npm run assets:fortune:check` 通过。
+- 桌面端截图展示塔罗选牌和结果。
+- 移动端截图展示占卜屋操作按钮和结果表面。
+- 模拟数据路径下星座、塔罗、周易都能出结果，外部接口不可用不阻塞演示。

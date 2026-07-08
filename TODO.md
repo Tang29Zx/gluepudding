@@ -63,20 +63,25 @@
 ## P3.5. 资源接入准备
 
 - [x] 记录世界大场景候选资源：`resources/float-island-low-ploy.zip`。
-- [x] 记录占卜屋现有代码输入：`resources/fortune/`。
-- [x] 明确 `resources/fortune/node_modules/`、`resources/fortune/dist/` 和 `resources/fortune/.env` 不作为主工程源码接入输入。
+- [x] 记录占卜屋模型资源输入：`resources/fortune.zip` 和 `resources/fortune/`。
+- [x] 记录占卜屋现有功能实现代码输入：`resources/feature-implementation/`。
+- [x] 明确 `resources/feature-implementation/node_modules/`、`resources/feature-implementation/dist/` 和 `resources/feature-implementation/.env` 不作为主工程源码接入输入。
 - [x] 检查并解压大场景资源，确认模型格式、比例、贴图和许可备注。
+- [x] 解压占卜屋模型资源并确认可用 GLB 清单。
 - [x] 规划大场景资源迁移目标目录，例如 `gluepudding/app/nav-world/public/models/world/`。
 - [x] 清理大场景 GLB 上的动物节点，并保留原始 zip 备份。
 - [x] 将浮岛 GLB 作为世界基础地形接入，旧圆形地板只作为加载失败兜底。
 - [x] 基于 GLB 主岛体最高朝上命中面实现玩家真实贴地和岛边限制。
 - [x] 将出生点、占卜屋、实验室和五子棋区域重排到浮岛空地。
-- [ ] 梳理 `resources/fortune/src/` 中可复用的类型、API 适配、mock 数据和 UI 流程。
+- [ ] 梳理 `resources/feature-implementation/src/` 中可复用的类型、API 适配、mock 数据和 UI 流程。
 - [ ] 将占卜屋接入任务拆到 Layer 5，不在资源准备层实现真实业务。
 
 ## P4. 占卜屋
 
-- [ ] 创建占卜屋场景区域。
+- [x] 创建占卜屋模型外壳切片：帐篷外壳靠近后加载，屋内道具进入/聚焦后再加载。
+- [x] 接入轻量占卜屋 GLB 资源，不复制完整塔罗牌面贴图目录。
+- [x] 调整占卜屋模型摆位：帐篷门朝出生点，魔法阵作为平整基底，桌面、烛台、星座穹顶和周易道具重新摆放。
+- [ ] 创建占卜屋真实场景区域交互。
 - [ ] 创建星座台。
 - [ ] 创建塔罗桌。
 - [ ] 创建周易桌。

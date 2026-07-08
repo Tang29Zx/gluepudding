@@ -192,3 +192,25 @@
 截图：`validation/layer-4-5/startup-desktop.png`、`validation/layer-4-5/startup-mobile.png`。
 
 剩余风险：无新增风险。
+
+## 2026-07-08 / Layer 4.5 占卜屋资源目录整理
+
+日期：2026-07-08
+
+版本 / Layer：Layer 4.5 资源接入准备层
+
+现象：用户提供 `resources/fortune.zip`，要求查看其中可用模型、解压到原 `resources/fortune` 路径，并把原有 `resources/fortune` 功能实现代码目录改成英文名。
+
+原因判断：压缩包内的 `fortune/` 是占卜屋模型和贴图资源；原 `resources/fortune/` 是占卜屋功能实现代码。两类输入同名会导致 Layer 5 接入时混淆模型资源和可复用代码。
+
+解决方案：将原 `resources/fortune/` 重命名为 `resources/feature-implementation/`；将 `resources/fortune.zip` 解压到 `resources/fortune/`；同步 README、Tech-Spec、TODO、VALIDATION_LAYERS 和 MEMORY 中的资源路径口径。
+
+涉及文件：`resources/fortune.zip`、`resources/fortune/`、`resources/feature-implementation/`、`README.md`、`Tech-Spec.md`、`TODO.md`、`VALIDATION_LAYERS.md`、`MEMORY.md`、`validation/layer-4-5/debug.md`。
+
+验证结果：`resources/fortune/` 当前包含 29 个 `.glb` 模型和 13 个图片资源；`resources/feature-implementation/` 保留原功能实现代码目录；未读取 `.env` 内容。
+
+画面变化：无。仅整理本地资源输入和文档路径。
+
+截图：无用户可见画面变化，不需要截图。
+
+剩余风险：尚未逐个导入模型检查比例、原点、材质和贴图绑定；Layer 5 接入时仍需在浏览器里验证模型显示效果。

@@ -116,13 +116,15 @@ git lfs pull
 当前已知输入：
 
 - `resources/float-island-low-ploy.zip`：世界大场景候选资源。
-- `resources/fortune/`：占卜屋现有代码输入。
+- `resources/fortune.zip`：占卜屋模型资源压缩包。
+- `resources/fortune/`：占卜屋模型资源解压目录。
+- `resources/feature-implementation/`：占卜屋现有功能实现代码输入。
 
 不要做这些事：
 
 - 不要把 `resources/` 提交进 Git。
-- 不要把 `resources/fortune/node_modules/` 或 `resources/fortune/dist/` 接入主工程源码。
-- 不要读取、复制、打印、提交或记录 `resources/fortune/.env` 内容。
+- 不要把 `resources/feature-implementation/node_modules/` 或 `resources/feature-implementation/dist/` 接入主工程源码。
+- 不要读取、复制、打印、提交或记录 `resources/feature-implementation/.env` 内容。
 - 不要在没有任务说明时移动、解压或删除 `resources/` 里的文件。
 
 `.gitignore` 已经忽略整个 `resources/`。

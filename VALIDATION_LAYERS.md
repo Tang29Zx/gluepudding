@@ -238,14 +238,16 @@
 已有资源输入：
 
 - 世界大场景候选资源：`resources/float-island-low-ploy.zip`。
-- 占卜屋现有代码：`resources/fortune/`。
-- 不读取、不复制、不记录 `resources/fortune/.env` 的内容。
+- 占卜屋模型资源压缩包：`resources/fortune.zip`。
+- 占卜屋模型资源解压目录：`resources/fortune/`。
+- 占卜屋现有功能实现代码：`resources/feature-implementation/`。
+- 不读取、不复制、不记录 `resources/feature-implementation/.env` 的内容。
 
 本层最小验证目标：
 
 - 确认大场景资源下一步先作为世界场景资产接入，而不是放到占卜业务层处理。
 - 确认占卜屋代码下一步作为 Layer 5 输入，优先复用类型、API 适配和 mock 流程。
-- 明确 `resources/fortune/node_modules/`、`resources/fortune/dist/` 和 `.env` 不作为主工程源码接入输入。
+- 明确 `resources/feature-implementation/node_modules/`、`resources/feature-implementation/dist/` 和 `.env` 不作为主工程源码接入输入。
 - 将浮岛 GLB 作为世界基础地形接入，并保留旧圆形地板作为 GLB 加载失败兜底。
 - 玩家移动高度来自 GLB 主岛体最高朝上命中面，不再固定为 `y=0`。
 - 出生点、占卜屋、实验室和五子棋区域放在浮岛可行走空地上。
@@ -283,7 +285,7 @@
 
 - 后端同学暂不需要提供真实接口。
 - 建模同学暂不需要提供最终塔罗牌模型。
-- 已有 `resources/fortune/` 可作为占卜屋前端、类型、API 适配和 mock 流程输入；如果后端同学已有字段草案，需要对齐 `fortuneTypes.ts`，但模拟数据先行。
+- 已有 `resources/feature-implementation/` 可作为占卜屋前端、类型、API 适配和 mock 流程输入；已有 `resources/fortune/` 可作为占卜屋模型资源输入。如果后端同学已有字段草案，需要对齐 `fortuneTypes.ts`，但模拟数据先行。
 
 本层最小验证目标：
 
@@ -300,6 +302,24 @@
 
 - 关闭真实占卜接口时，用户仍然能完整演示塔罗选牌到结果展示。
 - 不出现“必须等待后端才能继续”的阻塞状态。
+
+Layer 5A 模型接入切片：
+
+- 本切片只接入占卜屋模型外壳和室内轻量道具，不实现占卜业务逻辑，不代表 Layer 5 已通过。
+- 正常首屏不请求 `models/fortune/` 或 `textures/`。
+- `?fortuneAssets=shell` 只加载帐篷外壳。
+- `?fortuneAssets=interior` 加载帐篷、魔法阵、桌面、星座和周易轻量 GLB，不加载完整塔罗牌面贴图。
+
+验证截图：
+
+- 桌面端占卜屋模型外壳：![Layer 5A 桌面端占卜屋外壳](validation/layer-5/fortune-shell-desktop.png)
+- 移动端占卜屋模型外壳：![Layer 5A 移动端占卜屋外壳](validation/layer-5/fortune-shell-mobile.png)
+- 桌面端占卜屋室内道具：![Layer 5A 桌面端占卜屋室内道具](validation/layer-5/fortune-interior-desktop.png)
+- 移动端占卜屋室内道具：![Layer 5A 移动端占卜屋室内道具](validation/layer-5/fortune-interior-mobile.png)
+
+调试记录：
+
+- [Layer 5 debug.md](validation/layer-5/debug.md)
 
 ## Layer 6：实验室模拟层
 

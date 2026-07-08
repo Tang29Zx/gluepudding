@@ -1,5 +1,7 @@
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Vector3 } from "three";
+import { fortuneAssetLoadingConfig } from "../modules/divination/fortuneModelAssets";
 import {
   createDefaultWorldModuleStatuses,
   getWorldModuleById,
@@ -18,14 +20,24 @@ import {
 import { usePlayerController } from "./PlayerController";
 import type { TerrainSampler } from "./terrainSampler";
 import { WorldScene } from "./WorldScene";
-import { cameraConfig, worldColors } from "./sceneConfig";
+import {
+  cameraConfig,
+  landmarkPositions,
+  worldColors,
+} from "./sceneConfig";
 
 interface WorldExperienceProps {
   onReady: () => void;
 }
 
+type ForcedFortuneAssetMode = "interior" | "shell" | null;
+
+const fortuneFloorNormal = new Vector3(0, 1, 0);
+
 interface WorldRuntimeProps {
   aimedModuleControl: AimedWorldModuleControl | null;
+  focusedModuleId: WorldModuleId | null;
+  forcedFortuneAssetMode: ForcedFortuneAssetMode;
   moduleStatuses: Record<WorldModuleId, WorldModuleStatus>;
   onActivateArea: (targetId: InteractionTargetId) => void;
   onAimedModuleControlChange: (
@@ -44,6 +56,8 @@ interface WorldRuntimeProps {
 
 function WorldRuntime({
   aimedModuleControl,
+  focusedModuleId,
+  forcedFortuneAssetMode,
   moduleStatuses,
   onActivateArea,
   onAimedModuleControlChange,
@@ -54,14 +68,72 @@ function WorldRuntime({
   onTerrainReadyChange,
   selectedTargetId,
 }: WorldRuntimeProps) {
+  const [
+    divinationHouseX,
+    divinationHouseY,
+    divinationHouseZ,
+  ] = landmarkPositions.divinationHouse;
+  const fortuneStageX =
+    divinationHouseX + fortuneAssetLoadingConfig.shellAnchorOffset[0];
+  const fortuneStageY =
+    divinationHouseY + fortuneAssetLoadingConfig.shellAnchorOffset[1];
+  const fortuneStageZ =
+    divinationHouseZ + fortuneAssetLoadingConfig.shellAnchorOffset[2];
   const terrainSamplerRef = useRef<TerrainSampler | null>(null);
   const setTerrainSampler = useCallback((sampler: TerrainSampler | null) => {
-    terrainSamplerRef.current = sampler;
-  }, []);
+    if (!sampler) {
+      terrainSamplerRef.current = null;
+      return;
+    }
+
+    terrainSamplerRef.current = {
+      sampleGround(x, z) {
+        const distanceToFortuneFloor = Math.hypot(
+          x - fortuneStageX,
+          z - fortuneStageZ,
+        );
+
+        if (distanceToFortuneFloor <= fortuneAssetLoadingConfig.floorRadius) {
+          return {
+            normal: fortuneFloorNormal,
+            y: fortuneStageY + fortuneAssetLoadingConfig.floorSurfaceOffset,
+          };
+        }
+
+        return sampler.sampleGround(x, z);
+      },
+    };
+  }, [fortuneStageX, fortuneStageY, fortuneStageZ]);
   const player = usePlayerController({
     isMovementEnabled: true,
     terrainSamplerRef,
   });
+  const [shouldLoadFortuneInteriorByDistance, setShouldLoadFortuneInteriorByDistance] =
+    useState(false);
+  const shouldLoadFortuneInteriorByDistanceRef = useRef(false);
+
+  useFrame(() => {
+    const distance = Math.hypot(
+      player.position.current.x - fortuneStageX,
+      player.position.current.z - fortuneStageZ,
+    );
+    const nextShouldLoadInterior =
+      distance <= fortuneAssetLoadingConfig.interiorLoadRadius;
+
+    if (
+      shouldLoadFortuneInteriorByDistanceRef.current !== nextShouldLoadInterior
+    ) {
+      shouldLoadFortuneInteriorByDistanceRef.current = nextShouldLoadInterior;
+      setShouldLoadFortuneInteriorByDistance(nextShouldLoadInterior);
+    }
+  });
+
+  const shouldLoadFortuneShell = true;
+  const shouldLoadFortuneInterior =
+    forcedFortuneAssetMode === "interior" ||
+      focusedModuleId === "divination" ||
+      selectedTargetId === "divination-house" ||
+      shouldLoadFortuneInteriorByDistance;
 
   return (
     <>
@@ -79,9 +151,23 @@ function WorldRuntime({
         onSelectObject={onSelectObject}
         player={player}
         selectedTargetId={selectedTargetId}
+        shouldLoadFortuneInterior={shouldLoadFortuneInterior}
+        shouldLoadFortuneShell={shouldLoadFortuneShell}
       />
     </>
   );
+}
+
+function getForcedFortuneAssetMode(): ForcedFortuneAssetMode {
+  const assetMode = new URLSearchParams(window.location.search).get(
+    "fortuneAssets",
+  );
+
+  if (assetMode === "shell" || assetMode === "interior") {
+    return assetMode;
+  }
+
+  return null;
 }
 
 export function WorldExperience({ onReady }: WorldExperienceProps) {
@@ -100,6 +186,8 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
     useState<InteractionTargetId | null>(null);
   const [selectedTargetId, setSelectedTargetId] =
     useState<InteractionTargetId | null>(null);
+  const [forcedFortuneAssetMode] =
+    useState<ForcedFortuneAssetMode>(getForcedFortuneAssetMode);
 
   const aimedTarget = getInteractionTargetById(aimedTargetId);
   const focusedModule = focusedModuleId
@@ -227,6 +315,8 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
         <Suspense fallback={null}>
           <WorldRuntime
             aimedModuleControl={aimedModuleControl}
+            focusedModuleId={focusedModuleId}
+            forcedFortuneAssetMode={forcedFortuneAssetMode}
             moduleStatuses={moduleStatuses}
             onActivateArea={focusAreaModule}
             onAimedModuleControlChange={setAimedModuleControl}
@@ -242,7 +332,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
 
       <div className="world-hud" aria-label="3D 世界状态">
         <div className="world-status">
-          <span>Layer 4.5</span>
+          <span>Layer 5A</span>
           <strong>
             {aimedModuleControl
               ? "Surface Control"

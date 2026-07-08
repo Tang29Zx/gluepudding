@@ -36,7 +36,7 @@
 - 2026-07-08：Layer 4 当前原型允许三个模块表面同时常驻渲染；后续再做“进入某区域才加载对应模块，其余模块不加载”的性能优化。
 - 2026-07-08：准星不要使用中心覆盖式半透明光晕或大面积 `box-shadow`，叠在 3D 模块表面时会像透明层盖住准星；用户偏好稍大的传统灰黑色十字准星，当前为 `28px` 外盒、`22px` 横竖线、不透明 `#2f3037`，只保留轻微瞄准缩放反馈。
 - 2026-07-08：用户确认 Layer 4 模块外壳层 OK，可以进入 Layer 4.5 资源接入准备层。
-- 2026-07-08：`resources/` 已放入已有输入：`resources/float-island-low-ploy.zip` 作为世界大场景候选资源，`resources/fortune/` 作为占卜屋现有代码输入。规划新增 Layer 4.5 资源接入准备层；不要读取或记录 `resources/fortune/.env` 内容，`resources/fortune/node_modules/` 和 `resources/fortune/dist/` 不作为主工程源码输入。
+- 2026-07-08：`resources/` 已放入已有输入：`resources/float-island-low-ploy.zip` 作为世界大场景候选资源；占卜屋功能实现代码后续已整理到 `resources/feature-implementation/`，占卜屋模型资源目录为 `resources/fortune/`。规划新增 Layer 4.5 资源接入准备层；不要读取或记录 `resources/feature-implementation/.env` 内容，`resources/feature-implementation/node_modules/` 和 `resources/feature-implementation/dist/` 不作为主工程源码输入。
 - 2026-07-08：用户确认 `gluepudding/resources/` 里的内容都不要进 Git；`gluepudding/.gitignore` 已用 `resources/` 忽略整个目录，`git ls-files resources` 为空，`git check-ignore` 确认 zip、fortune demo 和 `.env` 都被忽略。后续只把 resources 当本地参考输入，不作为仓库交付物。
 - 2026-07-08：新增中文 `README.md` 作为协作者启动入口，记录主工程启动、build / preview、SSH 隧道预览、`resources/` 本地参考不进 Git、验证归档和 Layer 4 当前交互口径。
 - 2026-07-08：用户明确本项目面向中文用户；后续 README、技术文档、产品 UI 文案、验证记录和协作文档默认中文，代码标识、文件名、接口路径、命令、环境变量和第三方协议名保持英文。
@@ -46,6 +46,10 @@
 - 2026-07-08：常驻 3D 模块表面的文字容量有限，默认面板不适合放长状态说明；`WorldModulePanels` 已改用短状态文案和固定分区坐标，避免状态说明、按钮、能力列表和底部提示重合。后续真实业务内容变多时，应改为区域内近距离大屏或分步交互，不要继续往默认小面板塞长文。
 - 2026-07-08：README 面向普通协作者时不默认他们拥有项目服务器或 SSH 配置；协作者预览路径以本地 clone、本地 `npm run preview` 和 `127.0.0.1` 为准。
 - 2026-07-08：Layer 4.5 启动页已提示“首次加载需要下载 3D 模型，可能需要较长时间。”，用于解释 86MB GLB 首次下载和解析等待。
+- 2026-07-08：`resources/fortune.zip` 已解压为占卜屋模型资源目录 `resources/fortune/`，包含塔罗和星座相关 GLB / 贴图资源；原占卜屋现有功能实现代码目录从 `resources/fortune/` 重命名为 `resources/feature-implementation/`。后续复用类型、API 适配和 mock 流程时使用 `resources/feature-implementation/src/`；不要读取或记录其中 `.env` 内容。
+- 2026-07-08：Layer 5A 只接入占卜屋轻量模型外壳和室内道具，不接业务逻辑；完整塔罗牌面贴图目录约 80.8MB，不能随首屏或占卜屋模型包一次性下载。当前运行时只复制 allowlist GLB 到 `app/nav-world/public/models/fortune/`，用 `?fortuneAssets=shell|interior` 做截图验证，真实访问仍按靠近/聚焦触发加载。
+- 2026-07-08：`app/nav-world/package-lock.json` 曾锁到 `http://mirrors.tencentyun.com/npm/` tarball，导致 `npm install` 下载 `zustand` 时 `ECONNRESET/socket hang up`；已改为 `https://registry.npmjs.org/` tarball。协作者若觉得 `npm install` 像卡死，可用 `npm install --loglevel=http` 查看下载/缓存命中进度。
+- 2026-07-08：用户明确当前 Codex 截图验证难度和成本过高，模型摆位微调的截图由用户实机验证即可；Codex 不再为这类小步视觉调整强行生成桌面/移动截图。后续仍需运行可用的构建、资源检查或类型检查，并在对应 Layer 的 `debug.md` 记录“截图由用户实机验证”。
 
 ## /new handoff
 

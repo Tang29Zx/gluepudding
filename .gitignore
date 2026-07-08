@@ -44,6 +44,9 @@ build/
 .nuxt/
 .svelte-kit/
 coverage/
+playwright-report/
+blob-report/
+test-results/
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
@@ -61,3 +64,4 @@ Thumbs.db
 # Resources
 resources/
 app/frontend/models/world/*.glb
+app/frontend/models/fortune/**/*.glb
