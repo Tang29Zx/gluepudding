@@ -2,6 +2,12 @@ import {
   InteractionSystem,
   type InteractionTargetId,
 } from "./InteractionSystem";
+import { WorldModulePanels } from "../modules/WorldModulePanels";
+import type { AimedWorldModuleControl } from "../modules/types";
+import type {
+  WorldModuleId,
+  WorldModuleStatus,
+} from "../modules/types";
 import type { PlayerControllerState } from "./PlayerController";
 import { landmarkPositions, worldColors, worldScale } from "./sceneConfig";
 
@@ -107,19 +113,30 @@ function ReferenceLandmarks() {
 }
 
 interface WorldSceneProps {
-  isPanelOpen: boolean;
+  aimedModuleControl: AimedWorldModuleControl | null;
+  moduleStatuses: Record<WorldModuleId, WorldModuleStatus>;
   player: PlayerControllerState;
   selectedTargetId: InteractionTargetId | null;
   onActivateArea: (targetId: InteractionTargetId) => void;
   onAimedTargetChange: (targetId: InteractionTargetId | null) => void;
+  onAimedModuleControlChange: (
+    control: AimedWorldModuleControl | null,
+  ) => void;
+  onModuleStatusChange: (
+    moduleId: WorldModuleId,
+    status: WorldModuleStatus,
+  ) => void;
   onNearestTargetChange: (targetId: InteractionTargetId | null) => void;
   onSelectObject: (targetId: InteractionTargetId) => void;
 }
 
 export function WorldScene({
-  isPanelOpen,
+  aimedModuleControl,
+  moduleStatuses,
   onActivateArea,
+  onAimedModuleControlChange,
   onAimedTargetChange,
+  onModuleStatusChange,
   onNearestTargetChange,
   onSelectObject,
   player,
@@ -149,13 +166,20 @@ export function WorldScene({
 
       <ReferenceLandmarks />
       <InteractionSystem
-        isPanelOpen={isPanelOpen}
+        isPanelOpen={false}
+        isWorldControlAimed={Boolean(aimedModuleControl)}
         onActivateArea={onActivateArea}
         onAimedTargetChange={onAimedTargetChange}
         onNearestTargetChange={onNearestTargetChange}
         onSelectObject={onSelectObject}
         player={player}
         selectedTargetId={selectedTargetId}
+      />
+      <WorldModulePanels
+        aimedModuleControl={aimedModuleControl}
+        moduleStatuses={moduleStatuses}
+        onAimedModuleControlChange={onAimedModuleControlChange}
+        onModuleStatusChange={onModuleStatusChange}
       />
     </>
   );

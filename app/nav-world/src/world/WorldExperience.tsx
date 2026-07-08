@@ -1,10 +1,18 @@
 import { Canvas } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { flushSync } from "react-dom";
+import {
+  createDefaultWorldModuleStatuses,
+  getWorldModuleById,
+  getWorldModuleIdByTargetId,
+} from "../modules/moduleRegistry";
+import type {
+  AimedWorldModuleControl,
+  WorldModuleId,
+  WorldModuleStatus,
+} from "../modules/types";
 import { CameraRig } from "./CameraRig";
 import {
   getInteractionTargetById,
-  type ActiveInteractionPanel,
   type InteractionTargetId,
 } from "./InteractionSystem";
 import { usePlayerController } from "./PlayerController";
@@ -15,34 +23,46 @@ interface WorldExperienceProps {
   onReady: () => void;
 }
 
-const worldCanvasSelector = ".world-canvas canvas";
-
 interface WorldRuntimeProps {
-  activePanel: ActiveInteractionPanel | null;
+  aimedModuleControl: AimedWorldModuleControl | null;
+  moduleStatuses: Record<WorldModuleId, WorldModuleStatus>;
   onActivateArea: (targetId: InteractionTargetId) => void;
+  onAimedModuleControlChange: (
+    control: AimedWorldModuleControl | null,
+  ) => void;
   onAimedTargetChange: (targetId: InteractionTargetId | null) => void;
+  onModuleStatusChange: (
+    moduleId: WorldModuleId,
+    status: WorldModuleStatus,
+  ) => void;
   onNearestTargetChange: (targetId: InteractionTargetId | null) => void;
   onSelectObject: (targetId: InteractionTargetId) => void;
   selectedTargetId: InteractionTargetId | null;
 }
 
 function WorldRuntime({
-  activePanel,
+  aimedModuleControl,
+  moduleStatuses,
   onActivateArea,
+  onAimedModuleControlChange,
   onAimedTargetChange,
+  onModuleStatusChange,
   onNearestTargetChange,
   onSelectObject,
   selectedTargetId,
 }: WorldRuntimeProps) {
-  const player = usePlayerController({ isMovementEnabled: !activePanel });
+  const player = usePlayerController({ isMovementEnabled: true });
 
   return (
     <>
       <CameraRig player={player} />
       <WorldScene
-        isPanelOpen={Boolean(activePanel)}
+        aimedModuleControl={aimedModuleControl}
+        moduleStatuses={moduleStatuses}
         onActivateArea={onActivateArea}
+        onAimedModuleControlChange={onAimedModuleControlChange}
         onAimedTargetChange={onAimedTargetChange}
+        onModuleStatusChange={onModuleStatusChange}
         onNearestTargetChange={onNearestTargetChange}
         onSelectObject={onSelectObject}
         player={player}
@@ -52,74 +72,84 @@ function WorldRuntime({
   );
 }
 
-function restoreWorldCanvasFocus() {
-  const canvas = document.querySelector<HTMLCanvasElement>(worldCanvasSelector);
-
-  if (!canvas) {
-    return;
-  }
-
-  canvas.focus({ preventScroll: true });
-
-  if (
-    document.pointerLockElement === canvas ||
-    window.matchMedia("(pointer: coarse)").matches
-  ) {
-    return;
-  }
-
-  try {
-    void Promise.resolve(canvas.requestPointerLock()).catch(() => {
-      console.warn("Pointer lock unavailable; 3D world remains active.");
-    });
-  } catch {
-    console.warn("Pointer lock unavailable; 3D world remains active.");
-  }
-}
-
 export function WorldExperience({ onReady }: WorldExperienceProps) {
-  const [activePanel, setActivePanel] =
-    useState<ActiveInteractionPanel | null>(null);
+  const [aimedModuleControl, setAimedModuleControl] =
+    useState<AimedWorldModuleControl | null>(null);
   const [aimedTargetId, setAimedTargetId] =
     useState<InteractionTargetId | null>(null);
+  const [focusedModuleId, setFocusedModuleId] =
+    useState<WorldModuleId | null>(null);
+  const [moduleStatuses, setModuleStatuses] = useState(
+    createDefaultWorldModuleStatuses,
+  );
   const [nearestTargetId, setNearestTargetId] =
     useState<InteractionTargetId | null>(null);
   const [selectedTargetId, setSelectedTargetId] =
     useState<InteractionTargetId | null>(null);
 
-  const activePanelTarget = getInteractionTargetById(activePanel?.targetId ?? null);
   const aimedTarget = getInteractionTargetById(aimedTargetId);
+  const focusedModule = focusedModuleId
+    ? getWorldModuleById(focusedModuleId)
+    : null;
   const nearestTarget = getInteractionTargetById(nearestTargetId);
   const selectedTarget = getInteractionTargetById(selectedTargetId);
   const selectableTarget = aimedTarget ?? nearestTarget;
 
-  const openAreaPanel = useCallback((targetId: InteractionTargetId) => {
-    setActivePanel({ mode: "area", targetId });
+  const changeModuleStatus = useCallback((
+    moduleId: WorldModuleId,
+    status: WorldModuleStatus,
+  ) => {
+    setModuleStatuses((currentStatuses) => {
+      if (currentStatuses[moduleId] === status) {
+        return currentStatuses;
+      }
+
+      return {
+        ...currentStatuses,
+        [moduleId]: status,
+      };
+    });
+    setFocusedModuleId(moduleId);
+  }, []);
+
+  const focusAreaModule = useCallback((targetId: InteractionTargetId) => {
+    setFocusedModuleId(getWorldModuleIdByTargetId(targetId));
+    setSelectedTargetId(targetId);
   }, []);
 
   const selectObject = useCallback((targetId: InteractionTargetId) => {
+    setFocusedModuleId(getWorldModuleIdByTargetId(targetId));
     setSelectedTargetId(targetId);
-    setActivePanel({ mode: "object", targetId });
   }, []);
 
-  const closePanel = useCallback(() => {
-    setActivePanel(null);
-  }, []);
+  const activateAimedModuleControl = useCallback(() => {
+    if (!aimedModuleControl) {
+      return false;
+    }
 
-  const closePanelAndRestoreFocus = useCallback(() => {
-    flushSync(() => {
-      setActivePanel(null);
-    });
-    restoreWorldCanvasFocus();
-  }, []);
+    changeModuleStatus(aimedModuleControl.moduleId, aimedModuleControl.status);
+    return true;
+  }, [aimedModuleControl, changeModuleStatus]);
 
   const interactionLines = useMemo(() => {
-    if (activePanelTarget) {
-      return ["移动输入已暂停，世界仍会继续运行。关闭面板后回到同一个世界位置。"];
+    if (aimedModuleControl) {
+      return [
+        `准星命中：${aimedModuleControl.moduleTitle} / ${aimedModuleControl.label}`,
+        "左键或 E 直接切换 3D 表面状态，鼠标焦点保持在 Canvas。",
+      ];
+    }
+
+    if (focusedModule) {
+      return [
+        `${focusedModule.title} 常驻在世界表面，可继续移动和转向。`,
+        "准星瞄准状态芯片后左键或 E 切换 ready / loading / offline / error。",
+      ];
     }
 
     if (!nearestTarget && !aimedTarget) {
-      return ["移动到区域附近按 E 进入；准星对准对象后用左键选择。"];
+      return [
+        "三个模块面板已常驻贴在世界表面；靠近区域或准星瞄准按钮即可操作。",
+      ];
     }
 
     const lines: string[] = [];
@@ -128,27 +158,21 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
       lines.push(nearestTarget.areaPrompt);
     }
 
-    if (aimedTarget && aimedTarget.id !== nearestTarget?.id) {
-      lines.push(aimedTarget.objectPrompt);
-    } else if (aimedTarget) {
+    if (aimedTarget) {
       lines.push(aimedTarget.objectPrompt);
     }
 
     return lines;
-  }, [activePanelTarget, aimedTarget, nearestTarget]);
+  }, [aimedModuleControl, aimedTarget, focusedModule, nearestTarget]);
 
   useEffect(() => {
-    if (!activePanel) {
-      return undefined;
-    }
-
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.code !== "Escape") {
         return;
       }
 
-      event.preventDefault();
-      closePanel();
+      setFocusedModuleId(null);
+      setSelectedTargetId(null);
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -156,7 +180,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [activePanel, closePanel]);
+  }, []);
 
   return (
     <main className="world-shell" aria-label="gluepudding 3D World">
@@ -180,9 +204,12 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
       >
         <Suspense fallback={null}>
           <WorldRuntime
-            activePanel={activePanel}
-            onActivateArea={openAreaPanel}
+            aimedModuleControl={aimedModuleControl}
+            moduleStatuses={moduleStatuses}
+            onActivateArea={focusAreaModule}
+            onAimedModuleControlChange={setAimedModuleControl}
             onAimedTargetChange={setAimedTargetId}
+            onModuleStatusChange={changeModuleStatus}
             onNearestTargetChange={setNearestTargetId}
             onSelectObject={selectObject}
             selectedTargetId={selectedTargetId}
@@ -192,14 +219,28 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
 
       <div className="world-hud" aria-label="3D 世界状态">
         <div className="world-status">
-          <span>Layer 3</span>
-          <strong>{activePanel ? "Interaction Paused" : "Interaction Active"}</strong>
+          <span>Layer 4</span>
+          <strong>
+            {aimedModuleControl
+              ? "Surface Control"
+              : focusedModule
+                ? "Module Focused"
+                : "World Active"}
+          </strong>
         </div>
       </div>
 
       <div
-        aria-label={aimedTarget ? `准星对准：${aimedTarget.label}` : "中心准星"}
-        className={`world-crosshair${aimedTarget ? " is-aimed" : ""}`}
+        aria-label={
+          aimedModuleControl
+            ? `准星命中模块控件：${aimedModuleControl.moduleTitle} ${aimedModuleControl.label}`
+            : aimedTarget
+              ? `准星对准：${aimedTarget.label}`
+              : "中心准星"
+        }
+        className={`world-crosshair${
+          aimedTarget || aimedModuleControl ? " is-aimed" : ""
+        }`}
       />
 
       <div className="world-interaction-bar" aria-live="polite">
@@ -215,10 +256,14 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
 
       <div className="world-touch-actions" aria-label="移动端交互操作">
         <button
-          disabled={Boolean(activePanel) || !nearestTarget}
+          disabled={!aimedModuleControl && !nearestTarget}
           onClick={() => {
+            if (activateAimedModuleControl()) {
+              return;
+            }
+
             if (nearestTarget) {
-              openAreaPanel(nearestTarget.id);
+              focusAreaModule(nearestTarget.id);
             }
           }}
           type="button"
@@ -226,8 +271,12 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
           Interact
         </button>
         <button
-          disabled={Boolean(activePanel) || !selectableTarget}
+          disabled={!aimedModuleControl && !selectableTarget}
           onClick={() => {
+            if (activateAimedModuleControl()) {
+              return;
+            }
+
             if (selectableTarget) {
               selectObject(selectableTarget.id);
             }
@@ -237,34 +286,6 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
           Select
         </button>
       </div>
-
-      {activePanel && activePanelTarget ? (
-        <section
-          aria-labelledby="world-panel-title"
-          aria-modal="true"
-          className="world-panel"
-          role="dialog"
-        >
-          <p className="world-panel-kicker">
-            {activePanel.mode === "area" ? "Area Interaction" : "Object Selected"}
-          </p>
-          <h2 id="world-panel-title">{activePanelTarget.panelTitle}</h2>
-          <p>{activePanelTarget.panelBody}</p>
-          <dl>
-            <div>
-              <dt>目标</dt>
-              <dd>{activePanelTarget.label}</dd>
-            </div>
-            <div>
-              <dt>触发方式</dt>
-              <dd>{activePanel.mode === "area" ? "E / Interact" : "左键 / Select"}</dd>
-            </div>
-          </dl>
-          <button onClick={closePanelAndRestoreFocus} type="button">
-            关闭面板
-          </button>
-        </section>
-      ) : null}
     </main>
   );
 }

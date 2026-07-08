@@ -36,6 +36,7 @@ export interface InteractionTarget {
 
 interface InteractionSystemProps {
   isPanelOpen: boolean;
+  isWorldControlAimed: boolean;
   player: PlayerControllerState;
   selectedTargetId: InteractionTargetId | null;
   onActivateArea: (targetId: InteractionTargetId) => void;
@@ -57,11 +58,11 @@ export const interactionTargets: readonly InteractionTarget[] = [
     raycastRadius: 4.2,
     enabled: true,
     accentColor: "#a99bea",
-    areaPrompt: "靠近占卜屋，按 E 打开世界内占位面板。",
-    objectPrompt: "准星对准占卜屋入口，左键选择。",
-    panelTitle: "占卜屋交互占位",
+    areaPrompt: "靠近占卜屋，按 E 聚焦占卜屋常驻模块表面。",
+    objectPrompt: "准星对准占卜屋入口，左键聚焦常驻模块表面。",
+    panelTitle: "占卜屋模块外壳",
     panelBody:
-      "Layer 3 只验证世界内触发、选中和暂停移动。塔罗、星座和周易流程会在后续模块层接入。",
+      "Layer 4 验证模块外壳、状态切换和错误隔离。塔罗、星座和周易流程会在 Layer 5 接入。",
   },
   {
     id: "laboratory",
@@ -72,11 +73,11 @@ export const interactionTargets: readonly InteractionTarget[] = [
     raycastRadius: 4.6,
     enabled: true,
     accentColor: "#77aee8",
-    areaPrompt: "靠近实验室，按 E 打开世界内占位面板。",
-    objectPrompt: "准星对准实验室大屏区域，左键选择。",
-    panelTitle: "实验室交互占位",
+    areaPrompt: "靠近实验室，按 E 聚焦实验室常驻模块表面。",
+    objectPrompt: "准星对准实验室大屏区域，左键聚焦常驻模块表面。",
+    panelTitle: "实验室模块外壳",
     panelBody:
-      "这里后续承载 WebRTC 大屏、RDK 展示台和门禁控制台。当前先验证世界内打开和关闭行为。",
+      "这里后续承载 WebRTC 大屏、RDK 展示台和门禁控制台。当前验证模块外壳和降级状态。",
   },
   {
     id: "gomoku-board",
@@ -87,11 +88,11 @@ export const interactionTargets: readonly InteractionTarget[] = [
     raycastRadius: 3.8,
     enabled: true,
     accentColor: "#ffd977",
-    areaPrompt: "靠近五子棋区，按 E 打开世界内占位面板。",
-    objectPrompt: "准星对准五子棋棋盘，左键选择。",
-    panelTitle: "五子棋交互占位",
+    areaPrompt: "靠近五子棋区，按 E 聚焦五子棋常驻模块表面。",
+    objectPrompt: "准星对准五子棋棋盘，左键聚焦常驻模块表面。",
+    panelTitle: "五子棋模块外壳",
     panelBody:
-      "Layer 3 只确认棋盘区域能被选中和触发。真正棋局面板会在模块层与五子棋层实现。",
+      "Layer 4 验证棋局外壳在世界内打开。真正棋局面板和落子会在 Layer 7 实现。",
   },
 ];
 
@@ -176,6 +177,7 @@ function getTargetStateOpacity({
 
 export function InteractionSystem({
   isPanelOpen,
+  isWorldControlAimed,
   onActivateArea,
   onAimedTargetChange,
   onNearestTargetChange,
@@ -220,6 +222,7 @@ export function InteractionSystem({
         !isAreaInteractionKey(event) ||
         event.repeat ||
         isPanelOpen ||
+        isWorldControlAimed ||
         isEditableElement(document.activeElement)
       ) {
         return;
@@ -240,13 +243,14 @@ export function InteractionSystem({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isPanelOpen, onActivateArea]);
+  }, [isPanelOpen, isWorldControlAimed, onActivateArea]);
 
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
       if (
         event.button !== 0 ||
         isPanelOpen ||
+        isWorldControlAimed ||
         document.pointerLockElement !== domElement
       ) {
         return;
@@ -273,7 +277,7 @@ export function InteractionSystem({
       domElement.removeEventListener("click", handleClick);
       domElement.removeEventListener("contextmenu", handleContextMenu);
     };
-  }, [domElement, isPanelOpen, onSelectObject]);
+  }, [domElement, isPanelOpen, isWorldControlAimed, onSelectObject]);
 
   useFrame(() => {
     playerGroundPosition.set(
