@@ -786,3 +786,311 @@
 截图：本次不由 Codex 生成截图；按当前小步模型摆位口径，由用户实机验证。
 
 剩余风险：回退后白条子方向问题本身仍未解决；后续如果继续调整，应基于原始 GLB 的运行时位置/旋转，或另行选择更明确的建模方案。
+
+## 2026-07-08 / Layer 5A 周易竹签竖直插入签筒
+
+日期：2026-07-08
+
+版本 / Layer：Layer 5A 占卜屋模型接入切片
+
+现象：用户实机截图显示周易桌上有一根浅色竹签横向穿过签筒后方，要求“把这根横着的竹签竖着插进竹筒里面”。
+
+原因判断：`iching_bamboo_slips.glb` 的模型长轴在本地 Z 轴，上一版运行时旋转 `[-Math.PI / 2, ichingTableYaw + 0.12, 0.08]` 会把本地 Z 轴转到帐篷局部 X 方向，因此视觉上横向穿过桌面和签筒。
+
+解决方案：只调整 `iching-bamboo-slips` 的运行时旋转为 `[-Math.PI / 2, 0, 0]`，让模型本地 Z 轴对齐帐篷局部 Y 轴并竖直向上；位置仍保持在签筒中心附近，不改周易桌、签筒、铜钱、白条子、塔罗桌、帐篷或魔法阵。
+
+涉及文件：`app/nav-world/src/modules/divination/fortuneModelAssets.ts`、`validation/layer-5/debug.md`。
+
+验证结果：`npm run assets:fortune:check` 通过；`npm run build` 通过。构建过程中 Vite 仍提示 `WorldExperience` chunk 超过 500 kB，这是既有 3D 资源相关提示，不阻断构建。
+
+画面变化：有。周易桌上原本横向伸出的浅色竹签应改为竖直插入签筒内。
+
+截图：本次不由 Codex 生成截图；按当前小步模型摆位口径，由用户实机验证。
+
+剩余风险：该调整基于模型包围盒确认轴向；如果实机中竹签竖直后仍偏离筒口中心，下一步只需微调 `iching-bamboo-slips` 的 `positionOnIchingTable()` X/Z offset 或 Y 高度。
+
+## 2026-07-08 / Layer 5A 周易太极图放到桌面中心
+
+日期：2026-07-08
+
+版本 / Layer：Layer 5A 占卜屋模型接入切片
+
+现象：用户在资源 GLB 预览中选中 `fortune/iching_floor_pattern.glb`，要求“把这张太极图的模型放在桌子的正中央”。
+
+原因判断：该资源尚未在 `prepare-fortune-assets.mjs` allowlist 中，运行时不会复制到 `public/models/fortune/`，也没有在周易桌模型清单中渲染。模型原始直径约 `5.08`，大于当前周易桌桌面深度，直接原尺寸放置会明显超出桌边。
+
+解决方案：将 `iching_floor_pattern.glb` 加入 fortune 轻量资源 allowlist，输出为 `iching_floor_pattern.glb`；在 `fortuneModelAssets.interiorAssets` 中新增 `iching-floor-pattern`，放在周易桌局部中心 `positionOnIchingTable(0, 1.105, 0)`，使用 `rotationOnIchingTable()` 跟随桌子朝向，并缩放到 `0.27`，作为贴近桌面的中心太极图案。签筒、铜钱、竹签、白条子和桌子位置不变。
+
+涉及文件：`app/nav-world/scripts/prepare-fortune-assets.mjs`、`app/nav-world/src/modules/divination/fortuneModelAssets.ts`、`app/nav-world/public/models/fortune/iching_floor_pattern.glb`、`validation/layer-5/debug.md`。
+
+验证结果：`npm run assets:fortune:prepare` 通过，当前准备 19 个 fortune assets；`npm run assets:fortune:check` 通过；`npm run build` 通过。构建过程中 Vite 仍提示 `WorldExperience` chunk 超过 500 kB，这是既有 3D 资源相关提示，不阻断构建；`assets:prune` 清理了上一轮未被当前 `index.html` 引用的旧 frontend hash 资源。
+
+画面变化：有。周易桌桌面中心应出现缩小后的太极图模型，位于签筒下方的桌面中心区域。
+
+截图：本次不由 Codex 生成截图；按当前小步模型摆位口径，由用户实机验证。
+
+剩余风险：缩放值按模型尺寸和桌面尺寸估算；如果实机中太极图偏大、偏小、压进桌面或被签筒遮挡太多，下一步只需微调 `iching-floor-pattern` 的 `scale`、Y 高度或 X/Z offset。
+
+## 2026-07-08 / Layer 5A 室内模型变成 fallback 方块原因审查
+
+日期：2026-07-08
+
+版本 / Layer：Layer 5A 占卜屋模型接入切片
+
+现象：用户实机截图显示占卜屋室内出现黄褐色方块、紫色圆柱和浅紫色半球，周易桌等真实室内模型未正常显示，要求审查“模型变成不明方块”的原因。
+
+原因判断：截图中的黄褐色方块、紫色圆柱和浅紫色半球与 `FortuneAssetStage.tsx` 里的 `InteriorFallback()` 几何占位体一致，说明不是太极图模型自身变成方块，而是 `FortuneAssetBoundary` 捕获到室内模型组加载或渲染错误后，把整组室内模型替换成 fallback。静态检查确认 `app/nav-world/public/models/fortune/iching_floor_pattern.glb` 当前存在且 Vite dev 资源响应为 200；该 GLB 内含嵌入式 PNG 贴图，结构上有 1 个 mesh、1 个 material、1 张内嵌 PNG。高概率原因是新增 `iching_floor_pattern.glb` 接入时，浏览器或 R3F `useGLTF` 曾经在资源复制完成前请求到失败状态，Error Boundary 进入 `hasError` 后不会自动恢复；也可能是该带贴图 GLB 在主站 GLTFLoader 中触发运行时加载错误，需看浏览器控制台的 `Fortune interior failed to render.` 具体错误确认。
+
+解决方案：本次只做原因审查，不改运行时代码。当前最短排查路径是刷新页面或重启 dev server 后重新进入 `?fortuneAssets=interior`，观察是否恢复真实模型；如果仍出现 fallback，打开浏览器控制台查找 `Fortune interior failed to render.`，重点看是否指向 `iching_floor_pattern.glb`、贴图解码或网络 404。后续修复方向可以是临时移除 `iching-floor-pattern` 验证，或把室内资源从“整组一个 Error Boundary”改成“单模型隔离”，避免一个 GLB 失败拖垮全部室内模型。
+
+涉及文件：`app/nav-world/src/modules/divination/FortuneAssetStage.tsx`、`app/nav-world/src/modules/divination/fortuneModelAssets.ts`、`app/nav-world/public/models/fortune/iching_floor_pattern.glb`、`validation/layer-5/debug.md`。
+
+验证结果：静态资源检查通过，`npm run assets:fortune:check` 通过；`curl -I http://localhost:5174/models/fortune/iching_floor_pattern.glb` 返回 200；GLB 结构检查确认 `iching_floor_pattern.glb` 有 1 个 mesh、1 个 material、1 张内嵌 PNG，模型尺寸约 `5.08 x 0.002 x 5.08`。本环境 Playwright 自带 Chromium 未安装，未做浏览器控制台复现；用户实机浏览器控制台仍是确认具体异常的事实来源。
+
+画面变化：无。本次只审查原因并记录，不调整模型坐标、资源或组件行为。
+
+截图：本次不由 Codex 生成截图；用户已提供实机截图作为现象依据。
+
+剩余风险：没有拿到用户浏览器控制台里的 `Fortune interior failed to render.` 原始错误堆栈，因此只能确认“画面来自 fallback”，不能 100% 确认 fallback 的直接触发点是资源瞬时 404、GLB 贴图解码，还是其他室内模型加载异常。
+
+## 2026-07-08 / Layer 5A 复制小号星座台并放到 X-6 Z0
+
+日期：2026-07-08
+
+版本 / Layer：Layer 5A 占卜屋模型接入切片
+
+现象：用户在资源 GLB 预览中选中 `fortune/zodiac_altar_base.glb`，要求“这个模型文件，复制一份新的，小的，与原先无关的，放在 x=-6 z=0 的位置”。
+
+原因判断：原始 `zodiac_altar_base.glb` 仍作为资源文件保留，但当前大世界渲染不应直接复用原 URL，否则后续调整小号模型时会和原始资源含义混在一起。该模型原始尺寸约 `3.24 x 0.51 x 3.24`，直接放入帐篷内会偏大。
+
+解决方案：复制 `resources/fortune/zodiac_altar_base.glb` 为独立源文件 `resources/fortune/zodiac_altar_base_small.glb`；将新文件加入 `prepare-fortune-assets.mjs` allowlist，并输出为 `app/nav-world/public/models/fortune/zodiac_altar_base_small.glb`。在 `fortuneModelAssets.interiorAssets` 中新增 `zodiac-altar-small`，使用新 URL `zodiac_altar_base_small.glb`，放到帐篷局部坐标 `[-6, 0.52, 0]`，scale 设为 `0.36`，使直径约 `1.17`。原 `zodiac_altar_base.glb` 不改变，其他模型位置不变。
+
+涉及文件：`resources/fortune/zodiac_altar_base_small.glb`、`app/nav-world/scripts/prepare-fortune-assets.mjs`、`app/nav-world/public/models/fortune/zodiac_altar_base_small.glb`、`app/nav-world/src/modules/divination/fortuneModelAssets.ts`、`validation/layer-5/debug.md`。
+
+验证结果：`npm run assets:fortune:prepare` 通过，当前准备 20 个 fortune assets；`npm run assets:fortune:check` 通过；`npm run build` 通过。构建过程中 Vite 仍提示 `WorldExperience` chunk 超过 500 kB，这是既有 3D 资源相关提示，不阻断构建；`assets:prune` 清理了上一轮未被当前 `index.html` 引用的旧 frontend hash 资源。
+
+画面变化：有。占卜屋室内局部 `X=-6, Z=0` 位置应出现小号星座台模型，且运行时 URL 与原始 `zodiac_altar_base.glb` 分离。
+
+截图：本次不由 Codex 生成截图；按当前小步模型摆位口径，由用户实机验证。
+
+剩余风险：小号模型只是文件级复制后通过运行时 scale 缩小，几何内容仍来自原始模型；如果后续需要真正修改小号模型本体几何或材质，应对 `zodiac_altar_base_small.glb` 单独处理，不再改原始文件。
+
+## 2026-07-08 / Layer 5A 室内模型错误改为单模型隔离
+
+日期：2026-07-08
+
+版本 / Layer：Layer 5A 占卜屋模型接入切片
+
+现象：用户反馈模型又出问题，结合上一版截图和审查结果，室内模型组在某个 GLB 加载或渲染失败后会整体显示黄褐色方块、紫色圆柱和浅紫色半球等 fallback 占位体。
+
+原因判断：`FortuneAssetStage.tsx` 原先把所有 `interiorAssets` 放在同一个 `FortuneAssetBoundary` 里，只要其中任意一个模型抛错，整个室内模型组都会进入 `InteriorFallback()`。这会把单个资源问题放大成“整间屋子模型都变成不明方块”的用户可见故障；同时 Error Boundary 进入错误态后不会因为资源稍后可用而自动恢复。
+
+解决方案：移除室内整体 `InteriorFallback()`，将每个 `interiorAssets` 模型分别包在独立 `FortuneAssetBoundary` 和 `Suspense` 中，单个模型失败时只隐藏该模型并在控制台输出 `Fortune model <id> failed to render.`。为 Boundary 增加 `resetKey`，当模型 URL 变化时可以从错误态恢复。帐篷外壳仍保留整体 fallback，避免外壳加载失败时完全不可见。
+
+涉及文件：`app/nav-world/src/modules/divination/FortuneAssetStage.tsx`、`validation/layer-5/debug.md`。
+
+验证结果：`npm run assets:fortune:check` 通过；`npm run build` 通过。构建过程中 Vite 仍提示 `WorldExperience` chunk 超过 500 kB，这是既有 3D 资源相关提示，不阻断构建；`assets:prune` 清理了上一轮未被当前 `index.html` 引用的旧 frontend hash 资源。
+
+画面变化：有。后续如果单个室内 GLB 出错，不应再出现整组黄方块/紫圆柱/半球 fallback；其他成功加载的室内模型应继续显示。
+
+截图：本次不由 Codex 生成截图；按当前小步模型摆位口径，由用户实机验证。
+
+剩余风险：该修复防止单模型错误拖垮整组室内模型，但不会修复某个具体 GLB 自身的贴图、网络或解析错误。如果仍有单个模型不显示，需要根据浏览器控制台的 `Fortune model <id> failed to render.` 继续定位具体资源。
+
+## 2026-07-08 / Layer 5A 回退小号星座台和单模型隔离
+
+日期：2026-07-08
+
+版本 / Layer：Layer 5A 占卜屋模型接入切片
+
+现象：用户要求回退前两次更改：一是复制小号 `zodiac_altar_base_small.glb` 并放到 `X=-6, Z=0`；二是把室内模型错误处理改成单模型隔离。
+
+原因判断：用户明确要求撤销这两组改动，应恢复到这两步之前的行为，同时保留其他已经确认的 Layer 5A 摆位和资源调整，例如周易太极图、竹签旋转和现有资源准备逻辑。
+
+解决方案：从 `prepare-fortune-assets.mjs` 移除 `zodiac_altar_base_small.glb` allowlist；从 `fortuneModelAssets.ts` 移除 `zodiac-altar-small`；删除 `resources/fortune/zodiac_altar_base_small.glb` 和 `app/nav-world/public/models/fortune/zodiac_altar_base_small.glb`；重新运行 `npm run assets:fortune:prepare`，恢复为 19 个 fortune assets。将 `FortuneAssetStage.tsx` 恢复为室内整体 `FortuneAssetBoundary` + `InteriorFallback()`，撤销单模型隔离和 `resetKey`。
+
+涉及文件：`app/nav-world/scripts/prepare-fortune-assets.mjs`、`app/nav-world/src/modules/divination/fortuneModelAssets.ts`、`app/nav-world/src/modules/divination/FortuneAssetStage.tsx`、`resources/fortune/zodiac_altar_base_small.glb`、`app/nav-world/public/models/fortune/zodiac_altar_base_small.glb`、`validation/layer-5/debug.md`。
+
+验证结果：`npm run assets:fortune:prepare` 通过，当前恢复为 19 个 fortune assets；`npm run assets:fortune:check` 通过；`npm run build` 通过。构建过程中 Vite 仍提示 `WorldExperience` chunk 超过 500 kB，这是既有 3D 资源相关提示，不阻断构建；`assets:prune` 清理了回退前构建生成、但当前 `index.html` 不再引用的旧 frontend hash 资源。
+
+画面变化：有。小号星座台不再出现在 `X=-6, Z=0`；室内模型加载错误时恢复为整体 fallback 行为。
+
+截图：本次不由 Codex 生成截图；按当前小步模型摆位口径，由用户实机验证。
+
+剩余风险：回退后，如果任意室内 GLB 再次触发加载或渲染错误，室内模型组仍可能整体显示 `InteriorFallback()` 的黄褐色方块、紫色圆柱和浅紫色半球。这是本次按用户要求恢复的旧行为。
+
+## 2026-07-08 / Layer 5A 旧 dev server 返回 HTML 导致 GLB 解析失败
+
+日期：2026-07-08
+
+版本 / Layer：Layer 5A 占卜屋模型接入切片
+
+现象：用户实机控制台显示 `Could not load ./models/fortune/tarot_magic_circle.glb: Unexpected token '<', "<!DOCTYPE ..." is not valid JSON`，并出现 `Fortune shell failed to render`。页面仍在 `localhost:5173` 运行。
+
+原因判断：磁盘上的 `app/nav-world/public/models/fortune/tarot_magic_circle.glb` 和 `app/frontend/models/fortune/tarot_magic_circle.glb` 均存在，但 `curl -I http://localhost:5173/models/fortune/tarot_magic_circle.glb` 返回 `Content-Type: text/html`，内容开头是 `<!DOCTYPE html>`。同一 dev server 下 `/models/world/island.glb` 能正常返回 GLB，说明问题不是 WebGL 或 Three.js 本身，而是 5173 这个较早启动的 Vite dev server 没刷新后续新增/重写的 fortune public 资源，导致 fortune GLB URL 被 SPA fallback 成 `index.html`。GLTFLoader 拿 HTML 当 GLB/JSON 解析，所以报 `Unexpected token '<'`。
+
+解决方案：本次只记录原因。重启 `app/nav-world` 的 Vite dev server 后再访问即可；临时新开 `npm run dev -- --port 5174` 验证同一 URL 返回 `Content-Type: model/gltf-binary`，文件头为 `glTF`，说明当前资源文件本身正常。
+
+涉及文件：`app/nav-world/public/models/fortune/tarot_magic_circle.glb`、`app/frontend/models/fortune/tarot_magic_circle.glb`、`validation/layer-5/debug.md`。
+
+验证结果：`curl -I http://localhost:5173/models/fortune/tarot_magic_circle.glb` 返回 HTML；临时启动 `localhost:5174` 后，`curl -I http://localhost:5174/models/fortune/tarot_magic_circle.glb` 和 `curl -I http://localhost:5174/models/fortune/iching_floor_pattern.glb` 均返回 `model/gltf-binary`，文件头为 `glTF`。临时 5174 dev server 已关闭。
+
+画面变化：无。本次只定位运行时服务状态，不改模型坐标或代码。
+
+截图：本次不由 Codex 生成截图；用户已提供控制台截图作为现象依据。
+
+剩余风险：如果继续使用未重启的 5173 dev server，fortune GLB 请求仍可能返回 HTML 并导致 shell/interior fallback。重启 5173 后如果仍报错，再按具体模型 URL 和控制台堆栈排查。
+
+## 2026-07-08 / Layer 5A 清理旧 5173 服务并重启
+
+日期：2026-07-08
+
+版本 / Layer：Layer 5A 占卜屋模型接入切片
+
+现象：用户按提示重新运行 dev server 后仍在 `localhost:5173` 看到同样的 `Unexpected token '<'` 模型加载错误。截图显示终端提示 `Port 5173 is in use, trying another one...`，新 Vite 实际启动在 `localhost:5174`，但浏览器仍访问旧的 `localhost:5173`。
+
+原因判断：旧的 5173 Vite 进程仍占用端口并继续返回错误的 HTML fallback；用户新启动的 dev server 因端口占用自动切换到 5174，所以刷新 5173 不会使用新服务。页面内 React Error Boundary 也可能保留旧错误状态，需要在服务修复后重新加载页面。
+
+解决方案：停止旧的 5173 Vite 进程和自动切到 5174 的新进程；重新在 `app/nav-world` 下启动 `npm run dev -- --port 5173`，确保端口 5173 被新进程占用。重新验证 `tarot_magic_circle.glb`、`tarot_table.glb` 和 `iching_floor_pattern.glb` 都返回 `Content-Type: model/gltf-binary`，文件头为 `glTF`。
+
+涉及文件：`validation/layer-5/debug.md`。
+
+验证结果：`curl -I http://localhost:5173/models/fortune/tarot_magic_circle.glb` 返回 `model/gltf-binary`；`curl -I http://localhost:5173/models/fortune/tarot_table.glb` 返回 `model/gltf-binary`；`curl -I http://localhost:5173/models/fortune/iching_floor_pattern.glb` 返回 `model/gltf-binary`。当前新的 dev server 运行在 `http://localhost:5173/`。
+
+画面变化：无代码画面变化；运行时服务状态变化。用户需要对浏览器当前页面执行强制刷新，清掉旧 Error Boundary 状态。
+
+截图：本次不由 Codex 生成截图；用户实机验证。
+
+剩余风险：如果浏览器标签不强制刷新，旧页面内存中的错误状态可能继续显示；如果之后重新准备 `public/models/fortune/` 资源并继续使用同一个长时间运行的 dev server，仍可能再次遇到静态资源未刷新，需要重启 dev server。
+
+## 2026-07-08 / Layer 5A 星座轮盘放到 X-6 Z0 地板
+
+日期：2026-07-08
+
+版本 / Layer：Layer 5A 占卜屋模型接入切片
+
+现象：用户在资源 GLB 预览中选中 `fortune/zodiac_wheel.glb`，要求“把这个模型放在 x=-6 z=0 的地板上”。
+
+原因判断：`zodiac_wheel.glb` 已在 fortune 资源 allowlist 中，运行时资源目录已有该文件，不需要复制新文件。模型尺寸约 `2.96 x 0.08 x 2.95`，底部 minY 约 `-0.02`，如果直接放在地板高度可能轻微穿进地面。
+
+解决方案：在 `fortuneModelAssets.interiorAssets` 中新增 `zodiac-wheel-floor`，使用现有 `zodiac_wheel.glb`，位置设为 `[-6, 0.51, 0]`，让模型落在占卜屋局部 `X=-6, Z=0` 的地板上，并略高于地面以避免闪烁。其他模型位置不变。
+
+涉及文件：`app/nav-world/src/modules/divination/fortuneModelAssets.ts`、`validation/layer-5/debug.md`。
+
+验证结果：`npm run assets:fortune:check` 通过；`npm run build` 通过。构建过程中 Vite 仍提示 `WorldExperience` chunk 超过 500 kB，这是既有 3D 资源相关提示，不阻断构建；`assets:prune` 清理了上一轮未被当前 `index.html` 引用的旧 frontend hash 资源。
+
+画面变化：有。占卜屋局部 `X=-6, Z=0` 地板位置应出现星座轮盘模型。
+
+截图：本次不由 Codex 生成截图；按当前小步模型摆位口径，由用户实机验证。
+
+剩余风险：模型原始直径接近 3 个单位，如果实机中太大或与地面/坐标辅助重叠，需要继续微调 `scale` 或 Y 高度。
+
+## 2026-07-08 / Layer 5A 隐藏原占卜屋模块屏并新增三块空白内容屏
+
+日期：2026-07-08
+
+版本 / Layer：Layer 5A 占卜屋模型接入切片
+
+现象：用户要求隐藏原先占卜屋的大屏幕，并在三个建模从中间看过去的略后方各放一个同类空白屏幕，方便后续补内容。
+
+原因判断：截图中的原占卜屋大屏来自 Layer 4 的 `WorldModulePanels`，不是 GLB 模型；它当前显示 `Divination`、状态按钮和能力列表，会遮挡占卜屋室内模型摆位。后续星座、塔罗、周易需要各自独立内容承载面，直接复用一块总模块屏不利于分区布局。
+
+解决方案：在 `WorldModulePanels.tsx` 里过滤掉 `definition.id === "divination"`，隐藏原占卜屋 Layer 4 模块表面，保留实验室和五子棋模块表面不变。在 `FortuneAssetStage.tsx` 中新增 `BlankContentScreens`，室内加载后显示三块空白竖屏：星座轮盘后方 `[-7.45, 2.0, 0]`、塔罗桌后方 `[0, 2.0, 5.85]`、周易桌后方 `[7.45, 2.0, 0]`，均朝向中心区域；屏幕只包含空白底板和轻量边框，不绑定交互和业务内容。
+
+涉及文件：`app/nav-world/src/modules/WorldModulePanels.tsx`、`app/nav-world/src/modules/divination/FortuneAssetStage.tsx`、`validation/layer-5/debug.md`。
+
+验证结果：`npm run assets:fortune:check` 通过；`npm run build` 通过。构建过程中 Vite 仍提示 `WorldExperience` chunk 超过 500 kB，这是既有 3D 资源相关提示，不阻断构建；`assets:prune` 清理了上一轮未被当前 `index.html` 引用的旧 frontend hash 资源。
+
+画面变化：有。原占卜屋 `Divination` 模块大屏不再显示；占卜屋三个区域后方应出现三块空白内容屏。
+
+截图：本次不由 Codex 生成截图；按当前小步模型摆位口径，由用户实机验证。
+
+剩余风险：三块空白屏位置按当前局部坐标和“从中心看略后方”的口径估算；如果实机中屏幕遮挡模型、贴墙或角度不理想，需要继续微调位置、尺寸或旋转。
+
+## 2026-07-08 / Layer 5A 愚者塔罗样始牌放到桌面
+
+日期：2026-07-08
+
+版本 / Layer：Layer 5A 占卜屋模型接入切片
+
+现象：用户要求把 `/home/tang/sites/gluepudding/resources/fortune/tarot_card_sample_major_00_fool.glb` 作为塔罗牌原型放在塔罗桌桌面上。
+
+原因判断：该样始牌源文件存在，但此前不在 `prepare-fortune-assets.mjs` allowlist 中，运行时不会复制到 `public/models/fortune/`。模型尺寸约 `0.405 x 0.021 x 0.68`，适合直接作为单张卡牌放在桌布表面。
+
+解决方案：将 `tarot_card_sample_major_00_fool.glb` 加入 fortune 资源 allowlist 并输出到 `app/nav-world/public/models/fortune/`；在 `fortuneModelAssets.interiorAssets` 中新增 `tarot-card-fool-sample`，位置设为 `[0, 1.285, 4.45]`，放在塔罗桌布上方偏前的桌面中央，rotation 设为 `[0, 0.16, 0]`，scale 设为 `0.88`，避免和水晶球重叠。
+
+涉及文件：`app/nav-world/scripts/prepare-fortune-assets.mjs`、`app/nav-world/src/modules/divination/fortuneModelAssets.ts`、`app/nav-world/public/models/fortune/tarot_card_sample_major_00_fool.glb`、`validation/layer-5/debug.md`。
+
+验证结果：`npm run assets:fortune:prepare` 通过，当前准备 20 个 fortune assets；`npm run assets:fortune:check` 通过；`npm run build` 通过。构建过程中 Vite 仍提示 `WorldExperience` chunk 超过 500 kB，这是既有 3D 资源相关提示，不阻断构建；`assets:prune` 清理了上一轮未被当前 `index.html` 引用的旧 frontend hash 资源。
+
+画面变化：有。塔罗桌桌面上应出现一张愚者塔罗样始牌。
+
+截图：本次不由 Codex 生成截图；按当前小步模型摆位口径，由用户实机验证。
+
+剩余风险：卡牌位置和高度按桌布当前高度估算；如果实机中卡牌悬空、压进桌布或被水晶球遮挡，需要继续小步调整 `position` 的 Y/Z 或 `scale`。
+
+## 2026-07-08 / Layer 5A npm 强制刷新 dev server
+
+日期：2026-07-08
+
+版本 / Layer：Layer 5A 占卜屋模型接入切片
+
+现象：用户要求“npm 强刷”，用于排除浏览器或 Vite dev server 继续使用旧模块、旧 public 资源或旧依赖预构建结果导致模型未更新的问题。
+
+原因判断：此前出现过 GLB 请求被旧 dev server 返回 HTML 的情况，因此需要从 npm/Vite 侧重启服务并强制重新优化依赖，确保 `public/models/fortune/` 下的新资源由当前 5173 服务提供。
+
+解决方案：停止原 `localhost:5173` 上的旧 `node` dev server，删除 `app/nav-world/node_modules/.vite`，再用 `npm run dev -- --host 0.0.0.0 --port 5173 --force` 启动新的 Vite dev server。
+
+涉及文件：`validation/layer-5/debug.md`。本次未修改产品代码。
+
+验证结果：新的 Vite dev server 已在 `http://localhost:5173/` 启动，并显示 `Forced re-optimization of dependencies`。直接请求 `http://localhost:5173/models/fortune/tarot_card_sample_major_00_fool.glb` 返回 `200 OK`，`Content-Type: model/gltf-binary`，文件头为 `glTF`。
+
+画面变化：无代码层面的新增画面变化；该操作用于让浏览器拿到最新运行时资源。
+
+截图：本次不由 Codex 生成截图；按当前小步模型摆位口径，由用户实机验证。
+
+剩余风险：如果浏览器标签页仍显示旧画面，需要在该标签页执行一次浏览器强制刷新，避免 DevTools 或页面自身保留旧运行时状态。
+
+## 2026-07-08 / Layer 5A 删除占卜屋交互可见球
+
+日期：2026-07-08
+
+版本 / Layer：Layer 5A 占卜屋模型接入切片
+
+现象：用户截图中占卜屋内左侧空中出现一个淡紫色球体，要求“这个球删掉”。
+
+原因判断：该球不是 GLB 模型，也不是塔罗桌水晶球，而是 `InteractionSystem` 为 `divination-house` 交互目标绘制的可见 aim marker。占卜屋进入 Layer 5A 室内模型调试后，这个通用交互提示球会悬在室内视野中，干扰模型摆位和空白屏观察。
+
+解决方案：在 `InteractionSystem.tsx` 中只对 `divination-house` 隐藏可见 aim marker 球体；保留透明 raycast 命中球和地面 proximity ring 的逻辑，因此准星点击、靠近按 E 和选中状态仍可继续工作。实验室和五子棋的可见 aim marker 不变。
+
+涉及文件：`app/nav-world/src/world/InteractionSystem.tsx`、`validation/layer-5/debug.md`。
+
+验证结果：`npm run build` 通过。构建过程中 Vite 仍提示 `WorldExperience` chunk 超过 500 kB，这是既有 3D 资源相关提示，不阻断构建；`assets:prune` 清理了上一轮未被当前 `index.html` 引用的旧 frontend hash 资源。
+
+画面变化：有。占卜屋内的淡紫色交互提示球应消失；其他模型和占卜屋交互能力不应受影响。
+
+截图：本次不由 Codex 生成截图；按当前小步模型摆位口径，由用户实机验证。
+
+剩余风险：占卜屋地面范围提示 ring 仍保留。如果后续用户希望连地面交互圈也隐藏，需要再单独关闭 `divination-house` 的可见 proximity ring，而不是删除交互命中逻辑。
+
+## 2026-07-08 / Layer 5 正式验收并缩小目标范围
+
+日期：2026-07-08
+
+版本 / Layer：Layer 5 占卜屋模型摆放验收层
+
+现象：用户明确确认“此层目标缩小，所有的建模已放置于规定位置，所有的交互逻辑均没做，包括点击，下放到 Layer 8 制作，Layer 5 确认验收”。
+
+原因判断：Layer 5A 已围绕占卜屋外壳、塔罗桌、星座轮盘、周易桌、三块空白内容屏和无关可见提示物完成多轮实机微调。继续把点击、选中、高亮、面板、mock 数据、真实接口等业务交互放在 Layer 5，会扩大本层范围并拖慢后续分层验证。
+
+解决方案：将 `VALIDATION_LAYERS.md` 中 Layer 5 从“占卜屋模拟层”调整为“占卜屋模型摆放验收层”，明确本层只验收模型位置和资源稳定性；点击、选中、高亮、卡牌翻面、星座输入、周易起卦、结果展示、mock 流程和真实接口全部下放到 Layer 8。同步更新 `TODO.md`，把星座台、塔罗桌、周易桌和三块空白内容屏标记为模型摆放已完成，并把真实场景区域交互标注为 Layer 8 任务。
+
+涉及文件：`VALIDATION_LAYERS.md`、`TODO.md`、`validation/layer-5/debug.md`。
+
+验证结果：文档更新完成；本次未修改运行时代码，因此不运行构建。Layer 5 验收事实来自用户实机确认。
+
+画面变化：无。本次是验收口径和任务边界调整，不改变画面。
+
+截图：不新增截图；沿用 Layer 5 已有实机截图和用户本轮确认。
+
+剩余风险：Layer 5 不再覆盖占卜业务交互。Layer 8 开始时需要重新确认交互验收标准，包括准星/移动端命中、点击选中、内容屏承载、mock 兜底、真实接口失败处理和周易六爻展示顺序。

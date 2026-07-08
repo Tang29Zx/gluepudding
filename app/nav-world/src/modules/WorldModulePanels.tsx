@@ -463,21 +463,23 @@ export function WorldModulePanels({
 
   return (
     <group>
-      {worldModuleDefinitionList.map((definition) => (
-        <WorldModuleErrorBoundary
-          fallback={<ModulePanelFallback definition={definition} />}
-          key={definition.id}
-          onError={() => onModuleStatusChange(definition.id, "error")}
-          resetKey={`${definition.id}:${moduleStatuses[definition.id]}`}
-        >
-          <ModulePanel
-            aimedModuleControl={aimedModuleControl}
-            definition={definition}
-            registerControlMesh={registerControlMesh}
-            status={moduleStatuses[definition.id]}
-          />
-        </WorldModuleErrorBoundary>
-      ))}
+      {worldModuleDefinitionList
+        .filter((definition) => definition.id !== "divination")
+        .map((definition) => (
+          <WorldModuleErrorBoundary
+            fallback={<ModulePanelFallback definition={definition} />}
+            key={definition.id}
+            onError={() => onModuleStatusChange(definition.id, "error")}
+            resetKey={`${definition.id}:${moduleStatuses[definition.id]}`}
+          >
+            <ModulePanel
+              aimedModuleControl={aimedModuleControl}
+              definition={definition}
+              registerControlMesh={registerControlMesh}
+              status={moduleStatuses[definition.id]}
+            />
+          </WorldModuleErrorBoundary>
+        ))}
     </group>
   );
 }

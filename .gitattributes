@@ -1,3 +1,1 @@
 * text=auto eol=lf
-app/nav-world/public/models/world/*.glb filter=lfs diff=lfs merge=lfs -text
-app/nav-world/public/models/fortune/**/*.glb filter=lfs diff=lfs merge=lfs -text

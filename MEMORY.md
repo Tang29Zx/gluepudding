@@ -41,13 +41,15 @@
 - 2026-07-08：新增中文 `README.md` 作为协作者启动入口，记录主工程启动、build / preview、SSH 隧道预览、`resources/` 本地参考不进 Git、验证归档和 Layer 4 当前交互口径。
 - 2026-07-08：用户明确本项目面向中文用户；后续 README、技术文档、产品 UI 文案、验证记录和协作文档默认中文，代码标识、文件名、接口路径、命令、环境变量和第三方协议名保持英文。
 - 2026-07-08：`resources/float-island-low-ploy.zip` 内的 `source/island.glb` 已按用户要求删除浮岛上的动物节点；动物通过 `goat material` 定位，共移除 9 个动物 mesh，并用 `@gltf-transform/cli prune` 清理未引用资源。原始资源备份在 `resources/float-island-low-ploy.original.zip`，该目录仍不进 Git。
-- 2026-07-08：Layer 4.5 已把浮岛 GLB 接入为基础地形；源模型 `app/nav-world/public/models/world/island.glb` 约 86MB，已改由 Git LFS 管理，也可通过 `npm run assets:world:prepare` 从本地 `resources/float-island-low-ploy.zip` 重新生成；构建输出 `app/frontend/models/world/island.glb` 继续被 `.gitignore` 忽略。玩家贴地采样 GLB 主岛体 `Icosphere`，选择最高的朝上可走命中面；第一版不做树木、墙体或装饰物碰撞。
+- 2026-07-08：Layer 4.5 已把浮岛 GLB 接入为基础地形；源模型 `app/nav-world/public/models/world/island.glb` 约 86MB，可通过 `npm run assets:world:prepare` 从本地 `resources/float-island-low-ploy.zip` 重新生成；当前按用户要求暂不使用 Git LFS 追踪 `.glb`，`.gitattributes` 不保留 `.glb filter=lfs` 规则；构建输出 `app/frontend/models/world/island.glb` 继续被 `.gitignore` 忽略。玩家贴地采样 GLB 主岛体 `Icosphere`，选择最高的朝上可走命中面；第一版不做树木、墙体或装饰物碰撞。
 - 2026-07-08：Layer 4.5 接入 86MB GLB 后，App 启动超时窗口已调整：动态 `WorldExperience` chunk 下载等待 90 秒，3D 世界 ready 等待 180 秒。原因是 `onReady()` 现在要等 GLB 下载、解析和地形采样准备；SSH 转发或慢速浏览器下 15 秒会误切到 2D 兜底页。
 - 2026-07-08：常驻 3D 模块表面的文字容量有限，默认面板不适合放长状态说明；`WorldModulePanels` 已改用短状态文案和固定分区坐标，避免状态说明、按钮、能力列表和底部提示重合。后续真实业务内容变多时，应改为区域内近距离大屏或分步交互，不要继续往默认小面板塞长文。
 - 2026-07-08：README 面向普通协作者时不默认他们拥有项目服务器或 SSH 配置；协作者预览路径以本地 clone、本地 `npm run preview` 和 `127.0.0.1` 为准。
 - 2026-07-08：Layer 4.5 启动页已提示“首次加载需要下载 3D 模型，可能需要较长时间。”，用于解释 86MB GLB 首次下载和解析等待。
 - 2026-07-08：`resources/fortune.zip` 已解压为占卜屋模型资源目录 `resources/fortune/`，包含塔罗和星座相关 GLB / 贴图资源；原占卜屋现有功能实现代码目录从 `resources/fortune/` 重命名为 `resources/feature-implementation/`。后续复用类型、API 适配和 mock 流程时使用 `resources/feature-implementation/src/`；不要读取或记录其中 `.env` 内容。
 - 2026-07-08：Layer 5A 只接入占卜屋轻量模型外壳和室内道具，不接业务逻辑；完整塔罗牌面贴图目录约 80.8MB，不能随首屏或占卜屋模型包一次性下载。当前运行时只复制 allowlist GLB 到 `app/nav-world/public/models/fortune/`，用 `?fortuneAssets=shell|interior` 做截图验证，真实访问仍按靠近/聚焦触发加载。
+- 2026-07-08：Layer 5 已按用户要求正式缩小为“占卜屋模型摆放验收层”并确认验收；点击、选中、高亮、卡牌翻面、星座选择、周易起卦、mock 和真实占卜接口均下放到 Layer 8。用户将并行开发 Layer 6 和 Layer 12，协作者将在新分支 `fortune` 开发 Layer 8，交接文档为 `validation/layer-8/fortune-handoff.md`。
+- 2026-07-08：`resources/fortune/textures/` 下没有 JS/MJS；可复用脚本实际在 `resources/fortune/*.mjs`。塔罗牌面资源有 `textures/rws/` 原图约 67MB 和 `textures/rws-web/` 压缩图约 15MB。Layer 8 应避免一次性加载 78 张高清图，建议复制并懒加载 `rws-web` 中被选中的 3 张。
 - 2026-07-08：`app/nav-world/package-lock.json` 曾锁到 `http://mirrors.tencentyun.com/npm/` tarball，导致 `npm install` 下载 `zustand` 时 `ECONNRESET/socket hang up`；已改为 `https://registry.npmjs.org/` tarball。协作者若觉得 `npm install` 像卡死，可用 `npm install --loglevel=http` 查看下载/缓存命中进度。
 - 2026-07-08：用户明确当前 Codex 截图验证难度和成本过高，模型摆位微调的截图由用户实机验证即可；Codex 不再为这类小步视觉调整强行生成桌面/移动截图。后续仍需运行可用的构建、资源检查或类型检查，并在对应 Layer 的 `debug.md` 记录“截图由用户实机验证”。
 

@@ -6,7 +6,7 @@ import {
   type ErrorInfo,
   type ReactNode,
 } from "react";
-import { Mesh } from "three";
+import { DoubleSide, Mesh } from "three";
 import {
   landmarkPositions,
 } from "../../world/sceneConfig";
@@ -33,6 +33,23 @@ interface FortuneAssetBoundaryState {
 
 const tentDoorFacingSpawnYaw = -2.47;
 const coordinateTicks = [-8, -6, -4, -2, 2, 4, 6, 8] as const;
+const blankScreenDefinitions = [
+  {
+    id: "zodiac",
+    position: [-7.45, 2.0, 0],
+    rotation: [0, Math.PI / 2, 0],
+  },
+  {
+    id: "tarot",
+    position: [0, 2.0, 5.85],
+    rotation: [0, Math.PI, 0],
+  },
+  {
+    id: "iching",
+    position: [7.45, 2.0, 0],
+    rotation: [0, -Math.PI / 2, 0],
+  },
+] as const;
 
 class FortuneAssetBoundary extends Component<
   FortuneAssetBoundaryProps,
@@ -142,6 +159,38 @@ function InteriorFallback() {
         <meshStandardMaterial color="#c5a36d" roughness={0.8} />
       </mesh>
     </group>
+  );
+}
+
+function BlankContentScreens() {
+  return (
+    <>
+      {blankScreenDefinitions.map((screen) => (
+        <group
+          key={screen.id}
+          position={screen.position}
+          rotation={screen.rotation}
+        >
+          <mesh receiveShadow>
+            <planeGeometry args={[2.45, 1.55]} />
+            <meshBasicMaterial
+              color="#fbfbff"
+              side={DoubleSide}
+              transparent
+              opacity={0.9}
+            />
+          </mesh>
+          <mesh position={[0, 0, 0.018]}>
+            <boxGeometry args={[2.55, 1.65, 0.035]} />
+            <meshBasicMaterial
+              color="#e8dcff"
+              transparent
+              opacity={0.32}
+            />
+          </mesh>
+        </group>
+      ))}
+    </>
   );
 }
 
@@ -285,6 +334,7 @@ export function FortuneAssetStage({
         <FortuneAssetBoundary fallback={<InteriorFallback />} label="Fortune interior">
           <Suspense fallback={null}>
             <InteriorModels />
+            <BlankContentScreens />
           </Suspense>
         </FortuneAssetBoundary>
       ) : null}

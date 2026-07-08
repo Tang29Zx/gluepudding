@@ -327,6 +327,7 @@ export function InteractionSystem({
           isSelected,
         });
         const ringScale = isSelected ? 1.12 : isAimed ? 1.06 : 1;
+        const shouldShowAimMarker = target.id !== "divination-house";
 
         return (
           <group key={target.id}>
@@ -363,16 +364,18 @@ export function InteractionSystem({
               />
             </mesh>
 
-            <mesh position={target.aimPosition}>
-              <sphereGeometry args={[isSelected ? 0.42 : 0.32, 24, 16]} />
-              <meshStandardMaterial
-                color={target.accentColor}
-                emissive={target.accentColor}
-                emissiveIntensity={isSelected || isAimed ? 0.54 : 0.2}
-                opacity={opacity}
-                transparent
-              />
-            </mesh>
+            {shouldShowAimMarker ? (
+              <mesh position={target.aimPosition}>
+                <sphereGeometry args={[isSelected ? 0.42 : 0.32, 24, 16]} />
+                <meshStandardMaterial
+                  color={target.accentColor}
+                  emissive={target.accentColor}
+                  emissiveIntensity={isSelected || isAimed ? 0.54 : 0.2}
+                  opacity={opacity}
+                  transparent
+                />
+              </mesh>
+            ) : null}
           </group>
         );
       })}

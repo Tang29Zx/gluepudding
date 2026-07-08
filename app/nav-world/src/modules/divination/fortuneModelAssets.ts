@@ -103,10 +103,22 @@ export const fortuneModelAssets = {
       url: modelUrl("tarot_crystal_ball.glb"),
     },
     {
+      id: "tarot-card-fool-sample",
+      position: [0, 1.285, 4.45],
+      rotation: [0, 0.16, 0],
+      scale: 0.88,
+      url: modelUrl("tarot_card_sample_major_00_fool.glb"),
+    },
+    {
       id: "zodiac-star-dome",
       position: [0, 6.85, -0.55],
       scale: 1.62,
       url: modelUrl("zodiac_star_dome.glb"),
+    },
+    {
+      id: "zodiac-wheel-floor",
+      position: [-6, 0.51, 0],
+      url: modelUrl("zodiac_wheel.glb"),
     },
     {
       id: "iching-table",
@@ -114,6 +126,13 @@ export const fortuneModelAssets = {
       rotation: rotationOnIchingTable(),
       scale: 0.95,
       url: modelUrl("iching_table.glb"),
+    },
+    {
+      id: "iching-floor-pattern",
+      position: positionOnIchingTable(0, 1.105, 0),
+      rotation: rotationOnIchingTable(),
+      scale: 0.27,
+      url: modelUrl("iching_floor_pattern.glb"),
     },
     {
       id: "iching-lot-cylinder",
@@ -132,7 +151,7 @@ export const fortuneModelAssets = {
     {
       id: "iching-bamboo-slips",
       position: positionOnIchingTable(0.05, 1.68, 0.02),
-      rotation: [-Math.PI / 2, ichingTableYaw + 0.12, 0.08],
+      rotation: [-Math.PI / 2, 0, 0],
       scale: 0.84,
       url: modelUrl("iching_bamboo_slips.glb"),
     },

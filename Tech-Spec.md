@@ -60,7 +60,7 @@ gomoku-board     -> gomoku
 
 ### 接入边界
 
-- 大场景源模型位于 `app/nav-world/public/models/world/island.glb`，体积约 86MB，已通过 Git LFS 管理；也可通过 `npm run assets:world:prepare` 从本地 `resources/float-island-low-ploy.zip` 重新生成。
+- 大场景源模型位于 `app/nav-world/public/models/world/island.glb`，体积约 86MB；当前暂不使用 Git LFS 追踪 `.glb`，也可通过 `npm run assets:world:prepare` 从本地 `resources/float-island-low-ploy.zip` 重新生成。
 - 构建后模型会复制到 `app/frontend/models/world/island.glb`；该构建输出继续被 `.gitignore` 忽略，不提交普通 Git。
 - GLB 使用 `scale = 6`、`position = [-14.4, -10, 3.5]`，作为世界基础地形；旧圆形地板和网格只作为 GLB 加载中或加载失败兜底。
 - 玩家贴地对 GLB 主岛体 `Icosphere` 做射线采样，并选择最高的朝上可走命中；树木、房屋墙体和装饰物第一版不参与碰撞。
@@ -82,7 +82,7 @@ gomoku-board     -> gomoku
 
 - 轻量模型从 `resources/fortune/` 通过 `npm run assets:fortune:prepare` 复制到 `app/nav-world/public/models/fortune/`。
 - `resources/fortune/textures/`、`tex_*.png`、完整塔罗牌面图和大牌面样例 GLB 不进入运行时资源目录。
-- `app/nav-world/public/models/fortune/**/*.glb` 使用 Git LFS；构建输出 `app/frontend/models/fortune/**/*.glb` 继续忽略。
+- `app/nav-world/public/models/fortune/**/*.glb` 当前暂不使用 Git LFS 追踪；构建输出 `app/frontend/models/fortune/**/*.glb` 继续忽略。
 
 ### 加载策略
 
@@ -98,17 +98,20 @@ gomoku-board     -> gomoku
 - 塔罗桌、桌布、烛台、水晶和少量占位塔罗牌放在桌面高度；不加载 22/78 张牌面贴图。
 - 星座穹顶放在帐篷上方，周易桌、卦板和铜钱放在室内右侧。
 
-## Layer 5：占卜屋模拟业务层
+## Layer 8：占卜屋交互与占卜接口层
 
-目标：在不依赖真实后端的情况下，让用户能在同一个 3D 世界内完成占卜屋最小演示。
+目标：在 Layer 5 模型摆放已验收后，让用户能在同一个 3D 世界内完成占卜屋塔罗、星座和周易交互，并为真实占卜接口接入保留边界。
 
 ### 范围
 
-- 本层只做占卜屋 mock-first 前端体验，不接真实付费、认证、AI 或外部占卜服务。
+- Layer 5 已缩小为模型摆放验收，不再承载占卜交互。
+- 本层做占卜屋 mock-first 前端体验，并在接口可用时通过适配层接入真实占卜服务。
 - 占卜屋仍然是 3D 世界内模块，不使用整页跳转。
-- 塔罗用 3D 卡牌占位体实现准星命中、左键或 `E` 选择和高亮。
-- 星座和周易先用 3D 表面按钮触发基础模拟结果，不做复杂表单输入。
+- 塔罗开始后生成 78 张空白牌环绕用户；用户选择 3 张后，才随机抽取 3 张塔罗贴图并渲染到选中的牌上。
+- 星座使用 12 个可交互区域让用户选择自己的星座，并在星座屏显示解读。
+- 周易先询问用户想算什么，再通过 6 次掷铜钱记录正反面、换算爻值、解卦并在周易屏显示。
 - 周易展示六爻时必须使用 `result.lines.slice().reverse()`，因为接口结果从下往上返回。
+- 详细交接要求见 `validation/layer-8/fortune-handoff.md`。
 
 ### 接口边界
 
