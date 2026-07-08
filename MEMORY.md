@@ -1,0 +1,52 @@
+# 项目记忆
+
+- 2026-07-07：`REQUIREMENTS.md` 和 `TODO.md` 已成为算命大世界的当前精简规划文档，内容从 `fortune_world_complete_plan.md` 拆分整理而来。完整方案文档继续作为背景参考，除非后续任务明确要求删除或替换。
+- 2026-07-07：用户要求规划文档全用中文表达。后续维护这些文档时，说明性文字使用中文；文件名、接口路径、类型名、环境变量、代码片段等契约标识保持原样。
+- 2026-07-07：用户纠正算命大世界文档范围：用户目标是前端 3D 大世界主框架与最终整合；建模和后端信息只用于规范外部输入、模型资源和数据接口契约，不应写成用户自己的交付任务。
+- 2026-07-07：用户进一步明确最终设想不是跳转式导航，而是把 `gluepudding` 总站做成实时 3D 大世界；占卜屋、实验室、WebRTC 大屏、RDK 世界模型、门禁控制和五子棋都应在同一个 3D 世界内实时打开和操作。
+- 2026-07-07：新增 `VALIDATION_LAYERS.md` 记录 3D 实时站点大世界的分层最小验证目标；每层必须写明上一层进入条件、需要其他同学或外部系统准备的内容、本层最小验证目标和通过标准。
+- 2026-07-07：用户要求每个 Layer 单独维护 `debug.md`，路径为 `validation/layer-N/debug.md`；每次在对话中基于上一版发现问题、修复问题、调整参数或改变行为，都要记录到对应 Layer 的 debug 文件。以后所有验证截图必须归入 `validation/` 并在 `VALIDATION_LAYERS.md` 引用；只要用户可见画面发生变化，就必须同时提供电脑端和手机端截图。
+- 2026-07-07：用户纠正验证产物目录：不要放在 `validation-screenshots/` 下，截图、每层 `debug.md` 和后续验证材料统一放在 `validation/` 下。
+- 2026-07-07：用户要求 `gluepudding` 3D World 页面不要出现个人名称、昵称或旧个人站品牌标识；页面品牌使用 `gluepudding` / `3D World` 等中性表达。
+- 2026-07-07：用户要求 3D 世界运行态左上角不要显示 `gluepudding 3D World` 可见品牌字样；运行态 HUD 保留状态信息即可，2D 兜底页可继续保留可读入口品牌。
+- 2026-07-07：Layer 1 采用 `gluepudding/app/nav-world/` 作为 Vite React TypeScript 源码目录，包管理器为 npm，`package-lock.json` 是依赖锁定事实来源，构建输出目录为 `gluepudding/app/frontend/`。
+- 2026-07-07：Layer 1 已引入 `three`、`@react-three/fiber`、`@react-three/drei`；`zustand` 暂不引入，等 Layer 3 出现跨组件世界状态需求后再决定。
+- 2026-07-07：用户反馈 Layer 1 首屏场景显得偏小；基础取景应更接近、更低，区域占位体要有明确世界感，不应像远距离沙盘缩略图。
+- 2026-07-07：用户进一步纠正 3D World 基础尺度：场地必须足够大并能继续拓展；初始体验应以第一人称为基准；人、屋子和区域占位体比例应按现实尺度表达，不要做成微缩沙盘。
+- 2026-07-07：后续每个分层或阶段实现完成后，是否标记用户实机确认 OK 仍以用户确认为准；但从新增截图归档规则生效后，只要有用户可见画面变化，就必须先按规则生成电脑端和手机端截图，放入 `validation/` 并在 `VALIDATION_LAYERS.md` 记录截图含义。
+- 2026-07-07：验证截图临时文件注意事项：snap 版 Chromium 在 headless 截图时对 `/tmp`、工作区隐藏目录和 `validation/` 可能有 AppArmor/命名空间写入限制，曾出现命令报告写入但当前工具不可见，或对工作区路径报 `No such file or directory`。如需临时目检，可先写到 `/home/ubuntu` 这类可见位置；最终汇报前必须重新生成或移动到 `validation/`，并在 `VALIDATION_LAYERS.md` 引用。
+- 2026-07-07：`gluepudding/app/nav-world` 初始加载优化结论：不要在 `App.tsx` 静态引入 3D 世界入口，否则 Three/R3F 会进入首包并拖慢初始加载。`WorldExperience` 应保持动态 `import()` 加载，让 2D 兜底和启动页先可见，3D 世界作为独立 chunk 异步加载。
+- 2026-07-07：`gluepudding/app/nav-world` 3D 启动兜底阈值为 15 秒；前 15 秒只显示轻量渐变启动屏，不显示完整 2D 兜底页。15 秒计时必须从 `WorldExperience` chunk 加载完成或加载失败后开始，不能从页面初始加载就开始，否则慢下载会被误判为 3D 初始化失败。如果 `WorldExperience` 加载后 15 秒内没有触发 ready，才切到 2D 兜底页，避免用户长时间停留在加载状态。
+- 2026-07-07：`gluepudding/app/nav-world` 启动屏已加入阶段式进度条；由于原生动态 `import()` 不暴露逐字节下载进度，进度条采用可解释阶段。下载 3D world chunk 时不再硬停在 76%，会先推进到约 88%，之后慢速爬升到约 98%；chunk 加载后进入 WebGL 初始化并推进到约 99%，`onReady` 后隐藏启动屏。3D chunk 下载超过约 45 秒会判定为失败并切到兜底，避免启动屏无限等待。
+- 2026-07-07：`gluepudding/app/nav-world` 已在 Vite 构建阶段为 `WorldExperience` chunk 注入 `<link rel="modulepreload">`，并放在 `head` 前部，减少主 JS 执行后才开始下载 3D chunk 的瀑布等待。当前没有开启 `/assets/` 长缓存，按用户要求等整体完成后再考虑；该 preload 的取舍是 `forceFallback` 页面也可能提前请求 3D chunk。
+- 2026-07-07：`gluepudding` 前端部署避免 hash 资源错配：`nav-world` 的 Vite 构建使用 `emptyOutDir: false` 保留旧 assets，避免缓存中的旧 `index.html` 引用已被删除的 hash JS；Nginx `gluepudding` 站点已为 `/assets/` 增加独立 `try_files $uri =404`，缺失 JS/CSS 不再回退到 `index.html`，否则浏览器会因 `text/html` MIME 拒绝 module script。
+- 2026-07-07：为避免再次把多次中间构建 hash 产物提交成数万行 diff，`gluepudding/app/nav-world` 的 `npm run build` 会在 Vite 构建后运行 `assets:prune`，只删除未跟踪且当前 `app/frontend/index.html` 未引用的 Vite 生成资源；已跟踪的历史 assets 会保留，以继续兼容旧缓存入口。
+- 2026-07-07：`gluepudding` 入口 HTML 需要避免长期缓存：Nginx `gluepudding` 站点已为 `/` 和 `/index.html` 增加 `Cache-Control: no-cache, no-store, must-revalidate`，减少用户打开旧 `index.html` 导致旧 hash 或旧初始化逻辑继续生效的问题。
+- 2026-07-07：`gluepudding` 站点已在 Nginx server 块启用 JS/CSS gzip：`gzip on`、`gzip_vary on`、`gzip_types text/css application/javascript text/javascript application/json image/svg+xml`。原因是默认 gzip 只压 HTML，导致 3D world chunk 可能按约 890KB 原始 JS 下载；启用后当前 `WorldExperience` chunk 传输量约 234KB gzip。
+- 2026-07-07：Layer 2 玩家控制扩展为 `WASD` 移动、鼠标 Pointer Lock 视角、`Shift` 按住疾跑、`Space` 跳跃；跳跃使用前端模拟重力并落回地面。`Ctrl` 不再作为疾跑键，因为 `Ctrl+W` 会触发浏览器关闭当前标签页。当前跳跃手感采用偏重、短滞空参数：`gravity: 34`、`jumpVelocity: 8.8`、`jumpBufferSeconds: 0.12`，用于避免落地前短按 `Space` 被丢弃造成粘脚。空中移动采用起跳瞬间水平速度，鼠标仍可转视角，但玩家轨迹不会在空中改向。
+- 2026-07-07：Layer 3 世界内交互层采用局部 React state，不引入 `zustand`；交互目标 id 固定为 `divination-house`、`laboratory`、`gomoku-board`。玩家控制由 Canvas 内运行容器统一创建并传给 `CameraRig` 和 `InteractionSystem`，面板打开时暂停移动并退出 Pointer Lock，关闭后通过点击画布重新进入视角控制。
+- 2026-07-07：Layer 3 只做世界内交互占位，不实现真实模块；`E` 触发区域级面板，准星命中后左键触发对象选中和面板，右键不再作为主交互，移动端显示 `Interact` / `Select` 按钮作为最小替代。真正模块外壳、加载/错误/离线状态留到 Layer 4。
+- 2026-07-07：Layer 3 面板打开时只暂停玩家输入，不暂停世界物理；跳跃或空中打开面板后重力和空中惯性继续更新，落地后停止水平速度。注意 R3F 的 `Canvas` className 挂在外层 `.world-canvas` div 上，真实 canvas 选择器应为 `.world-canvas canvas`；点击“关闭面板”会聚焦真实 canvas 并在非触屏指针环境下重新申请 Pointer Lock，`ESC` 关闭不强制申请 Pointer Lock。Pointer Lock 退出只清输入，不清空空中速度。
+- 2026-07-07：Layer 3 真实 canvas 必须用 CSS 撑满：`.world-canvas > div` 和 `.world-canvas canvas` 需要 `width: 100%`、`height: 100%`，否则真实 `<canvas>` DOM 盒子可能保持默认 300×150，导致中心点击、Pointer Lock 和准星左键选择不稳定。自动化验证点击 3D 世界前必须等 `.startup-screen` 移除。
+- 2026-07-07：用户确认 Layer 3 世界内交互层 OK，可以进入 Layer 4 模块外壳层。Layer 3 验收口径是交互底座通过；最终入口/门类 UX 仍按“靠近后按 `E`”推进，左键对象选择主要用于后续区域内部具体物件。
+- 2026-07-07：曾生成面向占卜屋模块同学的四份临时交接规划文件：`fortune_agents.md`、`fortune_memory.md`、`fortune_todo.md`、`fortune_layers.md`；用户发送给同学后删除，不作为长期项目文件保留。长期有效结论是：占卜屋仍是 `gluepudding` 3D 大世界内模块，第一版只做星座、塔罗、周易，并以 mock 优先、真实 API 后接入为推进顺序。
+- 2026-07-08：Layer 4 模块外壳层采用 `gluepudding/app/nav-world/src/modules/` 模块注册体系，模块 id 固定为 `divination`、`laboratory`、`gomoku`，交互目标映射为 `divination-house -> divination`、`laboratory -> laboratory`、`gomoku-board -> gomoku`。模块状态为 `ready`、`loading`、`offline`、`error`，通过内置状态切换控件验证，不接真实后端。
+- 2026-07-08：用户纠正 Layer 4 方向：模块外壳不应是点击后出现的 DOM/Html 浮层，而应常驻贴在占卜屋、实验室大屏和五子棋区域的 3D 表面上；准星命中 3D 状态控件后用左键或 `E` 操作，鼠标焦点不离开 Canvas，Pointer Lock 不主动退出。
+- 2026-07-08：Layer 4 采用真实 R3F mesh / plane / Drei `Text` 渲染常驻模块表面，并继续使用 `WorldExperience` 附近的局部 React state；不引入 `zustand`。单个模块用局部 Error Boundary 隔离，模块异常只进入模块错误态，不触发整个 3D World fallback。
+- 2026-07-08：Layer 4 当前原型允许三个模块表面同时常驻渲染；后续再做“进入某区域才加载对应模块，其余模块不加载”的性能优化。
+- 2026-07-08：准星不要使用中心覆盖式半透明光晕或大面积 `box-shadow`，叠在 3D 模块表面时会像透明层盖住准星；用户偏好稍大的传统灰黑色十字准星，当前为 `28px` 外盒、`22px` 横竖线、不透明 `#2f3037`，只保留轻微瞄准缩放反馈。
+- 2026-07-08：用户确认 Layer 4 模块外壳层 OK，可以进入 Layer 4.5 资源接入准备层。
+- 2026-07-08：`resources/` 已放入已有输入：`resources/float-island-low-ploy.zip` 作为世界大场景候选资源，`resources/fortune/` 作为占卜屋现有代码输入。规划新增 Layer 4.5 资源接入准备层；不要读取或记录 `resources/fortune/.env` 内容，`resources/fortune/node_modules/` 和 `resources/fortune/dist/` 不作为主工程源码输入。
+- 2026-07-08：用户确认 `gluepudding/resources/` 里的内容都不要进 Git；`gluepudding/.gitignore` 已用 `resources/` 忽略整个目录，`git ls-files resources` 为空，`git check-ignore` 确认 zip、fortune demo 和 `.env` 都被忽略。后续只把 resources 当本地参考输入，不作为仓库交付物。
+- 2026-07-08：新增中文 `README.md` 作为协作者启动入口，记录主工程启动、build / preview、SSH 隧道预览、`resources/` 本地参考不进 Git、验证归档和 Layer 4 当前交互口径。
+- 2026-07-08：用户明确本项目面向中文用户；后续 README、技术文档、产品 UI 文案、验证记录和协作文档默认中文，代码标识、文件名、接口路径、命令、环境变量和第三方协议名保持英文。
+
+## /new handoff
+
+- `gluepudding` 是最终 3D 实时大世界入口，不是普通跳转导航页。
+- `iot`、`game`、`auth` 保持独立项目边界，只作为大世界能力来源。
+- 核心体验必须在同一个 3D 世界内完成：占卜屋、实验室、WebRTC 大屏、RDK 模型、门禁控制、五子棋。
+- 当前规划事实来源是 `REQUIREMENTS.md`。
+- 分层验收目标在 `VALIDATION_LAYERS.md`。
+- 可执行任务拆分在 `TODO.md`。
+- 给建模同学的 FortuneArea 提示词在 `MEMORY for building.md`，包含塔罗、星座、周易模型与参考图要求。
