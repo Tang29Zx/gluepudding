@@ -12,6 +12,13 @@ type GomokuQaState = {
   winner: number | null;
 };
 
+function isIgnorableRequestFailure(url: string, errorText: string): boolean {
+  return (
+    errorText.includes("net::ERR_ABORTED") &&
+    /\/audio\/[^/]+\.mp3$/.test(url)
+  );
+}
+
 function collectPageFailures(page: Page): string[] {
   const failures: string[] = [];
 
@@ -26,8 +33,14 @@ function collectPageFailures(page: Page): string[] {
   });
 
   page.on("requestfailed", (request) => {
+    const errorText = request.failure()?.errorText ?? "";
+
+    if (isIgnorableRequestFailure(request.url(), errorText)) {
+      return;
+    }
+
     failures.push(
-      `Request failed: ${request.url()} ${request.failure()?.errorText ?? ""}`,
+      `Request failed: ${request.url()} ${errorText}`,
     );
   });
 

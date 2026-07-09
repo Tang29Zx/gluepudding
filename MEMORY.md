@@ -77,6 +77,7 @@
 - 2026-07-09：为实验室权限调试增加出生点前方小屏，位置约为世界坐标 `[2.6, 2.55, 26.2]`，在占卜帐篷和地面传送台之间并略靠近地面传送台，面向出生点，初始视角无需回头即可看到。小屏只在本地 `localhost` / `127.0.0.1` 或显式 `VITE_LAB_AUTH_DEBUG=true` 时显示，用于切换前端“测试已登录 / 测试未登录”实验室通行状态；它不创建真实 auth 会话、不写 cookie、不改服务器权限。正式上线前应移除或替换为“说明 / 关于”屏。
 - 2026-07-09：出生点附近的白粉色柱状比例参考人物已隐藏，不再作为正式场景可见对象；实验室比例后续以玩家第一人称高度和实际可走 / 可碰撞体验为准。
 - 2026-07-09：PR #2 `laboratory -> main` 合并到包含 `game` 和 `fortuine-fix` 的最新主线时，保留实验室权限 / 传送 / WebRTC 状态，同时保留主线的 `GamePortal`、本地 Three vendor、mp3 BGM 和 `playOptionalAudio` 缺失音效保护；不恢复旧 `ReferenceLandmarks`，避免旧实验室占位和白粉色参考人物回到正式场景。
+- 2026-07-09：实验室 auth 在本地 `localhost` / `127.0.0.1` / `::1` 预览时默认使用 guest fallback，不请求 `/api/auth/session`，避免无 auth 后端时 404；如需本地真实 auth 联调，设置 `VITE_LAB_AUTH_LOCAL_FETCH=true`。
 
 ## /new handoff
 

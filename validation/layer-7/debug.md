@@ -378,3 +378,14 @@
 画面变化：是；实验室 PR 本身包含空中实验室、传送台、登录屏、调试屏和视频大屏等可见变化。
 截图：本次合并未新增截图；沿用实验室分支已有实机验证口径，Codex 侧以资源校验和构建验证兜底。
 剩余风险：未在本轮自动化浏览器中完整走登录、传送、WebRTC 离线态和 game iframe 入口；真实 auth / WHEP / 设备权限仍依赖部署环境验证。
+
+日期：2026-07-09
+版本 / Layer：Layer 7 本地预览 auth 检查和 smoke 测试修复
+现象：PR #2 合并后运行 `npx playwright test tests/e2e/world-smoke.spec.ts`，3D 用例实际能加载和交互，但测试失败；失败收集器记录本地 preview 下 `/api/auth/session` 404，以及页面卸载时 BGM mp3 请求 `net::ERR_ABORTED`。
+原因判断：本地 Vite preview 没有 auth 后端代理，实验室权限检查不应默认请求同源 `/api/auth/session`；音频请求在 Playwright 测试结束、页面卸载或音轨切换时被浏览器取消，不代表资源缺失或运行错误。
+解决方案：`laboratoryAuth` 在 `localhost` / `127.0.0.1` / `::1` 默认使用本地 guest fallback，不请求 auth 服务；如需本地真实 auth 联调，可设置 `VITE_LAB_AUTH_LOCAL_FETCH=true`。Playwright failure 收集器忽略 `/audio/*.mp3` 的 `net::ERR_ABORTED`。
+涉及文件：`app/nav-world/src/adapters/laboratoryAuth.ts`、`app/nav-world/tests/e2e/world-smoke.spec.ts`、`validation/layer-7/debug.md`、`MEMORY.md`。
+验证结果：`npm run build` 通过；`npm run assets:check` 通过；`npx playwright test tests/e2e/world-smoke.spec.ts` 桌面 / 移动共 8 条通过。
+画面变化：否。本地无 auth 后端时，实验室权限文案会更明确提示使用测试屏。
+截图：无，本次为本地预览和自动化测试稳定性修复。
+剩余风险：真实生产 auth 仍依赖部署代理；本地联调真实 auth 时必须显式开启 `VITE_LAB_AUTH_LOCAL_FETCH=true`。

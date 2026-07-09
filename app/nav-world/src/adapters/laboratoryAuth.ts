@@ -63,6 +63,20 @@ function createAccessSnapshot(
   };
 }
 
+function shouldUseLocalAuthFallback(): boolean {
+  if (import.meta.env.VITE_LAB_AUTH_LOCAL_FETCH === "true") {
+    return false;
+  }
+
+  const hostname = window.location.hostname;
+
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1"
+  );
+}
+
 function normalizeString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
@@ -154,6 +168,13 @@ function snapshotFromSessionResponse(
 }
 
 export async function getLaboratoryAccess(): Promise<LaboratoryAccessSnapshot> {
+  if (shouldUseLocalAuthFallback()) {
+    return createAccessSnapshot(
+      "guest",
+      "本地预览未连接登录服务，可使用测试屏切换实验室权限",
+    );
+  }
+
   try {
     const response = await fetch(authSessionUrl, {
       cache: "no-store",
@@ -177,6 +198,13 @@ export async function loginLaboratoryAccess(
   username: string,
   password: string,
 ): Promise<LaboratoryAccessSnapshot> {
+  if (shouldUseLocalAuthFallback()) {
+    return createAccessSnapshot(
+      "error",
+      "本地预览未连接登录服务，请使用测试屏切换实验室权限",
+    );
+  }
+
   try {
     const response = await fetch(authLoginUrl, {
       body: JSON.stringify({
