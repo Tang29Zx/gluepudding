@@ -6,7 +6,7 @@ import {
   type ErrorInfo,
   type ReactNode,
 } from "react";
-import { DoubleSide, Mesh } from "three";
+import { Mesh } from "three";
 import {
   landmarkPositions,
 } from "../../world/sceneConfig";
@@ -15,6 +15,10 @@ import {
   fortuneModelAssets,
   type FortuneModelAsset,
 } from "./fortuneModelAssets";
+import { ZodiacWheel } from "./ZodiacWheel";
+import { TarotTable } from "./TarotTable";
+import { IchingDesk } from "./IchingDesk";
+import { IchingHexagram } from "./IchingHexagram";
 
 interface FortuneAssetStageProps {
   shouldLoadInterior: boolean;
@@ -32,23 +36,6 @@ interface FortuneAssetBoundaryState {
 }
 
 const tentDoorFacingSpawnYaw = -2.47;
-const blankScreenDefinitions = [
-  {
-    id: "zodiac",
-    position: [-7.45, 2.0, 0],
-    rotation: [0, Math.PI / 2, 0],
-  },
-  {
-    id: "tarot",
-    position: [0, 2.0, 5.85],
-    rotation: [0, Math.PI, 0],
-  },
-  {
-    id: "iching",
-    position: [7.45, 2.0, 0],
-    rotation: [0, -Math.PI / 2, 0],
-  },
-] as const;
 
 class FortuneAssetBoundary extends Component<
   FortuneAssetBoundaryProps,
@@ -161,46 +148,6 @@ function InteriorFallback() {
   );
 }
 
-function BlankContentScreens() {
-  return (
-    <>
-      {blankScreenDefinitions.map((screen) => (
-        <group
-          key={screen.id}
-          position={screen.position}
-          rotation={screen.rotation}
-        >
-          <mesh receiveShadow>
-            <planeGeometry args={[2.45, 1.55]} />
-            <meshStandardMaterial
-              color="#182034"
-              emissive="#8fa7ff"
-              emissiveIntensity={0.24}
-              metalness={0.18}
-              opacity={0.86}
-              roughness={0.42}
-              side={DoubleSide}
-              transparent
-            />
-          </mesh>
-          <mesh position={[0, 0, -0.018]}>
-            <boxGeometry args={[2.55, 1.65, 0.035]} />
-            <meshStandardMaterial
-              color="#413457"
-              emissive="#6d58c8"
-              emissiveIntensity={0.2}
-              metalness={0.34}
-              opacity={0.72}
-              roughness={0.38}
-              transparent
-            />
-          </mesh>
-        </group>
-      ))}
-    </>
-  );
-}
-
 function FortuneMoodLights() {
   return (
     <>
@@ -240,11 +187,14 @@ function ShellModels() {
 }
 
 function InteriorModels() {
+  const excludeIds = new Set(["iching-lot-cylinder", "iching-coin"]);
   return (
     <>
-      {fortuneModelAssets.interiorAssets.map((asset) => (
-        <FortuneModel asset={asset} key={asset.id} />
-      ))}
+      {fortuneModelAssets.interiorAssets
+        .filter((a) => !excludeIds.has(a.id))
+        .map((asset) => (
+          <FortuneModel asset={asset} key={asset.id} />
+        ))}
     </>
   );
 }
@@ -277,7 +227,10 @@ export function FortuneAssetStage({
         <FortuneAssetBoundary fallback={<InteriorFallback />} label="Fortune interior">
           <Suspense fallback={null}>
             <InteriorModels />
-            <BlankContentScreens />
+            <ZodiacWheel />
+            <TarotTable />
+            <IchingDesk />
+            <IchingHexagram />
           </Suspense>
         </FortuneAssetBoundary>
       ) : null}
