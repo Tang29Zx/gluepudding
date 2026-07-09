@@ -85,7 +85,7 @@ export function IchingDesk() {
   // shake sound effect
   useEffect(() => {
     if (isShaking) {
-      const sfx = new Audio("/audio/shake_cylinder.wav");
+      const sfx = new Audio("/audio/shake_cylinder.mp3");
       sfx.volume = 0.4;
       sfx.play().catch(() => {});
     }

@@ -191,7 +191,7 @@ function WorldRuntime({
       const now = performance.now();
       if (now - footstepTimerRef.current > 480) {
         footstepTimerRef.current = now;
-        const sfx = new Audio("/audio/footstep.wav");
+        const sfx = new Audio("/audio/footstep.mp3");
         sfx.volume = 0.25;
         sfx.play().catch(() => {});
       }
@@ -220,9 +220,9 @@ function WorldRuntime({
   useEffect(() => {
     // lazy init all three tracks
     const tracks: Record<string, string> = {
-      loading: "/audio/loading_bgm.wav",
-      world: "/audio/world_bgm.wav",
-      fortune: "/audio/fortune_bgm.wav",
+      loading: "/audio/loading_bgm.mp3",
+      world: "/audio/world_bgm.mp3",
+      fortune: "/audio/fortune_bgm.mp3",
     };
     for (const [key, src] of Object.entries(tracks)) {
       if (!musicRef.current[key]) {
