@@ -29,6 +29,7 @@ export interface PlayerControllerState {
 interface UsePlayerControllerOptions {
   canUseLaboratoryTeleport: () => boolean;
   isKeyboardInputCaptured: boolean;
+  isLocomotionEnabled?: boolean;
   isMovementEnabled: boolean;
   onLaboratoryTeleportDenied: () => void;
   terrainSamplerRef: MutableRefObject<TerrainSampler | null>;
@@ -151,6 +152,7 @@ function writeHorizontalVelocity(
 export function usePlayerController({
   canUseLaboratoryTeleport,
   isKeyboardInputCaptured,
+  isLocomotionEnabled = true,
   isMovementEnabled,
   onLaboratoryTeleportDenied,
   terrainSamplerRef,
@@ -222,10 +224,11 @@ export function usePlayerController({
   }, [isMovementEnabled]);
 
   useEffect(() => {
-    if (!isMovementEnabled) {
+    if (!isMovementEnabled || !isLocomotionEnabled) {
       clearMovementInput();
+      horizontalVelocityRef.current.set(0, 0, 0);
     }
-  }, [clearMovementInput, isMovementEnabled]);
+  }, [clearMovementInput, isLocomotionEnabled, isMovementEnabled]);
 
   useEffect(() => {
     if (isKeyboardInputCaptured) {
@@ -260,19 +263,38 @@ export function usePlayerController({
 
       if (isMovementKey(event.code)) {
         event.preventDefault();
+
+        if (!isLocomotionEnabled) {
+          clearMovement();
+          return;
+        }
+
         activeKeysRef.current.add(event.code);
         return;
       }
 
       if (isSprintKey(event.code)) {
         event.preventDefault();
+
+        if (!isLocomotionEnabled) {
+          clearMovement();
+          return;
+        }
+
         sprintKeysRef.current.add(event.code);
         return;
       }
 
       if (event.code === "ControlLeft" || event.code === "ControlRight") {
-        if (!event.repeat && teleportLaboratory("down")) {
-          event.preventDefault();
+        event.preventDefault();
+
+        if (!isLocomotionEnabled) {
+          clearMovement();
+          return;
+        }
+
+        if (!event.repeat) {
+          teleportLaboratory("down");
         }
 
         return;
@@ -280,6 +302,11 @@ export function usePlayerController({
 
       if (event.code === "Space") {
         event.preventDefault();
+
+        if (!isLocomotionEnabled) {
+          clearMovement();
+          return;
+        }
 
         if (!event.repeat) {
           const targetPosition = getLaboratoryTeleportTarget(
@@ -342,6 +369,7 @@ export function usePlayerController({
     clearMovementInput,
     canUseLaboratoryTeleport,
     isKeyboardInputCaptured,
+    isLocomotionEnabled,
     isMovementEnabled,
     onLaboratoryTeleportDenied,
     teleportTo,
@@ -356,10 +384,10 @@ export function usePlayerController({
       );
     }
 
-    const activeKeys = isMovementEnabled
+    const activeKeys = isMovementEnabled && isLocomotionEnabled
       ? activeKeysRef.current
       : emptyMovementKeys;
-    const sprintKeys = isMovementEnabled
+    const sprintKeys = isMovementEnabled && isLocomotionEnabled
       ? sprintKeysRef.current
       : emptySprintKeys;
     const horizontalVelocity = horizontalVelocityRef.current;

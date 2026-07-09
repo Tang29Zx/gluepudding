@@ -1,4 +1,9 @@
 import { Vector3 } from "three";
+import {
+  fortuneRoomConfig,
+  getFortuneDoorWorldPosition,
+  getFortuneStagePosition,
+} from "./fortuneRoomConfig";
 import { landmarkPositions, playerSpawn } from "./sceneConfig";
 import type { TerrainSample } from "./terrainSampler";
 
@@ -175,6 +180,16 @@ function getGroundTeleporterWalkableAssetY(
 
 function createCollisionVolumes(): readonly CollisionVolume[] {
   const [
+    fortuneStageX,
+    fortuneStageY,
+    fortuneStageZ,
+  ] = getFortuneStagePosition();
+  const [
+    fortuneDoorX,
+    ,
+    fortuneDoorZ,
+  ] = getFortuneDoorWorldPosition();
+  const [
     laboratoryX,
     laboratoryY,
     laboratoryZ,
@@ -200,6 +215,19 @@ function createCollisionVolumes(): readonly CollisionVolume[] {
   const laboratoryFloorInnerRadius = getLaboratoryFloorInnerRadius();
 
   return [
+    {
+      centerX: fortuneStageX,
+      centerZ: fortuneStageZ,
+      innerRadius: fortuneRoomConfig.boundaryInnerRadius,
+      maxY: fortuneStageY + fortuneRoomConfig.roomCeilingOffset,
+      minY: fortuneStageY + fortuneRoomConfig.roomFloorOffset,
+      openingCenterAngle: Math.atan2(
+        fortuneDoorZ - fortuneStageZ,
+        fortuneDoorX - fortuneStageX,
+      ),
+      openingHalfAngle: fortuneRoomConfig.doorHalfAngle,
+      outerRadius: fortuneRoomConfig.boundaryOuterRadius,
+    },
     {
       centerX: groundTeleporterX,
       centerZ: groundTeleporterZ,

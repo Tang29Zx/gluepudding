@@ -13,7 +13,7 @@ const fortuneModelBaseUrl = "./models/fortune";
 export const fortuneAssetLoadingConfig = {
   floorRadius: 8.8,
   floorSurfaceOffset: 0.48,
-  interiorLoadRadius: 8.8,
+  interiorLoadRadius: 13.5,
   shellAnchorOffset: [0, 0, 0],
 } satisfies {
   floorRadius: number;

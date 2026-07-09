@@ -37,6 +37,13 @@ import type {
   AimedLaboratoryDebugControl,
 } from "../modules/laboratory/LaboratoryDebugAccessScreen";
 import { CameraRig } from "./CameraRig";
+import {
+  fortuneRoomConfig,
+  fortuneLocalToWorld,
+  fortuneWorldToLocal,
+  isWithinFortuneDoorLane,
+  type FortuneRoomState,
+} from "./fortuneRoomConfig";
 import { GameOverlay } from "../modules/GameOverlay";
 import {
   getInteractionTargetById,
@@ -59,6 +66,12 @@ interface WorldExperienceProps {
 type ForcedFortuneAssetMode = "interior" | "shell" | null;
 
 const fortuneFloorNormal = new Vector3(0, 1, 0);
+
+function smoothProgress(progress: number): number {
+  const clamped = Math.min(1, Math.max(0, progress));
+
+  return clamped * clamped * (3 - 2 * clamped);
+}
 
 interface WorldRuntimeProps {
   aimedLaboratoryDebugControl: AimedLaboratoryDebugControl | null;
@@ -97,6 +110,9 @@ interface WorldRuntimeProps {
   onLaboratoryDebugAccessToggle: () => void;
   onLaboratoryTeleportDenied: () => void;
   onAimedTargetChange: (targetId: InteractionTargetId | null) => void;
+  onFortuneInteriorReadyChange: (isReady: boolean) => void;
+  onFortuneMistOpacityChange: (opacity: number) => void;
+  onFortuneRoomStateChange: (state: FortuneRoomState) => void;
   onModuleStatusChange: (
     moduleId: WorldModuleId,
     status: WorldModuleStatus,
@@ -128,6 +144,9 @@ function WorldRuntime({
   onAimedLaboratoryLoginControlChange,
   onAimedModuleControlChange,
   onAimedTargetChange,
+  onFortuneInteriorReadyChange,
+  onFortuneMistOpacityChange,
+  onFortuneRoomStateChange,
   onGomokuHudMessageChange,
   onGomokuPlacementChange,
   onLaboratoryLoginInputActiveChange,
@@ -219,9 +238,26 @@ function WorldRuntime({
     () => laboratoryAccess.status === "ready",
     [laboratoryAccess.status],
   );
+  const [fortuneRoomState, setFortuneRoomState] =
+    useState<FortuneRoomState>("outside");
+  const [isPlayerInsideFortuneRoom, setIsPlayerInsideFortuneRoom] =
+    useState(false);
+  const fortuneMistOpacityRef = useRef(0);
+  const fortuneRoomStateRef = useRef<FortuneRoomState>("outside");
+  const fortuneInteriorReadyRef = useRef(false);
+  const isPlayerInsideFortuneRoomRef = useRef(false);
+  const fortuneTransitionRef = useRef<{
+    hasSwitchedVisibility: boolean;
+    phase: "entering" | "exiting";
+    revealStartedAt: number | null;
+    startedAt: number;
+  } | null>(null);
+  const isFortuneRoomTransitionActive =
+    fortuneRoomState === "entering" || fortuneRoomState === "exiting";
   const player = usePlayerController({
     canUseLaboratoryTeleport,
     isKeyboardInputCaptured: isLaboratoryLoginInputActive,
+    isLocomotionEnabled: !isFortuneRoomTransitionActive,
     isMovementEnabled: true,
     onLaboratoryTeleportDenied,
     terrainSamplerRef,
@@ -231,6 +267,101 @@ function WorldRuntime({
   const shouldLoadFortuneInteriorByDistanceRef = useRef(false);
   const footstepTimerRef = useRef(0);
   const footstepPrevRef = useRef([0, 0]);
+  const setFortuneRoomStateValue = useCallback(
+    (state: FortuneRoomState) => {
+      if (fortuneRoomStateRef.current === state) {
+        return;
+      }
+
+      fortuneRoomStateRef.current = state;
+      setFortuneRoomState(state);
+      onFortuneRoomStateChange(state);
+    },
+    [onFortuneRoomStateChange],
+  );
+  const setFortuneMistOpacityValue = useCallback(
+    (opacity: number) => {
+      const nextOpacity = Math.min(1, Math.max(0, opacity));
+
+      if (Math.abs(fortuneMistOpacityRef.current - nextOpacity) < 0.012) {
+        return;
+      }
+
+      fortuneMistOpacityRef.current = nextOpacity;
+      onFortuneMistOpacityChange(nextOpacity);
+    },
+    [onFortuneMistOpacityChange],
+  );
+  const setPlayerInsideFortuneRoomValue = useCallback((isInside: boolean) => {
+    if (isPlayerInsideFortuneRoomRef.current === isInside) {
+      return;
+    }
+
+    isPlayerInsideFortuneRoomRef.current = isInside;
+    setIsPlayerInsideFortuneRoom(isInside);
+  }, []);
+  const setFortuneInteriorReadyValue = useCallback(
+    (isReady: boolean) => {
+      fortuneInteriorReadyRef.current = isReady;
+      onFortuneInteriorReadyChange(isReady);
+    },
+    [onFortuneInteriorReadyChange],
+  );
+  const movePlayerToFortuneLanding = useCallback(
+    (phase: "entering" | "exiting") => {
+      const currentLocalPosition = fortuneWorldToLocal(
+        player.position.current.x,
+        player.position.current.z,
+      );
+      const landingLocalX = Math.min(
+        fortuneRoomConfig.landingHalfWidth,
+        Math.max(
+          -fortuneRoomConfig.landingHalfWidth,
+          currentLocalPosition.localX,
+        ),
+      );
+      const landingLocalZ =
+        phase === "entering"
+          ? fortuneRoomConfig.enterLandingLocalZ
+          : fortuneRoomConfig.exitLandingLocalZ;
+      const landingPosition = fortuneLocalToWorld(landingLocalX, landingLocalZ);
+
+      player.clearMovement();
+      player.position.current.set(
+        landingPosition.x,
+        fortuneStageY + fortuneAssetLoadingConfig.floorSurfaceOffset,
+        landingPosition.z,
+      );
+    },
+    [fortuneStageY, player],
+  );
+  const startFortuneRoomTransition = useCallback(
+    (phase: "entering" | "exiting") => {
+      if (fortuneTransitionRef.current) {
+        return;
+      }
+
+      player.clearMovement();
+      if (phase === "entering" && forcedFortuneAssetMode !== "interior") {
+        setFortuneInteriorReadyValue(false);
+      }
+      fortuneTransitionRef.current = {
+        hasSwitchedVisibility: false,
+        phase,
+        revealStartedAt: null,
+        startedAt: performance.now(),
+      };
+      setFortuneRoomStateValue(phase);
+      setFortuneMistOpacityValue(1);
+    },
+    [
+      forcedFortuneAssetMode,
+      player,
+      setFortuneInteriorReadyValue,
+      setFortuneMistOpacityValue,
+      setFortuneRoomStateValue,
+    ],
+  );
 
   useFrame(() => {
     const distance = Math.hypot(
@@ -245,6 +376,74 @@ function WorldRuntime({
     ) {
       shouldLoadFortuneInteriorByDistanceRef.current = nextShouldLoadInterior;
       setShouldLoadFortuneInteriorByDistance(nextShouldLoadInterior);
+    }
+
+    const localFortunePosition = fortuneWorldToLocal(
+      player.position.current.x,
+      player.position.current.z,
+    );
+    const isInFortuneDoorLane = isWithinFortuneDoorLane(localFortunePosition);
+
+    if (!fortuneTransitionRef.current && isInFortuneDoorLane) {
+      if (
+        !isPlayerInsideFortuneRoomRef.current &&
+        localFortunePosition.localZ > fortuneRoomConfig.exitLocalZ
+      ) {
+        startFortuneRoomTransition("entering");
+      } else if (
+        isPlayerInsideFortuneRoomRef.current &&
+        localFortunePosition.localZ < fortuneRoomConfig.exitLocalZ
+      ) {
+        startFortuneRoomTransition("exiting");
+      }
+    }
+
+    const fortuneTransition = fortuneTransitionRef.current;
+
+    if (fortuneTransition) {
+      const now = performance.now();
+      const elapsedMs = now - fortuneTransition.startedAt;
+      const coverMs = fortuneRoomConfig.transitionCoverMs;
+      const revealMs = fortuneRoomConfig.transitionRevealMs;
+
+      if (elapsedMs < coverMs) {
+        setFortuneMistOpacityValue(1);
+      } else {
+        if (!fortuneTransition.hasSwitchedVisibility) {
+          const nextIsInside = fortuneTransition.phase === "entering";
+
+          movePlayerToFortuneLanding(fortuneTransition.phase);
+          setPlayerInsideFortuneRoomValue(nextIsInside);
+          fortuneTransition.hasSwitchedVisibility = true;
+          setFortuneMistOpacityValue(1);
+          return;
+        }
+
+        if (
+          fortuneTransition.phase === "entering" &&
+          !fortuneInteriorReadyRef.current
+        ) {
+          setFortuneMistOpacityValue(1);
+          return;
+        }
+
+        if (fortuneTransition.revealStartedAt === null) {
+          fortuneTransition.revealStartedAt = now;
+        }
+
+        const revealProgress =
+          (now - fortuneTransition.revealStartedAt) / revealMs;
+        setFortuneMistOpacityValue(1 - smoothProgress(revealProgress));
+
+        if (revealProgress >= 1) {
+          const nextState =
+            fortuneTransition.phase === "entering" ? "inside" : "outside";
+
+          fortuneTransitionRef.current = null;
+          setFortuneMistOpacityValue(0);
+          setFortuneRoomStateValue(nextState);
+        }
+      }
     }
 
     // footstep sound (outdoor only)
@@ -270,7 +469,10 @@ function WorldRuntime({
     forcedFortuneAssetMode === "interior" ||
       focusedModuleId === "divination" ||
       selectedTargetId === "divination-house" ||
-      shouldLoadFortuneInteriorByDistance;
+      shouldLoadFortuneInteriorByDistance ||
+      isPlayerInsideFortuneRoom;
+  const isFortuneRoomInteriorVisible =
+    forcedFortuneAssetMode === "interior" || isPlayerInsideFortuneRoom;
 
   // music only switches by proximity, not by selection/focus
   const isNearFortuneForMusic = shouldLoadFortuneInteriorByDistance;
@@ -370,10 +572,13 @@ function WorldRuntime({
         aimedLaboratoryLoginControl={aimedLaboratoryLoginControl}
         aimedGomokuTarget={aimedGomokuTarget}
         aimedModuleControl={aimedModuleControl}
+        fortuneRoomState={fortuneRoomState}
         isLaboratoryDebugAccessEnabled={isLaboratoryDebugAccessEnabled}
+        isFortuneRoomInteriorVisible={isFortuneRoomInteriorVisible}
         isLaboratoryDebugScreenVisible={isLaboratoryDebugScreenVisible}
         isLaboratoryLoginInputActive={isLaboratoryLoginInputActive}
         isLaboratoryLoginScreenVisible={isLaboratoryLoginScreenVisible}
+        isPlayerInsideFortuneRoom={isPlayerInsideFortuneRoom}
         laboratoryAccess={laboratoryAccess}
         moduleStatuses={moduleStatuses}
         gomokuPlacement={gomokuPlacement}
@@ -397,6 +602,7 @@ function WorldRuntime({
         onLaboratoryLoginSubmit={onLaboratoryLoginSubmit}
         onLaboratoryDebugAccessToggle={onLaboratoryDebugAccessToggle}
         onAimedTargetChange={onAimedTargetChange}
+        onFortuneInteriorReadyChange={setFortuneInteriorReadyValue}
         onModuleStatusChange={onModuleStatusChange}
         onNearestTargetChange={onNearestTargetChange}
         onSelectObject={onSelectObject}
@@ -446,6 +652,9 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
     useState<InteractionTargetId | null>(null);
   const [focusedModuleId, setFocusedModuleId] =
     useState<WorldModuleId | null>(null);
+  const [fortuneRoomState, setFortuneRoomState] =
+    useState<FortuneRoomState>("outside");
+  const [fortuneMistOpacity, setFortuneMistOpacity] = useState(0);
   const [aimedGomokuTarget, setAimedGomokuTarget] =
     useState<GomokuAimTarget | null>(null);
   const [gomokuHudMessage, setGomokuHudMessage] =
@@ -612,6 +821,11 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
       setIsGameOpen(true);
       return;
     }
+
+    if (targetId === "divination-house") {
+      return;
+    }
+
     setFocusedModuleId(getWorldModuleIdByTargetId(targetId));
     setSelectedTargetId(targetId);
   }, []);
@@ -621,6 +835,11 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
       setIsGameOpen(true);
       return;
     }
+
+    if (targetId === "divination-house") {
+      return;
+    }
+
     setFocusedModuleId(getWorldModuleIdByTargetId(targetId));
     setSelectedTargetId(targetId);
   }, []);
@@ -654,8 +873,30 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
     changeModuleStatus(aimedModuleControl.moduleId, aimedModuleControl.status);
     return true;
   }, [aimedModuleControl, changeModuleStatus]);
+  const ignoreFortuneInteriorReady = useCallback((_isReady: boolean) => {}, []);
 
   const interactionLines = useMemo(() => {
+    if (fortuneRoomState === "entering") {
+      return [
+        "门口迷雾正在聚拢。",
+        "雾散后会进入占卜屋，外面的世界会被隔绝。",
+      ];
+    }
+
+    if (fortuneRoomState === "exiting") {
+      return [
+        "门口迷雾正在重新聚拢。",
+        "雾散后会回到外部世界。",
+      ];
+    }
+
+    if (fortuneRoomState === "inside") {
+      return [
+        "占卜屋内：塔罗、星座、周易都在室内完成。",
+        "回到门口穿过迷雾可离开。",
+      ];
+    }
+
     if (aimedLaboratoryDebugControl) {
       return [
         "准星命中：出生点测试屏 / 登录切换",
@@ -761,6 +1002,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
     aimedModuleControl,
     aimedTarget,
     focusedModule,
+    fortuneRoomState,
     gomokuHudMessage,
     gomokuPlacement,
     isLaboratoryLoginInputActive,
@@ -813,6 +1055,26 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
       window.removeEventListener("click", handleClick, true);
     };
   }, [aimedLaboratoryLoginControl, isLaboratoryLoginInputActive]);
+
+  useEffect(() => {
+    if (fortuneRoomState === "outside") {
+      return;
+    }
+
+    setAimedTargetId(null);
+    setNearestTargetId(null);
+    setAimedModuleControl(null);
+    setAimedGomokuTarget(null);
+    setAimedLaboratoryDebugControl(null);
+    setAimedLaboratoryLoginControl(null);
+    setIsLaboratoryLoginInputActive(false);
+    setIsLaboratoryLoginScreenVisible(false);
+
+    if (fortuneRoomState === "inside") {
+      setFocusedModuleId(null);
+      setSelectedTargetId(null);
+    }
+  }, [fortuneRoomState]);
 
   return (
     <>
@@ -875,6 +1137,9 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
             onLaboratoryDebugAccessToggle={toggleLaboratoryDebugAccess}
             onLaboratoryTeleportDenied={showLaboratoryLoginScreen}
             onAimedTargetChange={setAimedTargetId}
+            onFortuneInteriorReadyChange={ignoreFortuneInteriorReady}
+            onFortuneMistOpacityChange={setFortuneMistOpacity}
+            onFortuneRoomStateChange={setFortuneRoomState}
             onModuleStatusChange={changeModuleStatus}
             onNearestTargetChange={setNearestTargetId}
             onSelectObject={selectObject}
@@ -920,6 +1185,12 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
             ? " is-aimed"
             : ""
         }`}
+      />
+
+      <div
+        aria-hidden="true"
+        className="fortune-mist-overlay"
+        style={{ opacity: fortuneMistOpacity }}
       />
 
       <div className="world-interaction-bar" aria-live="polite">

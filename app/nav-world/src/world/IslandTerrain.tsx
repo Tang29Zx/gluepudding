@@ -20,6 +20,7 @@ import type { TerrainSampler } from "./terrainSampler";
 import { worldTerrain } from "./sceneConfig";
 
 interface IslandTerrainProps {
+  isVisible?: boolean;
   onTerrainReadyChange: (isReady: boolean) => void;
   onTerrainSamplerChange: (sampler: TerrainSampler | null) => void;
 }
@@ -131,6 +132,7 @@ function createTerrainSampler(walkableMeshes: readonly Mesh[]): TerrainSampler {
 }
 
 export function IslandTerrain({
+  isVisible = true,
   onTerrainReadyChange,
   onTerrainSamplerChange,
 }: IslandTerrainProps) {
@@ -189,6 +191,7 @@ export function IslandTerrain({
       position={worldTerrain.position}
       ref={rootRef}
       scale={worldTerrain.scale}
+      visible={isVisible}
     >
       <primitive object={scene} />
     </group>

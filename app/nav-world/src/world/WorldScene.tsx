@@ -31,6 +31,7 @@ import type {
   WorldModuleId,
   WorldModuleStatus,
 } from "../modules/types";
+import type { FortuneRoomState } from "./fortuneRoomConfig";
 import type { PlayerControllerState } from "./PlayerController";
 import type { TerrainSampler } from "./terrainSampler";
 import { worldColors, worldScale } from "./sceneConfig";
@@ -60,11 +61,14 @@ interface WorldSceneProps {
   aimedLaboratoryLoginControl: AimedLaboratoryLoginControl | null;
   aimedModuleControl: AimedWorldModuleControl | null;
   aimedGomokuTarget: GomokuAimTarget | null;
+  fortuneRoomState: FortuneRoomState;
   gomokuPlacement: GomokuPlacement | null;
+  isFortuneRoomInteriorVisible: boolean;
   isLaboratoryDebugAccessEnabled: boolean;
   isLaboratoryDebugScreenVisible: boolean;
   isLaboratoryLoginInputActive: boolean;
   isLaboratoryLoginScreenVisible: boolean;
+  isPlayerInsideFortuneRoom: boolean;
   laboratoryAccess: LaboratoryAccessSnapshot;
   moduleStatuses: Record<WorldModuleId, WorldModuleStatus>;
   placementTerrainSamplerRef: MutableRefObject<TerrainSampler | null>;
@@ -84,6 +88,7 @@ interface WorldSceneProps {
   onAimedModuleControlChange: (
     control: AimedWorldModuleControl | null,
   ) => void;
+  onFortuneInteriorReadyChange: (isReady: boolean) => void;
   onGomokuHudMessageChange: (message: string | null) => void;
   onGomokuPlacementChange: (placement: GomokuPlacement | null) => void;
   onLaboratoryLoginInputActiveChange: (isActive: boolean) => void;
@@ -108,11 +113,14 @@ export function WorldScene({
   aimedLaboratoryLoginControl,
   aimedGomokuTarget,
   aimedModuleControl,
+  fortuneRoomState,
   gomokuPlacement,
+  isFortuneRoomInteriorVisible,
   isLaboratoryDebugAccessEnabled,
   isLaboratoryDebugScreenVisible,
   isLaboratoryLoginInputActive,
   isLaboratoryLoginScreenVisible,
+  isPlayerInsideFortuneRoom,
   laboratoryAccess,
   moduleStatuses,
   onActivateArea,
@@ -121,6 +129,7 @@ export function WorldScene({
   onAimedLaboratoryLoginControlChange,
   onAimedModuleControlChange,
   onAimedTargetChange,
+  onFortuneInteriorReadyChange,
   onGomokuHudMessageChange,
   onGomokuPlacementChange,
   onLaboratoryLoginInputActiveChange,
@@ -138,10 +147,16 @@ export function WorldScene({
   shouldLoadFortuneInterior,
   shouldLoadFortuneShell,
 }: WorldSceneProps) {
+  const isOutsideWorldVisible = !isPlayerInsideFortuneRoom;
+  const sceneBackground = isPlayerInsideFortuneRoom ? "#160f28" : worldColors.sky;
+  const sceneFog: [string, number, number] = isPlayerInsideFortuneRoom
+    ? ["#160f28", 9, 34]
+    : [worldColors.sky, 70, 150];
+
   return (
     <>
-      <color attach="background" args={[worldColors.sky]} />
-      <fog attach="fog" args={[worldColors.sky, 70, 150]} />
+      <color attach="background" args={[sceneBackground]} />
+      <fog attach="fog" args={sceneFog} />
       <ambientLight intensity={0.28} />
       <hemisphereLight args={["#f5fbff", "#5e876d", 0.64]} />
       <directionalLight
@@ -161,7 +176,7 @@ export function WorldScene({
       />
 
       <WorldTerrainErrorBoundary
-        fallback={<FallbackGround />}
+        fallback={isOutsideWorldVisible ? <FallbackGround /> : null}
         onError={() => {
           onTerrainSamplerChange(null);
           onTerrainReadyChange(true);
@@ -169,67 +184,80 @@ export function WorldScene({
       >
         <Suspense fallback={null}>
           <IslandTerrain
+            isVisible={isOutsideWorldVisible}
             onTerrainReadyChange={onTerrainReadyChange}
             onTerrainSamplerChange={onTerrainSamplerChange}
           />
         </Suspense>
       </WorldTerrainErrorBoundary>
 
-      <LaboratoryDebugAccessScreen
-        isDebugAccessEnabled={isLaboratoryDebugAccessEnabled}
-        isVisible={isLaboratoryDebugScreenVisible}
-        onAimedControlChange={onAimedLaboratoryDebugControlChange}
-        onToggleDebugAccess={onLaboratoryDebugAccessToggle}
-      />
-      <GamePortal />
+      {isOutsideWorldVisible ? (
+        <>
+          <LaboratoryDebugAccessScreen
+            isDebugAccessEnabled={isLaboratoryDebugAccessEnabled}
+            isVisible={isLaboratoryDebugScreenVisible}
+            onAimedControlChange={onAimedLaboratoryDebugControlChange}
+            onToggleDebugAccess={onLaboratoryDebugAccessToggle}
+          />
+          <GamePortal />
+        </>
+      ) : null}
       <FortuneAssetStage
+        isInteriorVisible={isFortuneRoomInteriorVisible}
+        isPlayerInsideFortuneRoom={isPlayerInsideFortuneRoom}
+        mistPhase={fortuneRoomState}
+        onInteriorReadyChange={onFortuneInteriorReadyChange}
         shouldLoadInterior={shouldLoadFortuneInterior}
         shouldLoadShell={shouldLoadFortuneShell}
       />
-      <Suspense fallback={null}>
-        <LaboratoryAerialStage
-          laboratoryAccess={laboratoryAccess}
-          isLoginScreenVisible={isLaboratoryLoginScreenVisible}
-          onAimedLoginControlChange={onAimedLaboratoryLoginControlChange}
-          onLoginInputActiveChange={onLaboratoryLoginInputActiveChange}
-          onLoginScreenClose={onLaboratoryLoginScreenClose}
-          onLoginSubmit={onLaboratoryLoginSubmit}
-        />
-      </Suspense>
-      <Suspense fallback={null}>
-        <GomokuWorldBoard
-          onAimedTargetChange={onAimedGomokuTargetChange}
-          onHudMessageChange={onGomokuHudMessageChange}
-          onPlacementChange={onGomokuPlacementChange}
-          placement={gomokuPlacement}
-          placementTerrainSamplerRef={placementTerrainSamplerRef}
-          player={player}
-        />
-      </Suspense>
-      <InteractionSystem
-        isPanelOpen={false}
-        isWorldControlAimed={Boolean(
-          aimedModuleControl ||
-            aimedGomokuTarget ||
-            aimedLaboratoryDebugControl ||
-            aimedLaboratoryLoginControl ||
-            isLaboratoryLoginInputActive,
-        )}
-        onActivateArea={onActivateArea}
-        onAimedTargetChange={onAimedTargetChange}
-        onNearestTargetChange={onNearestTargetChange}
-        onSelectObject={onSelectObject}
-        player={player}
-        selectedTargetId={selectedTargetId}
-      />
-      <Suspense fallback={null}>
-        <WorldModulePanels
-          aimedModuleControl={aimedModuleControl}
-          moduleStatuses={moduleStatuses}
-          onAimedModuleControlChange={onAimedModuleControlChange}
-          onModuleStatusChange={onModuleStatusChange}
-        />
-      </Suspense>
+      {isOutsideWorldVisible ? (
+        <>
+          <Suspense fallback={null}>
+            <LaboratoryAerialStage
+              laboratoryAccess={laboratoryAccess}
+              isLoginScreenVisible={isLaboratoryLoginScreenVisible}
+              onAimedLoginControlChange={onAimedLaboratoryLoginControlChange}
+              onLoginInputActiveChange={onLaboratoryLoginInputActiveChange}
+              onLoginScreenClose={onLaboratoryLoginScreenClose}
+              onLoginSubmit={onLaboratoryLoginSubmit}
+            />
+          </Suspense>
+          <Suspense fallback={null}>
+            <GomokuWorldBoard
+              onAimedTargetChange={onAimedGomokuTargetChange}
+              onHudMessageChange={onGomokuHudMessageChange}
+              onPlacementChange={onGomokuPlacementChange}
+              placement={gomokuPlacement}
+              placementTerrainSamplerRef={placementTerrainSamplerRef}
+              player={player}
+            />
+          </Suspense>
+          <InteractionSystem
+            isPanelOpen={false}
+            isWorldControlAimed={Boolean(
+              aimedModuleControl ||
+                aimedGomokuTarget ||
+                aimedLaboratoryDebugControl ||
+                aimedLaboratoryLoginControl ||
+                isLaboratoryLoginInputActive,
+            )}
+            onActivateArea={onActivateArea}
+            onAimedTargetChange={onAimedTargetChange}
+            onNearestTargetChange={onNearestTargetChange}
+            onSelectObject={onSelectObject}
+            player={player}
+            selectedTargetId={selectedTargetId}
+          />
+          <Suspense fallback={null}>
+            <WorldModulePanels
+              aimedModuleControl={aimedModuleControl}
+              moduleStatuses={moduleStatuses}
+              onAimedModuleControlChange={onAimedModuleControlChange}
+              onModuleStatusChange={onModuleStatusChange}
+            />
+          </Suspense>
+        </>
+      ) : null}
     </>
   );
 }

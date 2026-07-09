@@ -3,6 +3,10 @@ import { useCallback, useEffect, useRef } from "react";
 import { Mesh, Raycaster, Vector2, Vector3 } from "three";
 import type { PlayerControllerState } from "./PlayerController";
 import {
+  getFortuneAimPosition,
+  getFortuneDoorWorldPosition,
+} from "./fortuneRoomConfig";
+import {
   landmarkPositions,
   type Vector3Tuple,
 } from "./sceneConfig";
@@ -48,11 +52,8 @@ interface InteractionSystemProps {
 
 const screenCenter = new Vector2(0, 0);
 const playerGroundPosition = new Vector3();
-const [
-  divinationHouseX,
-  divinationHouseY,
-  divinationHouseZ,
-] = landmarkPositions.divinationHouse;
+const fortuneDoorPosition = getFortuneDoorWorldPosition();
+const fortuneAimPosition = getFortuneAimPosition();
 const [laboratoryX, laboratoryY, laboratoryZ] = landmarkPositions.laboratory;
 const [
   laboratoryGroundX,
@@ -66,21 +67,17 @@ export const interactionTargets: readonly InteractionTarget[] = [
   {
     id: "divination-house",
     label: "占卜屋",
-    position: [divinationHouseX, divinationHouseY, divinationHouseZ + 3.84],
-    aimPosition: [
-      divinationHouseX,
-      divinationHouseY + 2.35,
-      divinationHouseZ + 3.84,
-    ],
+    position: fortuneDoorPosition,
+    aimPosition: fortuneAimPosition,
     proximityRadius: 12,
-    raycastRadius: 4.2,
+    raycastRadius: 3.2,
     enabled: true,
     accentColor: "#a99bea",
-    areaPrompt: "靠近占卜屋，按 E 聚焦占卜屋常驻模块表面。",
-    objectPrompt: "准星对准占卜屋入口，左键聚焦常驻模块表面。",
-    panelTitle: "占卜屋模块外壳",
+    areaPrompt: "走进占卜屋门口的迷雾，雾散后进入占卜屋。",
+    objectPrompt: "准星对准占卜屋雾门；直接穿过门口即可进入。",
+    panelTitle: "占卜屋雾门",
     panelBody:
-      "Layer 4 验证模块外壳、状态切换和错误隔离。塔罗、星座和周易流程会在 Layer 5 接入。",
+      "占卜屋通过门口迷雾隔绝内外视线，进入后在世界内完成塔罗、星座和周易交互。",
   },
   {
     id: "laboratory",

@@ -1,16 +1,28 @@
 import { useGLTF } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
 import {
   Component,
   Suspense,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type ErrorInfo,
   type ReactNode,
 } from "react";
-import { Mesh } from "three";
 import {
-  landmarkPositions,
-} from "../../world/sceneConfig";
+  CanvasTexture,
+  DoubleSide,
+  LinearFilter,
+  Mesh,
+  MeshBasicMaterial,
+  SRGBColorSpace,
+} from "three";
+import {
+  fortuneRoomConfig,
+  getFortuneStagePosition,
+  type FortuneRoomState,
+} from "../../world/fortuneRoomConfig";
 import {
   fortuneAssetLoadingConfig,
   fortuneModelAssets,
@@ -23,6 +35,10 @@ import { IchingHexagram } from "./IchingHexagram";
 import type { LotResult } from "./ichingLots";
 
 interface FortuneAssetStageProps {
+  isInteriorVisible: boolean;
+  isPlayerInsideFortuneRoom: boolean;
+  mistPhase: FortuneRoomState;
+  onInteriorReadyChange: (isReady: boolean) => void;
   shouldLoadInterior: boolean;
   shouldLoadShell: boolean;
 }
@@ -37,7 +53,38 @@ interface FortuneAssetBoundaryState {
   hasError: boolean;
 }
 
-const tentDoorFacingSpawnYaw = -2.47;
+const mistLayerConfigs = [
+  {
+    color: "#1a0d2c",
+    depthWrite: true,
+    height: 5.2,
+    opacity: 1,
+    phase: 0.1,
+    width: 5.1,
+    x: 0,
+    z: 0.03,
+  },
+  {
+    color: "#5f438d",
+    depthWrite: false,
+    height: 4.95,
+    opacity: 0.62,
+    phase: 1.4,
+    width: 4.35,
+    x: -0.18,
+    z: -0.08,
+  },
+  {
+    color: "#b8a8d9",
+    depthWrite: false,
+    height: 3.85,
+    opacity: 0.44,
+    phase: 2.6,
+    width: 3.3,
+    x: 0.24,
+    z: -0.16,
+  },
+] as const;
 
 class FortuneAssetBoundary extends Component<
   FortuneAssetBoundaryProps,
@@ -178,6 +225,183 @@ function FortuneMoodLights() {
   );
 }
 
+function createFortuneMistTexture(): CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 768;
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) {
+    return new CanvasTexture(canvas);
+  }
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const baseGradient = ctx.createRadialGradient(
+    canvas.width * 0.5,
+    canvas.height * 0.52,
+    canvas.width * 0.08,
+    canvas.width * 0.5,
+    canvas.height * 0.5,
+    canvas.width * 0.62,
+  );
+  baseGradient.addColorStop(0, "rgba(255, 255, 255, 0.96)");
+  baseGradient.addColorStop(0.38, "rgba(235, 228, 255, 0.86)");
+  baseGradient.addColorStop(0.72, "rgba(196, 176, 230, 0.34)");
+  baseGradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+  ctx.fillStyle = baseGradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (let index = 0; index < 54; index += 1) {
+    const x = ((index * 73) % 512) + Math.sin(index * 1.7) * 28;
+    const y = ((index * 131) % 768) + Math.cos(index * 1.3) * 34;
+    const radius = 42 + ((index * 19) % 92);
+    const alpha = 0.08 + ((index * 7) % 18) / 100;
+    const cloudGradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+
+    cloudGradient.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+    cloudGradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+    ctx.fillStyle = cloudGradient;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  texture.minFilter = LinearFilter;
+  texture.magFilter = LinearFilter;
+
+  return texture;
+}
+
+function InteriorReadyMarker({
+  onInteriorReadyChange,
+}: {
+  onInteriorReadyChange: (isReady: boolean) => void;
+}) {
+  useEffect(() => {
+    onInteriorReadyChange(true);
+
+    return () => onInteriorReadyChange(false);
+  }, [onInteriorReadyChange]);
+
+  return null;
+}
+
+function FortuneDoorMist({
+  isPlayerInsideFortuneRoom,
+  mistPhase,
+}: {
+  isPlayerInsideFortuneRoom: boolean;
+  mistPhase: FortuneRoomState;
+}) {
+  const layerRefs = useRef<Array<Mesh | null>>([]);
+  const mistTexture = useMemo(createFortuneMistTexture, []);
+
+  useFrame(({ clock }) => {
+    const elapsed = clock.getElapsedTime();
+    const transitionBoost =
+      mistPhase === "entering" || mistPhase === "exiting" ? 0.08 : 0;
+    const sideBoost = isPlayerInsideFortuneRoom ? 0.05 : 0.13;
+
+    layerRefs.current.forEach((mesh, index) => {
+      if (!mesh) {
+        return;
+      }
+
+      const layer = mistLayerConfigs[index];
+      const material = mesh.material as MeshBasicMaterial;
+      const drift = Math.sin(elapsed * 0.55 + layer.phase) * 0.18;
+      const pulse = (Math.sin(elapsed * 0.9 + layer.phase) + 1) * 0.035;
+
+      mesh.position.x = layer.x + drift;
+      mesh.position.y =
+        fortuneRoomConfig.roomFloorOffset + layer.height / 2 +
+        Math.sin(elapsed * 0.42 + layer.phase) * 0.08;
+      mesh.scale.x = 1 + Math.sin(elapsed * 0.35 + layer.phase) * 0.035;
+      mesh.scale.y = 1 + Math.cos(elapsed * 0.31 + layer.phase) * 0.025;
+      material.opacity = Math.min(
+        0.96,
+        layer.opacity + sideBoost + transitionBoost + pulse,
+      );
+    });
+  });
+
+  return (
+    <group position={[0, 0, fortuneRoomConfig.doorLocalZ]}>
+      <mesh
+        position={[0, fortuneRoomConfig.roomFloorOffset + 2.35, 0.12]}
+        renderOrder={7}
+      >
+        <planeGeometry args={[fortuneRoomConfig.doorMistWidth * 1.04, 5.15]} />
+        <meshBasicMaterial
+          color="#0b0414"
+          depthWrite={true}
+          side={DoubleSide}
+        />
+      </mesh>
+      {mistLayerConfigs.map((layer, index) => (
+        <mesh
+          key={`${layer.phase}:${layer.width}`}
+          position={[
+            layer.x,
+            fortuneRoomConfig.roomFloorOffset + layer.height / 2,
+            layer.z,
+          ]}
+          ref={(mesh) => {
+            layerRefs.current[index] = mesh;
+          }}
+          renderOrder={8}
+        >
+          <planeGeometry
+            args={[
+              fortuneRoomConfig.doorMistWidth * (layer.width / 3.35),
+              fortuneRoomConfig.doorMistHeight * (layer.height / 4.25),
+            ]}
+          />
+          <meshBasicMaterial
+            alphaTest={layer.depthWrite ? 0 : 0.04}
+            color={layer.color}
+            depthWrite={layer.depthWrite}
+            map={mistTexture}
+            opacity={layer.opacity}
+            side={DoubleSide}
+            transparent={!layer.depthWrite}
+          />
+        </mesh>
+      ))}
+      <pointLight
+        color="#cbb8ff"
+        decay={2}
+        distance={6}
+        intensity={isPlayerInsideFortuneRoom ? 0.85 : 0.62}
+        position={[0, 2.1, -0.25]}
+      />
+    </group>
+  );
+}
+
+function FortuneInteriorPrivacyVeil() {
+  return (
+    <mesh
+      position={[
+        0,
+        fortuneRoomConfig.roomFloorOffset + 2.45,
+        0,
+      ]}
+      renderOrder={4}
+    >
+      <cylinderGeometry args={[6.82, 6.82, 4.9, 64, 1, false]} />
+      <meshBasicMaterial
+        color="#0d0617"
+        depthWrite={true}
+        side={DoubleSide}
+      />
+    </mesh>
+  );
+}
+
 function ShellModels() {
   return (
     <>
@@ -202,41 +426,67 @@ function InteriorModels() {
 }
 
 export function FortuneAssetStage({
+  isInteriorVisible,
+  isPlayerInsideFortuneRoom,
+  mistPhase,
+  onInteriorReadyChange,
   shouldLoadInterior,
   shouldLoadShell,
 }: FortuneAssetStageProps) {
   const [ichingLotResult, setIchingLotResult] = useState<LotResult | null>(null);
-  const [anchorX, anchorY, anchorZ] = landmarkPositions.divinationHouse;
-  const stagePosition = [
-    anchorX + fortuneAssetLoadingConfig.shellAnchorOffset[0],
-    anchorY + fortuneAssetLoadingConfig.shellAnchorOffset[1],
-    anchorZ + fortuneAssetLoadingConfig.shellAnchorOffset[2],
-  ] as const;
+  const stagePosition = getFortuneStagePosition();
+
+  useEffect(() => {
+    if (!shouldLoadInterior || !isInteriorVisible) {
+      onInteriorReadyChange(false);
+    }
+  }, [isInteriorVisible, onInteriorReadyChange, shouldLoadInterior]);
 
   if (!shouldLoadShell) {
     return null;
   }
 
   return (
-    <group position={stagePosition} rotation={[0, tentDoorFacingSpawnYaw, 0]}>
+    <group position={stagePosition} rotation={[0, fortuneRoomConfig.shellYaw, 0]}>
       <StageFloor />
-      <FortuneMoodLights />
+      {isInteriorVisible ? <FortuneMoodLights /> : null}
       <FortuneAssetBoundary fallback={<ShellFallback />} label="Fortune shell">
         <Suspense fallback={null}>
           <ShellModels />
         </Suspense>
       </FortuneAssetBoundary>
+      <FortuneDoorMist
+        isPlayerInsideFortuneRoom={isPlayerInsideFortuneRoom}
+        mistPhase={mistPhase}
+      />
+      {!isInteriorVisible ? <FortuneInteriorPrivacyVeil /> : null}
       {shouldLoadInterior ? (
-        <FortuneAssetBoundary fallback={<InteriorFallback />} label="Fortune interior">
+        <FortuneAssetBoundary
+          fallback={
+            isInteriorVisible ? (
+              <InteriorFallback />
+            ) : null
+          }
+          label="Fortune interior"
+        >
           <Suspense fallback={null}>
-            <InteriorModels />
-            <ZodiacWheel />
-            <TarotTable />
-            <IchingDesk onLotResult={setIchingLotResult} />
-            <IchingHexagram
-              lotResult={ichingLotResult}
-              onLotResultClear={() => setIchingLotResult(null)}
-            />
+            <group visible={isInteriorVisible}>
+              <InteriorModels />
+            </group>
+            {isInteriorVisible ? (
+              <>
+                <ZodiacWheel />
+                <TarotTable />
+                <IchingDesk onLotResult={setIchingLotResult} />
+                <IchingHexagram
+                  lotResult={ichingLotResult}
+                  onLotResultClear={() => setIchingLotResult(null)}
+                />
+                <InteriorReadyMarker
+                  onInteriorReadyChange={onInteriorReadyChange}
+                />
+              </>
+            ) : null}
           </Suspense>
         </FortuneAssetBoundary>
       ) : null}

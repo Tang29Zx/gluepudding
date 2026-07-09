@@ -188,6 +188,18 @@ h3 {
   transform: translate(-50%, -50%) scale(1.08);
 }
 
+.fortune-mist-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 45%, rgb(88, 60, 126), rgb(40, 24, 62) 34%, rgb(12, 5, 22) 72%),
+    radial-gradient(circle at 34% 58%, rgba(164, 136, 210, 0.42), transparent 30%),
+    radial-gradient(circle at 68% 36%, rgba(87, 54, 126, 0.5), transparent 34%),
+    linear-gradient(120deg, rgb(12, 5, 21), rgb(38, 22, 58), rgb(10, 4, 18));
+}
+
 .world-interaction-bar {
   position: absolute;
   right: 50%;
