@@ -15,12 +15,12 @@ const modelPaths = {
 
 const boardSpec = {
   intersections: 25,
-  cellSpacing: 0.12,
+  cellSpacing: 0.096,
   topY: 0.08,
   gridY: 0.087,
-  boardBottomHalfSize: 1.6266666667,
-  boardHalfSize: 1.5733333333,
-  gridHalfSize: 1.44,
+  boardBottomHalfSize: 1.3013333334,
+  boardHalfSize: 1.2586666666,
+  gridHalfSize: 1.152,
 };
 
 const materials = {
@@ -333,8 +333,8 @@ function createBoardMeshes() {
   );
 
   const grid = createMeshBuilder();
-  const lineWidth = 0.008;
-  const lineHeight = 0.008;
+  const lineWidth = 0.0065;
+  const lineHeight = 0.0065;
   const gridLength = boardSpec.gridHalfSize * 2;
 
   for (let index = 0; index < boardSpec.intersections; index += 1) {
@@ -346,7 +346,7 @@ function createBoardMeshes() {
   const rim = createMeshBuilder();
   const rimY = boardSpec.topY + 0.018;
   const rimHeight = 0.035;
-  const rimWidth = 0.047;
+  const rimWidth = 0.038;
   const rimLength = boardSpec.boardHalfSize * 2;
 
   appendBox(rim, [0, rimY, boardSpec.boardHalfSize - rimWidth / 2], [rimLength, rimHeight, rimWidth]);
@@ -362,7 +362,7 @@ function createBoardMeshes() {
       const x = (col - (boardSpec.intersections - 1) / 2) * boardSpec.cellSpacing;
       const z = (row - (boardSpec.intersections - 1) / 2) * boardSpec.cellSpacing;
 
-      appendCylinder(starPoints, [x, boardSpec.gridY + 0.006, z], 0.021, 0.012, 24);
+      appendCylinder(starPoints, [x, boardSpec.gridY + 0.006, z], 0.017, 0.012, 24);
     }
   }
 
@@ -396,12 +396,12 @@ function createStoneMesh() {
   appendStone(
     stone,
     [
-      { y: 0, radius: 0.052 },
-      { y: 0.004, radius: 0.068 },
-      { y: 0.015, radius: 0.08 },
-      { y: 0.03, radius: 0.078 },
-      { y: 0.044, radius: 0.052 },
-      { y: 0.052, radius: 0.018 },
+      { y: 0, radius: 0.024 },
+      { y: 0.003, radius: 0.032 },
+      { y: 0.009, radius: 0.0375 },
+      { y: 0.019, radius: 0.0365 },
+      { y: 0.029, radius: 0.024 },
+      { y: 0.034, radius: 0.008 },
     ],
     48,
   );
@@ -586,8 +586,8 @@ function createStoneGlb(kind, material) {
     extras: {
       kind,
       bottomCenterOrigin: true,
-      diameterMeters: 0.16,
-      heightMeters: 0.054,
+      diameterMeters: 0.075,
+      heightMeters: 0.036,
       intendedUse: "world_gomoku_piece",
     },
     materials: [material],

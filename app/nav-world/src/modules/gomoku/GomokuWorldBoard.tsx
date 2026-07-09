@@ -25,6 +25,7 @@ import {
 import type { TerrainSampler } from "../../world/terrainSampler";
 import {
   gomokuBoardConfig,
+  gomokuBoardPlaySurfaceHeight,
   gomokuBoardSurfaceHeight,
   gomokuLocalToWorld,
   gomokuScreenCenterX,
@@ -32,7 +33,22 @@ import {
   type GomokuAimTarget,
   type GomokuControlId,
   type GomokuPlacement,
+  worldToGomokuLocal,
 } from "./gomokuWorldTypes";
+import {
+  boardPointToGomokuLocal,
+  getGomokuCoordName,
+  getGomokuDifficultyLabel,
+  getGomokuStoneLabel,
+  gomokuLocalToBoardPoint,
+  GOMOKU_BLACK,
+  GOMOKU_GRID_CELL_SPACING,
+  GOMOKU_WHITE,
+  type GomokuGameState,
+  type GomokuMove,
+  type GomokuPoint,
+} from "./gomokuGame";
+import { useGomokuGame } from "./useGomokuGame";
 
 interface GomokuWorldBoardProps {
   placement: GomokuPlacement | null;
@@ -46,19 +62,13 @@ interface GomokuWorldBoardProps {
 interface GomokuControlDefinition {
   id: GomokuControlId;
   label: string;
-  message: string;
   x: number;
   z: number;
 }
 
-type RegisteredTarget =
-  | GomokuAimTarget
-  | {
-      kind: "screen";
-      label: string;
-    };
-
 const boardModelUrl = "./models/gomoku/gomoku_board.glb";
+const blackStoneModelUrl = "./models/gomoku/black_stone.glb";
+const whiteStoneModelUrl = "./models/gomoku/white_stone.glb";
 const screenCenter = new Vector2(0, 0);
 const placementDirection = new Vector3();
 const placementForward = new Vector3();
@@ -66,35 +76,53 @@ const fallbackPlacementPoint = new Vector3();
 const raycastTargetsScratch: Mesh[] = [];
 const reservedAreaRadius = 7.2;
 const controlScreenTextColor = "#283044";
+const stoneSurfaceLift = 0.001;
+const controlButtonWidth = 1.08;
+const controlButtonDepth = 0.25;
+const controlContentWidth = 1.14;
+
+declare global {
+  interface Window {
+    __gomokuQa?: {
+      activateControl: (controlId: GomokuControlId) => string;
+      focusBoard: (view?: "close" | "far") => boolean;
+      focusControlScreen: () => boolean;
+      getState: () => {
+        difficulty: string;
+        history: readonly GomokuMove[];
+        isOpen: boolean;
+        status: string;
+        winner: number | null;
+      };
+      playMove: (x: number, y: number) => boolean;
+    };
+  }
+}
 
 const gomokuControls: readonly GomokuControlDefinition[] = [
   {
     id: "undo",
     label: "悔棋",
-    message: "悔棋会在下一步接入真实棋局逻辑。",
     x: gomokuScreenCenterX,
-    z: -0.48,
+    z: -0.24,
   },
   {
     id: "restart",
     label: "重开",
-    message: "重开会在下一步接入真实棋局逻辑。",
     x: gomokuScreenCenterX,
-    z: -0.08,
+    z: 0.1,
   },
   {
     id: "difficulty",
     label: "AI 强度",
-    message: "AI 强度会在接入人机对战时生效。",
     x: gomokuScreenCenterX,
-    z: 0.32,
+    z: 0.44,
   },
   {
     id: "retract",
     label: "收回棋盘",
-    message: "棋盘已收回。",
     x: gomokuScreenCenterX,
-    z: 0.72,
+    z: 0.78,
   },
 ];
 
@@ -151,6 +179,92 @@ function cloneBoardScene(source: Group): Group {
   });
 
   return scene;
+}
+
+function cloneStoneScene(source: Group): Group {
+  const scene = source.clone(true);
+
+  scene.traverse((object) => {
+    if (object instanceof Mesh) {
+      object.castShadow = true;
+      object.receiveShadow = true;
+    }
+  });
+
+  return scene;
+}
+
+function getBoardPointFromWorldPoint(
+  placement: GomokuPlacement,
+  point: Vector3,
+): GomokuPoint | null {
+  const local = worldToGomokuLocal(placement, point.x, point.z);
+
+  return gomokuLocalToBoardPoint(local.x, local.z);
+}
+
+function getControlLabel(
+  control: GomokuControlDefinition,
+  gameState: GomokuGameState,
+): string {
+  if (control.id === "difficulty") {
+    return getGomokuDifficultyLabel(gameState.difficulty);
+  }
+
+  if (control.id === "retract") {
+    return "收回";
+  }
+
+  return control.label;
+}
+
+function getBoardAimLabel(
+  placement: GomokuPlacement,
+  point: Vector3 | null,
+): string {
+  if (!point) {
+    return "五子棋棋盘";
+  }
+
+  const boardPoint = getBoardPointFromWorldPoint(placement, point);
+
+  return boardPoint
+    ? `落子点 ${getGomokuCoordName(boardPoint.x, boardPoint.y)}`
+    : "五子棋棋盘";
+}
+
+function GomokuStoneModel({
+  move,
+  source,
+}: {
+  move: GomokuMove;
+  source: Group;
+}) {
+  const scene = useMemo(() => cloneStoneScene(source), [source]);
+  const local = boardPointToGomokuLocal(move);
+
+  return (
+    <group
+      position={[local.x, gomokuBoardPlaySurfaceHeight + stoneSurfaceLift, local.z]}
+      userData={{ qa: `gomoku-stone-${move.color}-${move.x}-${move.y}` }}
+    >
+      <primitive object={scene as Object3D} />
+    </group>
+  );
+}
+
+function WinLineMarker({ point }: { point: GomokuPoint }) {
+  const local = boardPointToGomokuLocal(point);
+
+  return (
+    <mesh
+      position={[local.x, gomokuBoardPlaySurfaceHeight + stoneSurfaceLift + 0.038, local.z]}
+      rotation={[-Math.PI / 2, 0, 0]}
+    >
+      <torusGeometry args={[GOMOKU_GRID_CELL_SPACING * 0.46, 0.008, 8, 24]} />
+      <meshBasicMaterial color="#f6d36f" />
+    </mesh>
+  );
 }
 
 function isReservedArea(x: number, z: number): boolean {
@@ -352,10 +466,12 @@ function ControlText({
 
 function GomokuControlButton({
   control,
+  displayLabel,
   isAimed,
   registerTargetMesh,
 }: {
   control: GomokuControlDefinition;
+  displayLabel: string;
   isAimed: boolean;
   registerTargetMesh: (mesh: Mesh | null, target: GomokuAimTarget) => void;
 }) {
@@ -368,7 +484,7 @@ function GomokuControlButton({
   return (
     <group position={[control.x, gomokuScreenSurfaceHeight + 0.026, control.z]}>
       <mesh ref={(mesh) => registerTargetMesh(mesh, target)}>
-        <boxGeometry args={[1.28, 0.034, 0.32]} />
+        <boxGeometry args={[controlButtonWidth, 0.034, controlButtonDepth]} />
         <meshStandardMaterial
           color={isAimed ? "#f6d36f" : "#dbe7f3"}
           emissive={isAimed ? "#f6d36f" : "#c7d8ec"}
@@ -381,14 +497,14 @@ function GomokuControlButton({
         anchorX="center"
         anchorY="middle"
         color={controlScreenTextColor}
-        fontSize={0.115}
-        maxWidth={1.08}
+        fontSize={0.078}
+        maxWidth={0.82}
         overflowWrap="break-word"
         position={[0, 0.026, 0.006]}
         rotation={[-Math.PI / 2, 0, 0]}
         textAlign="center"
       >
-        {control.label}
+        {displayLabel}
       </Text>
     </group>
   );
@@ -405,11 +521,15 @@ export function GomokuWorldBoard({
   const camera = useThree((state) => state.camera);
   const domElement = useThree((state) => state.gl.domElement);
   const gltf = useGLTF(boardModelUrl);
+  const blackStoneGltf = useGLTF(blackStoneModelUrl);
+  const whiteStoneGltf = useGLTF(whiteStoneModelUrl);
   const boardScene = useMemo(() => cloneBoardScene(gltf.scene), [gltf.scene]);
   const aimedTargetRef = useRef<GomokuAimTarget | null>(null);
+  const aimedBoardPointRef = useRef<Vector3 | null>(null);
   const raycasterRef = useRef(new Raycaster());
   const targetMeshesRef = useRef(new Map<string, Mesh>());
   const targetsByMeshRef = useRef(new Map<string, GomokuAimTarget>());
+  const game = useGomokuGame({ onMessage: onHudMessageChange });
 
   const setAimedTarget = useCallback(
     (target: GomokuAimTarget | null) => {
@@ -480,8 +600,8 @@ export function GomokuWorldBoard({
     onPlacementChange(nextPlacement);
     onHudMessageChange(
       action === "open"
-        ? "棋盘已展开。按 G 可移动位置，按 H 可收回。"
-        : "棋盘已移动到新的可踩位置。按 H 可收回。",
+        ? "棋盘已展开。左键交叉点落子，按 G 移动，按 H 收回。"
+        : "棋盘已移动，当前棋局已保留。左键继续落子。",
     );
   }, [
     camera.position,
@@ -498,23 +618,51 @@ export function GomokuWorldBoard({
 
     if (target.kind === "control" && target.controlId === "retract") {
       onPlacementChange(null);
-      onHudMessageChange("棋盘已收回。按 G 可重新展开。");
+      onHudMessageChange("棋盘已收回，当前棋局已保留。按 G 可重新展开。");
       return true;
     }
 
     if (target.kind === "control") {
-      const control = gomokuControls.find((item) => item.id === target.controlId);
-      onHudMessageChange(control?.message ?? "该控件会在下一步接入真实逻辑。");
+      if (target.controlId === "undo") {
+        onHudMessageChange(game.undo());
+        return true;
+      }
+
+      if (target.controlId === "restart") {
+        onHudMessageChange(game.restart());
+        return true;
+      }
+
+      if (target.controlId === "difficulty") {
+        onHudMessageChange(game.cycleDifficulty());
+        return true;
+      }
+
       return true;
     }
 
     if (target.kind === "board") {
-      onHudMessageChange("落子逻辑下一步接入；本轮先验证棋盘展开和控制屏。");
+      if (!placement || !aimedBoardPointRef.current) {
+        onHudMessageChange("请对准棋盘交叉点落子。");
+        return true;
+      }
+
+      const boardPoint = getBoardPointFromWorldPoint(
+        placement,
+        aimedBoardPointRef.current,
+      );
+
+      if (!boardPoint) {
+        onHudMessageChange("请对准棋盘交叉点落子。");
+        return true;
+      }
+
+      game.playPlayerMove(boardPoint);
       return true;
     }
 
     return false;
-  }, [onHudMessageChange, onPlacementChange]);
+  }, [game, onHudMessageChange, onPlacementChange, placement]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -535,7 +683,7 @@ export function GomokuWorldBoard({
         }
 
         onPlacementChange(null);
-        onHudMessageChange("棋盘已收回。按 G 可重新展开。");
+        onHudMessageChange("棋盘已收回，当前棋局已保留。按 G 可重新展开。");
         return;
       }
 
@@ -588,8 +736,125 @@ export function GomokuWorldBoard({
       return;
     }
 
+    aimedBoardPointRef.current = null;
     setAimedTarget(null);
   }, [placement, setAimedTarget]);
+
+  useEffect(() => {
+    window.__gomokuQa = {
+      activateControl(controlId) {
+        if (controlId === "retract") {
+          onPlacementChange(null);
+          return "棋盘已收回，棋局已保留。";
+        }
+
+        if (controlId === "undo") {
+          const message = game.undo();
+          onHudMessageChange(message);
+          return message;
+        }
+
+        if (controlId === "restart") {
+          const message = game.restart();
+          onHudMessageChange(message);
+          return message;
+        }
+
+        const message = game.cycleDifficulty();
+        onHudMessageChange(message);
+        return message;
+      },
+      focusBoard(view = "close") {
+        if (!placement) {
+          return false;
+        }
+
+        const localCamera =
+          view === "far"
+            ? { x: 0, z: gomokuBoardConfig.boardHalfSize + 4.1 }
+            : { x: 0.02, z: 0.52 };
+        const localTarget = { x: 0.04, z: -0.08 };
+        const cameraWorld = gomokuLocalToWorld(
+          placement,
+          localCamera.x,
+          localCamera.z,
+        );
+        const targetWorld = gomokuLocalToWorld(
+          placement,
+          localTarget.x,
+          localTarget.z,
+        );
+        const dx = targetWorld.x - cameraWorld.x;
+        const dz = targetWorld.z - cameraWorld.z;
+
+        player.clearMovement();
+        player.position.current.set(
+          cameraWorld.x,
+          placement.center[1] + gomokuBoardSurfaceHeight,
+          cameraWorld.z,
+        );
+        player.yaw.current = Math.atan2(-dx, -dz);
+        player.pitch.current = view === "far" ? -0.42 : -1.31;
+
+        return true;
+      },
+      focusControlScreen() {
+        if (!placement) {
+          return false;
+        }
+
+        const localCamera = {
+          x: gomokuScreenCenterX,
+          z: gomokuBoardConfig.screenDepth / 2 + 1.1,
+        };
+        const localTarget = {
+          x: gomokuScreenCenterX,
+          z: 0.05,
+        };
+        const cameraWorld = gomokuLocalToWorld(
+          placement,
+          localCamera.x,
+          localCamera.z,
+        );
+        const targetWorld = gomokuLocalToWorld(
+          placement,
+          localTarget.x,
+          localTarget.z,
+        );
+        const dx = targetWorld.x - cameraWorld.x;
+        const dz = targetWorld.z - cameraWorld.z;
+
+        player.clearMovement();
+        player.position.current.set(
+          cameraWorld.x,
+          placement.center[1] + gomokuBoardSurfaceHeight,
+          cameraWorld.z,
+        );
+        player.yaw.current = Math.atan2(-dx, -dz);
+        player.pitch.current = -0.78;
+
+        return true;
+      },
+      getState() {
+        return {
+          difficulty: game.state.difficulty,
+          history: game.state.history,
+          isOpen: Boolean(placement),
+          status: game.state.status,
+          winner: game.state.winner,
+        };
+      },
+      playMove(x, y) {
+        return game.playPlayerMove({ x, y });
+      },
+    };
+
+    return () => {
+      if (window.__gomokuQa?.getState().history === game.state.history) {
+        delete window.__gomokuQa;
+      }
+    };
+  }, [game, onHudMessageChange, onPlacementChange, placement, player]);
 
   useFrame(() => {
     if (!placement) {
@@ -602,12 +867,29 @@ export function GomokuWorldBoard({
 
     const intersections =
       raycasterRef.current.intersectObjects(raycastTargetsScratch, false);
-    const aimedTarget =
-      intersections
-        .map((intersection) =>
-          targetsByMeshRef.current.get(intersection.object.uuid) ?? null,
-        )
-        .find((target): target is GomokuAimTarget => Boolean(target)) ?? null;
+    let aimedTarget: GomokuAimTarget | null = null;
+    aimedBoardPointRef.current = null;
+
+    for (const intersection of intersections) {
+      const target =
+        targetsByMeshRef.current.get(intersection.object.uuid) ?? null;
+
+      if (!target) {
+        continue;
+      }
+
+      if (target.kind === "board") {
+        aimedBoardPointRef.current = intersection.point.clone();
+        aimedTarget = {
+          kind: "board",
+          label: getBoardAimLabel(placement, aimedBoardPointRef.current),
+        };
+      } else {
+        aimedTarget = target;
+      }
+
+      break;
+    }
 
     setAimedTarget(aimedTarget);
   });
@@ -625,6 +907,10 @@ export function GomokuWorldBoard({
     kind: "screen",
     label: "五子棋控制屏",
   };
+  const detailLine =
+    game.state.status === "terminal" && game.state.winner
+      ? `${getGomokuStoneLabel(game.state.winner)}胜 · 点击重开再来一局`
+      : game.statsText;
 
   return (
     <group
@@ -635,6 +921,22 @@ export function GomokuWorldBoard({
       <group position={[0, gomokuBoardConfig.boardVisualLift, 0]}>
         <primitive object={boardScene as Object3D} />
       </group>
+
+      {game.state.history.map((move, index) => (
+        <GomokuStoneModel
+          key={`${index}-${move.x}-${move.y}-${move.color}`}
+          move={move}
+          source={
+            move.color === GOMOKU_BLACK
+              ? blackStoneGltf.scene
+              : whiteStoneGltf.scene
+          }
+        />
+      ))}
+
+      {game.state.winLine.map((point) => (
+        <WinLineMarker key={`${point.x}-${point.y}`} point={point} />
+      ))}
 
       <mesh
         ref={(mesh) => registerTargetMesh(mesh, boardTarget)}
@@ -706,16 +1008,20 @@ export function GomokuWorldBoard({
         />
       </mesh>
 
-      <ControlText fontSize={0.132} maxWidth={1.38} x={gomokuScreenCenterX} z={-1.2}>
-        五子棋控制屏
+      <ControlText fontSize={0.09} maxWidth={controlContentWidth} x={gomokuScreenCenterX} z={-1.03}>
+        五子棋
       </ControlText>
-      <ControlText fontSize={0.072} maxWidth={1.38} x={gomokuScreenCenterX} z={-0.94}>
-        G 展开 / 移动，H 收回，真实棋局下一步接入
+      <ControlText fontSize={0.058} maxWidth={controlContentWidth} x={gomokuScreenCenterX} z={-0.86}>
+        {game.statusText}
+      </ControlText>
+      <ControlText fontSize={0.046} maxWidth={controlContentWidth} x={gomokuScreenCenterX} z={-0.71}>
+        {`强度 ${getGomokuDifficultyLabel(game.state.difficulty)} · ${detailLine}`}
       </ControlText>
 
       {gomokuControls.map((control) => (
         <GomokuControlButton
           control={control}
+          displayLabel={getControlLabel(control, game.state)}
           isAimed={
             aimedTarget?.kind === "control" &&
             aimedTarget.controlId === control.id
@@ -725,22 +1031,10 @@ export function GomokuWorldBoard({
         />
       ))}
 
-      <mesh
-        position={[gomokuScreenCenterX, gomokuScreenSurfaceHeight + 0.015, 1.22]}
-      >
-        <boxGeometry args={[1.38, 0.018, 0.34]} />
-        <meshStandardMaterial
-          color="#d6e2ef"
-          emissive="#c4d5e8"
-          emissiveIntensity={0.08}
-          roughness={0.56}
-        />
-      </mesh>
-      <ControlText fontSize={0.064} maxWidth={1.2} x={gomokuScreenCenterX} z={1.23}>
-        控制屏与棋盘平行，可踩可通过
-      </ControlText>
     </group>
   );
 }
 
 useGLTF.preload(boardModelUrl);
+useGLTF.preload(blackStoneModelUrl);
+useGLTF.preload(whiteStoneModelUrl);

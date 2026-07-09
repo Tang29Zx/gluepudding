@@ -400,6 +400,14 @@ Layer 5A 模型接入切片：
 - 不接真实 WebRTC、RDK、IoT 服务时，实验室仍然能完整演示。
 - 用户能理解大屏、模型台、门禁台分别代表什么能力。
 
+用户实机确认：
+
+- 2026-07-09：用户确认 Layer 6 实验室模拟层验收通过。
+
+调试记录：
+
+- [Layer 6 debug.md](validation/layer-6/debug.md)
+
 ## Layer 7：世界内五子棋模拟层
 
 目标：证明五子棋能在大世界内打开和操作，不整页跳转。
@@ -604,6 +612,10 @@ Layer 5A 模型接入切片：
 - 用户能在世界内完成至少一局基础对弈流程。
 - 五子棋模块异常不会影响占卜屋和实验室。
 
+验收状态：
+
+- 2026-07-09：用户实机确认 Layer 12 验收通过。
+
 模型资产预览截图：
 
 - 原生五子棋 GLB 模型桌面端预览：![Layer 12 原生五子棋 GLB 模型桌面端预览](validation/layer-12/gomoku-models-desktop.png)
@@ -613,6 +625,35 @@ Layer 5A 模型接入切片：
 
 - 桌面端 `G` 展开 / 移动、`H` 收回提示：![Layer 12 桌面端五子棋 G/H 交互外壳](validation/layer-12/gomoku-hotkeys-desktop.png)
 - 移动端 `G` 展开 / 移动、`H` 收回提示：![Layer 12 移动端五子棋 G/H 交互外壳](validation/layer-12/gomoku-hotkeys-mobile.png)
+
+真实对弈验证截图：
+
+- 桌面端世界内人机对弈：![Layer 12 桌面端世界内五子棋真实对弈](validation/layer-12/gomoku-real-game-desktop.png)
+- 移动端世界内人机对弈：![Layer 12 移动端世界内五子棋真实对弈](validation/layer-12/gomoku-real-game-mobile.png)
+
+尺寸调整验证截图：
+
+- 桌面端缩小后的棋盘和棋子：![Layer 12 桌面端五子棋缩小后验证](validation/layer-12/gomoku-resized-desktop.png)
+- 移动端缩小后的棋盘和棋子：![Layer 12 移动端五子棋缩小后验证](validation/layer-12/gomoku-resized-mobile.png)
+
+控制屏文字修复截图：
+
+- 桌面端控制屏文字近景：![Layer 12 桌面端五子棋控制屏文字修复](validation/layer-12/gomoku-control-text-focused-desktop.png)
+- 移动端控制屏文字近景：![Layer 12 移动端五子棋控制屏文字修复](validation/layer-12/gomoku-control-text-mobile.png)
+
+棋子贴地验证截图：
+
+- 桌面端远景棋子贴地：![Layer 12 桌面端五子棋棋子贴地验证](validation/layer-12/gomoku-stone-grounded-far-desktop.png)
+- 移动端棋子贴地：![Layer 12 移动端五子棋棋子贴地验证](validation/layer-12/gomoku-stone-grounded-mobile.png)
+
+真实逻辑验证：
+
+- 2026-07-09：采用逻辑抽离路线，移植 `resources/gomoku-ai-academy-submission/iphone/ai_worker.js` 的 25x25 AI / 威胁判断 / 搜索解释能力到 Vite TypeScript Worker。
+- 2026-07-09：世界内原生 3D 五子棋支持玩家执黑、AI 执白、默认宗师难度、左键交叉点落子、AI 自动回应、胜负检测、五连线高亮、悔棋、重开、AI 强度切换和收回棋盘。
+- 2026-07-09：`G` 展开 / 移动、`H` 收回均保留当前棋局；只有“重开”清空棋局。
+- 2026-07-09：棋盘整体进一步缩小到约 `2.603m x 2.603m`，格距 `0.096m`；棋子直径缩小到约 `0.075m`，避免棋子大于格距造成遮挡。
+- 2026-07-09：控制屏在缩小后的尺寸下改用短标签、小字号和紧凑布局，避免文字贴边、错位或被底部空白条遮挡。
+- 2026-07-09：棋子摆放高度改为棋盘格线面，不再使用棋盘边框 / 可踩平台高度，减少远距离观察时的悬浮感和视差偏移。
 
 ## Layer 13：性能和移动端层
 

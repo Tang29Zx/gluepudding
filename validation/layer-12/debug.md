@@ -115,3 +115,47 @@
 画面变化：是，玩家走上 / 走下棋盘控制屏区域时的高度过渡行为改变；棋盘和控制屏之间的缝隙不再让玩家高度掉回地形。
 截图：本轮未新增截图；用户前面已明确这类实机视觉 / 手感调整由用户测试，Codex 使用类型检查、资源检查和构建作为替代验证。
 剩余风险：未做自动化路径行走截图或帧级高度曲线验证；边缘过渡距离和相机阻尼仍需用户实机确认手感。
+
+日期：2026-07-09
+版本 / Layer：Layer 12 真实五子棋逻辑接入
+现象：用户要求按计划接入真实世界内五子棋逻辑：玩家执黑先手，AI 执白，只做人机对弈，不接训练、复盘、玩家对战、PWA 嵌入或后端存档。
+原因判断：已有 Layer 12 `G/H` 交互外壳、GLB 棋盘和可踩控制屏，适合在主工程内接原生状态机；参考包 `iphone/ai_worker.js` 是 25x25 Worker AI，和当前棋盘尺寸一致。Python 逻辑为 45x45，不适合直接混用；整包 PWA 嵌入会重新引入 UI、Pointer Lock 和 Service Worker 边界问题。
+解决方案：新增 25x25 五子棋核心类型、胜负检测、坐标转换、悔棋和 fallback AI；将 `iphone/ai_worker.js` 的候选点、威胁判断、难度参数、negamax / alpha-beta、`stats` 和 `explain` 移植为 Vite TypeScript Worker；新增 React hook 管理玩家回合、AI 思考、终局和错误状态；在世界棋盘上把射线命中转换为最近交叉点，渲染黑白 GLB 棋子和五连线高亮；控制屏按钮改为真实悔棋、重开、AI 强度循环和收回棋盘。
+涉及文件：`app/nav-world/src/modules/gomoku/gomokuGame.ts`、`app/nav-world/src/modules/gomoku/gomokuAiWorker.ts`、`app/nav-world/src/modules/gomoku/useGomokuGame.ts`、`app/nav-world/src/modules/gomoku/GomokuWorldBoard.tsx`、`app/nav-world/src/world/WorldExperience.tsx`、`app/nav-world/tests/e2e/world-smoke.spec.ts`、`VALIDATION_LAYERS.md`、`TODO.md`、`MEMORY.md`
+验证结果：`npm run assets:gomoku:check` 通过；`npm run assets:gomoku:validate` 通过；`npx tsc --noEmit` 通过；`npm run assets:check` 通过；`npm run build` 通过，仍有既有 `WorldExperience` chunk 超 500KB 警告；`npx playwright test tests/e2e/world-smoke.spec.ts` 桌面 / 移动共 8 项通过，覆盖展开、玩家落子、AI 响应、悔棋、重开和收回。
+画面变化：是，棋盘可真实落黑白子，控制屏显示真实状态、难度、AI 搜索统计和讲解摘要，胜利时会高亮五连线。
+截图：`validation/layer-12/gomoku-real-game-desktop.png`、`validation/layer-12/gomoku-real-game-mobile.png`
+剩余风险：暂不接玩家对战、训练、复盘、PWA 外壳、后端 API、账号存档或 Worker 外部配置；AI 来源参考包未发现明确 LICENSE / attribution 文件，上线前仍需确认许可证和素材来源；移动端真实触屏落子手感仍需后续实机验收。
+
+日期：2026-07-09
+版本 / Layer：Layer 12 五子棋模型缩小
+现象：用户实机测试截图中，世界内五子棋棋盘占据过多视野，棋子也明显大于格距，落子后互相挤压并遮挡棋盘线。
+原因判断：上一版棋盘边长约 `3.253m`，玩家站上棋盘低头时视野容易被棋盘铺满；棋子直径约 `0.16m`，大于 `0.12m` 格距，真实落子后会几何重叠。
+解决方案：将棋盘平面尺寸按约 `80%` 缩小，格距从 `0.12m` 调整为 `0.096m`，棋盘边长约 `2.603m`；同步更新运行时点击坐标、可踩 footprint 和控制屏深度。将棋子直径从约 `0.16m` 缩小到 `0.075m`，高度降到约 `0.036m`，并降低棋子放置高度，减少视觉遮挡。
+涉及文件：`app/nav-world/scripts/generate-gomoku-models.mjs`、`app/nav-world/public/models/gomoku/gomoku_board.glb`、`app/nav-world/public/models/gomoku/black_stone.glb`、`app/nav-world/public/models/gomoku/white_stone.glb`、`app/nav-world/src/modules/gomoku/gomokuGame.ts`、`app/nav-world/src/modules/gomoku/gomokuWorldTypes.ts`、`app/nav-world/src/modules/gomoku/GomokuWorldBoard.tsx`、`VALIDATION_LAYERS.md`、`MEMORY.md`
+验证结果：`npm run assets:gomoku:generate` 通过；`npm run assets:gomoku:check` 通过；`npm run assets:gomoku:validate` 通过，三份 GLB 均为 0 error / 0 warning；GLB extras 确认为格距 `0.096m`、棋子直径 `0.075m`、棋子高度 `0.036m`；`npx tsc --noEmit` 通过；`npm run assets:check` 通过；`npm run build` 通过，仍有既有 `WorldExperience` chunk 超 500KB 警告。
+画面变化：是，棋盘、控制屏深度和棋子都更小，棋子不再大于格距。
+截图：`validation/layer-12/gomoku-resized-desktop.png`、`validation/layer-12/gomoku-resized-mobile.png`
+剩余风险：截图由自动化默认视角生成，最终遮挡感、第一人称低头操作距离和棋子可读性仍以用户实机测试为准；如果还偏大，下一轮可以只继续缩棋盘 footprint，或只缩棋子直径。
+
+日期：2026-07-09
+版本 / Layer：Layer 12 控制屏文字修复
+现象：用户实机截图中，棋盘缩小后控制屏文字再次出现问题：标题、状态和按钮文字沿用旧屏幕尺寸，近距离看会显得过大、贴边或错位。
+原因判断：控制屏深度已随棋盘从约 `3.253m` 缩到约 `2.603m`，但文字字号、按钮文案长度和底部讲解条仍接近旧布局；长文案如“AI 强度：宗师”在透视下容易占满按钮。
+解决方案：控制屏改成紧凑短标签布局：标题保留“五子棋”，状态 / 强度 / 统计压缩为小字号三行，按钮显示“悔棋 / 重开 / 宗师 / 收回”等短词；删除底部空白讲解条，避免小屏幕上产生新的文字遮挡。为自动化近景截图，在已有 `window.__gomokuQa` 测试钩子上增加 `focusControlScreen()`，仅用于验证相机定位。
+涉及文件：`app/nav-world/src/modules/gomoku/GomokuWorldBoard.tsx`、`VALIDATION_LAYERS.md`、`validation/layer-12/debug.md`、`MEMORY.md`
+验证结果：`npx tsc --noEmit` 通过；`npm run assets:check` 通过；`npm run build` 通过，仍有既有 `WorldExperience` chunk 超 500KB 警告；`npx playwright test tests/e2e/world-smoke.spec.ts -g "places and retracts|plays a native world gomoku turn against AI"` 桌面 / 移动 4 项通过。
+画面变化：是，控制屏文本变短、字号降低，按钮文字不再撑满按钮，底部空白讲解条移除。
+截图：`validation/layer-12/gomoku-control-text-focused-desktop.png`、`validation/layer-12/gomoku-control-text-mobile.png`
+剩余风险：自动化近景截图用于验证文字不再溢出；最终在用户实机第一人称角度下的可读距离仍以实测为准。
+
+日期：2026-07-09
+版本 / Layer：Layer 12 棋子贴地和最终验收
+现象：用户实机反馈棋子看起来像悬浮在棋盘上，离远后视角会产生偏差；随后用户确认 Layer 12 验收通过。
+原因判断：棋子此前使用 `gomokuBoardSurfaceHeight` 摆放，该高度对应棋盘边框 / 可踩平台顶面；真实棋盘格线面更低，导致棋子相对落子线悬空约数厘米，远景下会被透视放大为落点偏移。
+解决方案：新增独立的棋盘落子面高度 `gomokuBoardPlaySurfaceHeight`，棋子和胜利标记使用落子面高度；保留 `gomokuBoardSurfaceHeight` 给玩家可踩面、控制屏同高和碰撞 / overlay 使用。
+涉及文件：`app/nav-world/src/modules/gomoku/gomokuWorldTypes.ts`、`app/nav-world/src/modules/gomoku/GomokuWorldBoard.tsx`、`VALIDATION_LAYERS.md`、`validation/layer-12/debug.md`、`MEMORY.md`
+验证结果：`npx tsc --noEmit` 通过；`npm run assets:check` 通过；`npm run build` 通过，仍有既有 `WorldExperience` chunk 超 500KB 警告；用户实机确认 Layer 12 验收通过。
+画面变化：是，棋子贴近棋盘格线面，降低悬浮感和远景视差。
+截图：`validation/layer-12/gomoku-stone-grounded-far-desktop.png`、`validation/layer-12/gomoku-stone-grounded-mobile.png`
+剩余风险：Layer 12 已按用户实机确认验收；玩家对战、训练、复盘、PWA 嵌入、后端 API 和持久化仍不属于本层范围。

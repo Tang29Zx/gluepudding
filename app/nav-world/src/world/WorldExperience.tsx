@@ -305,13 +305,13 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
       if (aimedGomokuTarget.kind === "control") {
         return [
           `准星命中：五子棋控制屏 / ${aimedGomokuTarget.label}`,
-          "左键或 E 触发占位控件；收回棋盘按钮和 H 键已生效。",
+          "左键或 E 操作悔棋、重开、AI 强度或收回棋盘。",
         ];
       }
 
       return [
         `准星命中：${aimedGomokuTarget.label}`,
-        "按 G 移动棋盘，按 H 收回棋盘。",
+        "左键落子；按 G 移动棋盘，按 H 收回棋盘。",
       ];
     }
 
@@ -326,8 +326,8 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
 
     if (gomokuPlacement) {
       return [
-        "五子棋棋盘已展开；棋盘和控制屏都是可踩水平面。",
-        "按 G 移动棋盘，按 H 收回棋盘。",
+        "五子棋棋盘已展开；玩家执黑，AI 执白。",
+        "左键棋盘交叉点落子；按 G 移动棋盘，按 H 收回棋盘。",
       ];
     }
 

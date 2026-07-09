@@ -25,12 +25,13 @@ export interface GomokuPlacement {
 }
 
 export const gomokuBoardConfig = {
-  boardHalfSize: 1.6266666667,
+  boardHalfSize: 1.3013333334,
+  boardGridSurfaceHeight: 0.0905,
   boardVisualLift: 0.016,
   boardModelHeight: 0.116,
   maxPlacementHeightDelta: 0.55,
   placementSearchRadius: 3.6,
-  screenDepth: 3.2533333334,
+  screenDepth: 2.6026666668,
   screenGap: 0.22,
   screenThickness: 0.08,
   screenWidth: 1.72,
@@ -44,6 +45,9 @@ export const gomokuScreenCenterX =
 
 export const gomokuBoardSurfaceHeight =
   gomokuBoardConfig.boardVisualLift + gomokuBoardConfig.boardModelHeight;
+
+export const gomokuBoardPlaySurfaceHeight =
+  gomokuBoardConfig.boardVisualLift + gomokuBoardConfig.boardGridSurfaceHeight;
 
 export const gomokuScreenSurfaceHeight = gomokuBoardSurfaceHeight;
 
