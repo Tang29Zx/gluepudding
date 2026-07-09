@@ -15,8 +15,8 @@ import {
   Texture,
   Vector2,
 } from "three";
-import { getTarotReading } from "./fortuneApi";
-import type { TarotResult } from "./types";
+import { getTarotAiReading, getTarotReading } from "./fortuneApi";
+import type { AiInterpretResult, TarotResult } from "./types";
 import {
   canSelectCard,
   deselectCard,
@@ -35,8 +35,8 @@ const SCREEN_POS: [number, number, number] = [0, 2.0, 5.85];
 const SCREEN_ROT: [number, number, number] = [0, Math.PI, 0];
 const SCREEN_W = 3.6;
 const SCREEN_H = 2.25;
-const CANVAS_W = 768;
-const CANVAS_H = 480;
+const CANVAS_W = 1280;
+const CANVAS_H = 800;
 
 // ---- card arc ----
 const CARD_COUNT = 22;
@@ -128,86 +128,253 @@ function createCardBackCanvas(): HTMLCanvasElement {
 
 // ---- screen drawing helpers ----
 
+const BG = "#f7f5fb";
+const DARK = "#1a1436";
+const ACCENT = "#5d4db6";
+const GOLD = "#c9a84c";
+const SOFT = "#e8e4f2";
+
 function drawIdle(ctx: CanvasRenderingContext2D): void {
-  const w = CANVAS_W, h = CANVAS_H, topH = h * 0.1;
+  const w = CANVAS_W, h = CANVAS_H;
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#f8f7ff"; ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = "#2a2048"; ctx.fillRect(0, 0, w, topH);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `500 ${Math.round(h * 0.04)}px sans-serif`;
+  // bg
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, w, h);
+  // gradient-like top bar
+  ctx.fillStyle = DARK; ctx.fillRect(0, 0, w, h * 0.095);
+  // gold line under bar
+  ctx.fillStyle = GOLD; ctx.fillRect(w * 0.3, h * 0.095, w * 0.4, 2);
+
+  ctx.fillStyle = "#fff";
+  ctx.font = `500 ${Math.round(h * 0.038)}px sans-serif`;
   ctx.textAlign = "center";
-  ctx.fillText("塔罗占卜", w / 2, topH * 0.66);
+  ctx.fillText("Tarot · 塔罗占卜", w / 2, h * 0.065);
+
+  // centered card illustration
+  const cx = w / 2, cy = h * 0.52;
+  // card shadow
+  ctx.fillStyle = "rgba(90,77,182,0.08)";
+  ctx.roundRect(cx - 64, cy - 90, 128, 180, 8); ctx.fill();
+  // card bg
+  ctx.fillStyle = DARK;
+  ctx.roundRect(cx - 62, cy - 88, 124, 176, 6); ctx.fill();
+  // gold border
+  ctx.strokeStyle = GOLD; ctx.lineWidth = 1.5;
+  ctx.roundRect(cx - 56, cy - 82, 112, 164, 4); ctx.stroke();
+  // inner line
+  ctx.strokeStyle = ACCENT; ctx.lineWidth = 0.8;
+  ctx.roundRect(cx - 48, cy - 74, 96, 148, 3); ctx.stroke();
+  // star
+  ctx.fillStyle = GOLD;
+  ctx.font = "42px serif"; ctx.textAlign = "center";
+  ctx.fillText("\u2605", cx, cy - 12);
+  // text
+  ctx.fillStyle = "#fff";
+  ctx.font = "15px serif";
+  ctx.fillText("T A R O T", cx, cy + 28);
+
+  // hint below
   ctx.fillStyle = "#999";
-  ctx.font = `${Math.round(h * 0.035)}px sans-serif`;
-  ctx.textAlign = "center";
-  ctx.fillText("对准水晶球开始占卜", w / 2, h * 0.35);
+  ctx.font = `${Math.round(h * 0.028)}px sans-serif`;
+  ctx.fillText("对准桌面上的水晶球开始占卜", w / 2, h * 0.88);
+  // gold dot
+  ctx.fillStyle = GOLD;
+  ctx.beginPath(); ctx.arc(w / 2, h * 0.92, 3, 0, Math.PI * 2); ctx.fill();
 }
 
 function drawLoading(ctx: CanvasRenderingContext2D): void {
-  const w = CANVAS_W, h = CANVAS_H, topH = h * 0.1;
+  const w = CANVAS_W, h = CANVAS_H;
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#f8f7ff"; ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = "#2a2048"; ctx.fillRect(0, 0, w, topH);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `500 ${Math.round(h * 0.04)}px sans-serif`;
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = DARK; ctx.fillRect(0, 0, w, h * 0.095);
+  ctx.fillStyle = GOLD; ctx.fillRect(w * 0.3, h * 0.095, w * 0.4, 2);
+
+  ctx.fillStyle = "#fff";
+  ctx.font = `500 ${Math.round(h * 0.038)}px sans-serif`;
   ctx.textAlign = "center";
-  ctx.fillText("塔罗占卜", w / 2, topH * 0.66);
-  ctx.fillStyle = "#888";
-  ctx.font = `${Math.round(h * 0.035)}px sans-serif`;
-  ctx.textAlign = "center";
-  ctx.fillText("牌灵正在解读命运...", w / 2, h * 0.52);
+  ctx.fillText("Tarot · 塔罗占卜", w / 2, h * 0.065);
+
+  const cx = w / 2, cy = h * 0.48;
+  // three small card silhouettes
+  ctx.fillStyle = SOFT;
+  for (let i = 0; i < 3; i++) {
+    ctx.roundRect(cx - 70 + i * 70, cy - 50, 50, 80, 4); ctx.fill();
+  }
+  // loading text
+  ctx.fillStyle = ACCENT;
+  ctx.font = `${Math.round(h * 0.032)}px sans-serif`;
+  ctx.fillText("牌灵正在解读命运...", cx, cy + 60);
+
+  ctx.fillStyle = "#bbb";
+  ctx.font = `${Math.round(h * 0.026)}px sans-serif`;
+  ctx.fillText("三张牌分别代表 过去 · 现在 · 未来", cx, cy + 88);
 }
 
 function drawResult(ctx: CanvasRenderingContext2D, result: TarotResult): void {
-  const w = CANVAS_W, h = CANVAS_H, topH = h * 0.1;
+  const w = CANVAS_W, h = CANVAS_H;
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#f8f7ff"; ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = "#2a2048"; ctx.fillRect(0, 0, w, topH);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `500 ${Math.round(h * 0.04)}px sans-serif`;
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, w, h);
+  // top bar
+  ctx.fillStyle = DARK; ctx.fillRect(0, 0, w, h * 0.095);
+  ctx.fillStyle = GOLD; ctx.fillRect(w * 0.3, h * 0.095, w * 0.4, 2);
+  ctx.fillStyle = "#fff";
+  ctx.font = `500 ${Math.round(h * 0.038)}px sans-serif`;
   ctx.textAlign = "center";
-  ctx.fillText("塔罗占卜结果", w / 2, topH * 0.66);
+  ctx.fillText("Tarot · 占卜结果", w / 2, h * 0.065);
 
-  const colW = w / (result.cards.length + 0.5);
-  const cardStartY = h * 0.14;
-  const cardH = h * 0.62;
+  const cards = result.cards;
+  const colW = w / (cards.length + 0.8);
+  const cardBoxW = colW * 0.82;
+  const cardBoxH = h * 0.58;
+  const cardStartY = h * 0.13;
 
-  result.cards.forEach((card, ci) => {
-    const cx = colW * (ci + 0.75);
-    const posLabel = card.position === "past" ? "过去" : card.position === "present" ? "现在" : card.position === "future" ? "未来" : "核心";
-    ctx.fillStyle = "#5d4db6";
-    ctx.font = `500 ${Math.round(h * 0.022)}px sans-serif`;
+  cards.forEach((card, ci) => {
+    const cx = colW * (ci + 0.9);
+    const bx = cx - cardBoxW / 2, by = cardStartY;
+
+    // card background
+    ctx.fillStyle = "#ffffff";
+    ctx.shadowColor = "rgba(90,77,182,0.1)";
+    ctx.shadowBlur = 8; ctx.shadowOffsetY = 2;
+    ctx.beginPath(); ctx.roundRect(bx, by, cardBoxW, cardBoxH, 8); ctx.fill();
+    ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+
+    // position label
+    const posLabel = card.position === "past" ? "过去" : card.position === "present" ? "现在" : "未来";
+    ctx.fillStyle = ACCENT;
+    ctx.font = `500 ${Math.round(h * 0.02)}px sans-serif`;
     ctx.textAlign = "center";
-    ctx.fillText(posLabel, cx, cardStartY + h * 0.018);
-    ctx.fillStyle = "#444";
+    ctx.fillText(posLabel, cx, by + h * 0.03);
+
+    // card name
+    ctx.fillStyle = DARK;
     ctx.font = `500 ${Math.round(h * 0.028)}px sans-serif`;
-    ctx.fillText(card.name, cx, cardStartY + h * 0.06);
-    ctx.fillStyle = card.isUpright ? "#2e7d32" : "#c62828";
-    ctx.font = `${Math.round(h * 0.022)}px sans-serif`;
-    ctx.fillText(card.isUpright ? "正位" : "逆位", cx, cardStartY + h * 0.09);
-    const kwY = cardStartY + h * 0.13;
+    ctx.fillText(card.name, cx, by + h * 0.07);
+
+    // nameEn
+    ctx.fillStyle = "#888";
+    ctx.font = `${Math.round(h * 0.018)}px sans-serif`;
+    ctx.fillText(card.nameEn || "", cx, by + h * 0.095);
+
+    // orientation badge
+    const oriY = by + h * 0.115;
+    const isUp = card.isUpright;
+    ctx.fillStyle = isUp ? "#e8f5e9" : "#fbe9e7";
+    ctx.beginPath(); ctx.roundRect(cx - 28, oriY, 56, 22, 11); ctx.fill();
+    ctx.fillStyle = isUp ? "#2e7d32" : "#c62828";
+    ctx.font = `500 ${Math.round(h * 0.02)}px sans-serif`;
+    ctx.fillText(isUp ? "正位" : "逆位", cx, oriY + 15);
+
+    // separator
+    ctx.strokeStyle = SOFT; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(bx + 14, by + h * 0.17); ctx.lineTo(bx + cardBoxW - 14, by + h * 0.17); ctx.stroke();
+
+    // keywords
+    const kwY = by + h * 0.185;
     card.keywords.slice(0, 3).forEach((kw, ki) => {
-      ctx.fillStyle = "#7c6fd3";
-      ctx.font = `${Math.round(h * 0.02)}px sans-serif`;
-      ctx.fillText(kw, cx, kwY + ki * h * 0.035);
+      ctx.fillStyle = ACCENT;
+      ctx.font = `${Math.round(h * 0.018)}px sans-serif`;
+      ctx.fillText(kw, cx, kwY + ki * h * 0.032);
     });
+
+    // separator
+    ctx.strokeStyle = SOFT; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(bx + 14, kwY + 3 * h * 0.032 + h * 0.01); ctx.lineTo(bx + cardBoxW - 14, kwY + 3 * h * 0.032 + h * 0.01); ctx.stroke();
+
+    // meaning
+    const meanY = kwY + 3 * h * 0.032 + h * 0.025;
     ctx.fillStyle = "#666";
-    ctx.font = `${Math.round(h * 0.021)}px sans-serif`;
+    ctx.font = `${Math.round(h * 0.018)}px sans-serif`;
+    ctx.textAlign = "center";
     const words = card.meaning;
-    const maxChars = 10;
+    const maxChars = 11;
     for (let i = 0; i < words.length; i += maxChars) {
-      ctx.fillText(words.slice(i, i + maxChars), cx, cardStartY + h * 0.3 + (i / maxChars) * h * 0.04);
+      ctx.fillText(words.slice(i, i + maxChars), cx, meanY + (i / maxChars) * h * 0.033);
     }
   });
 
-  const summaryY = cardStartY + cardH + h * 0.02;
-  ctx.fillStyle = "#888";
-  ctx.font = `${Math.round(h * 0.022)}px sans-serif`;
+  // bottom summary
+  const summaryY = cardStartY + cardBoxH + h * 0.03;
+  ctx.fillStyle = DARK;
+  ctx.font = `500 ${Math.round(h * 0.025)}px sans-serif`;
   ctx.textAlign = "center";
-  const maxChars = 40;
+  ctx.fillText("综合解读", w / 2, summaryY);
+
+  ctx.fillStyle = "#666";
+  ctx.font = `${Math.round(h * 0.02)}px sans-serif`;
+  const maxChars = 42;
   for (let i = 0; i < result.summary.length; i += maxChars) {
-    ctx.fillText(result.summary.slice(i, i + maxChars), w / 2, summaryY + (i / maxChars) * h * 0.04);
+    ctx.fillText(result.summary.slice(i, i + maxChars), w / 2, summaryY + h * 0.035 + (i / maxChars) * h * 0.035);
   }
+
+  // gold footer line
+  ctx.fillStyle = GOLD;
+  ctx.fillRect(w * 0.35, h - 4, w * 0.3, 1.5);
+}
+
+function drawAiLoading(ctx: CanvasRenderingContext2D): void {
+  const w = CANVAS_W, h = CANVAS_H;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = DARK; ctx.fillRect(0, 0, w, h * 0.095);
+  ctx.fillStyle = GOLD; ctx.fillRect(w * 0.3, h * 0.095, w * 0.4, 2);
+  ctx.fillStyle = "#fff";
+  ctx.font = `500 ${Math.round(h * 0.038)}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.fillText("AI 深度解读", w / 2, h * 0.065);
+
+  const cx = w / 2, cy = h * 0.52;
+  ctx.fillStyle = ACCENT;
+  ctx.font = `${Math.round(h * 0.032)}px sans-serif`;
+  ctx.fillText("AI 正在分析牌阵...", cx, cy - 10);
+
+  // animated dots
+  ctx.fillStyle = SOFT;
+  ctx.font = `${Math.round(h * 0.024)}px sans-serif`;
+  ctx.fillText("结合问题深度推理命运走向", cx, cy + 30);
+
+  ctx.fillStyle = GOLD;
+  ctx.fillRect(w * 0.35, h * 0.82, w * 0.3, 1.5);
+}
+
+function drawAiResult(ctx: CanvasRenderingContext2D, text: string): void {
+  const w = CANVAS_W, h = CANVAS_H;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = DARK; ctx.fillRect(0, 0, w, h * 0.095);
+  ctx.fillStyle = GOLD; ctx.fillRect(w * 0.3, h * 0.095, w * 0.4, 2);
+  ctx.fillStyle = "#fff";
+  ctx.font = `500 ${Math.round(h * 0.038)}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.fillText("AI 深度解读", w / 2, h * 0.065);
+
+  // content card
+  const pad = w * 0.06;
+  const contentY = h * 0.12;
+  ctx.fillStyle = "#ffffff";
+  ctx.shadowColor = "rgba(90,77,182,0.08)";
+  ctx.shadowBlur = 6; ctx.shadowOffsetY = 1;
+  ctx.beginPath(); ctx.roundRect(pad, contentY, w - pad * 2, h * 0.72, 8); ctx.fill();
+  ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+
+  ctx.fillStyle = "#444";
+  ctx.font = `${Math.round(h * 0.022)}px sans-serif`;
+  ctx.textAlign = "left";
+  const maxChars = 48;
+  const lineH = h * 0.035;
+  const lines = text.split("\n").filter((l) => l.trim());
+
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li];
+    for (let i = 0; i < line.length; i += maxChars) {
+      ctx.fillText(
+        line.slice(i, i + maxChars),
+        pad + w * 0.03,
+        contentY + h * 0.025 + (li * 3 + (i / maxChars)) * lineH,
+      );
+    }
+  }
+
+  // no extra hint — page button handles navigation
 }
 
 // ---- selection progress HUD ----
@@ -373,6 +540,9 @@ export function TarotTable() {
   const [question, setQuestion] = useState("");
   const [flipProgress, setFlipProgress] = useState(0);
   const [cardFaceTextures, setCardFaceTextures] = useState<Map<number, Texture>>(new Map());
+  const [revealPage, setRevealPage] = useState<"cards" | "ai_loading" | "ai_result">("cards");
+  const [aiText, setAiText] = useState("");
+  const [hoveredPageBtn, setHoveredPageBtn] = useState(false);
 
   const crystalMeshRef = useRef<Mesh | null>(null);
   const cardMeshMap = useRef<Map<number, Mesh>>(new Map());
@@ -380,6 +550,8 @@ export function TarotTable() {
   const hoveredCrystalRef = useRef(false);
   const hoveredCardRef = useRef<number | null>(null);
   const flipDelayRef = useRef(0);
+  const candleMeshRef = useRef<Mesh | null>(null);
+  const hoveredCandleRef = useRef(false);
   const FLIP_DELAY_MS = 900;
   const flipStartRef = useRef(0);
 
@@ -392,16 +564,41 @@ export function TarotTable() {
   useEffect(() => {
     const ctx = offCanvas.getContext("2d");
     if (!ctx) return;
-    if (result) drawResult(ctx, result);
+    if (revealPage === "ai_loading") drawAiLoading(ctx);
+    else if (revealPage === "ai_result") drawAiResult(ctx, aiText);
+    else if (result) drawResult(ctx, result);
     else if (phase === "select" && selectedIndexes.length === MAX_SELECT) drawLoading(ctx);
     else drawIdle(ctx);
     screenTex.needsUpdate = true;
-  }, [phase, selectedIndexes, result, offCanvas, screenTex]);
+  }, [phase, selectedIndexes, result, offCanvas, screenTex, revealPage, aiText]);
 
   // reset flip on enter reveal
   useEffect(() => {
-    if (phase === "reveal") setFlipProgress(0);
+    if (phase === "reveal") { setFlipProgress(0); setRevealPage("cards"); }
   }, [phase]);
+
+  // AI fetch when revealing AI page
+  useEffect(() => {
+    if (revealPage !== "ai_loading" || !result || !question) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getTarotAiReading({
+          question,
+          spread: result.spread,
+          deck: result.deck || "major",
+          cards: result.cards,
+        });
+        if (!cancelled && res.success && res.data) {
+          setAiText(res.data.interpretation);
+          setRevealPage("ai_result");
+        }
+      } catch {
+        if (!cancelled) setRevealPage("cards");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [revealPage, result, question]);
 
   // flip animation — delayed to let cards settle
   useFrame((_, delta) => {
@@ -421,6 +618,23 @@ export function TarotTable() {
     });
   });
 
+  // keyboard: E to flip page in reveal
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== "KeyE" || e.repeat) return;
+      if (phase !== "reveal" || flipProgress < 1) return;
+      if (document.activeElement instanceof HTMLInputElement) return;
+      e.preventDefault();
+      setRevealPage((prev) => {
+        if (prev === "cards") { setAiText(""); return "ai_loading"; }
+        if (prev === "ai_result") return "cards";
+        return prev;
+      });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [phase, flipProgress]);
+
   // raycasting
   useFrame(() => {
     raycasterRef.current.setFromCamera(screenCenter, camera);
@@ -432,15 +646,25 @@ export function TarotTable() {
       return;
     }
     if (phase === "reveal") {
-      // check both crystal and cards
       const crystalHits = crystalMeshRef.current ? raycasterRef.current.intersectObject(crystalMeshRef.current, false) : [];
       const cards = Array.from(cardMeshMap.current.entries());
       const cardHits = raycasterRef.current.intersectObjects(cards.map(([, m]) => m), false);
-      if (cardHits.length > 0) {
+      const pageBtnHit = candleMeshRef.current ? raycasterRef.current.intersectObject(candleMeshRef.current, false).length > 0 : false;
+
+      if (hoveredCandleRef.current !== pageBtnHit) { hoveredCandleRef.current = pageBtnHit; setHoveredPageBtn(pageBtnHit); }
+
+      // candle has priority over cards (cards can block line of sight)
+      if (pageBtnHit) {
+        if (hoveredCrystalRef.current) { hoveredCrystalRef.current = false; setHoveredCrystal(false); }
+        if (hoveredCardRef.current !== null) { hoveredCardRef.current = null; setHoveredCardIdx(null); }
+      } else if (cardHits.length > 0) {
         const found = cards.find(([, m]) => m === (cardHits[0].object as Mesh));
         const idx = found ? found[0] : null;
         if (hoveredCardRef.current !== idx) { hoveredCardRef.current = idx; setHoveredCardIdx(idx); }
         if (hoveredCrystalRef.current) { hoveredCrystalRef.current = false; setHoveredCrystal(false); }
+      } else if (pageBtnHit) {
+        if (hoveredCrystalRef.current) { hoveredCrystalRef.current = false; setHoveredCrystal(false); }
+        if (hoveredCardRef.current !== null) { hoveredCardRef.current = null; setHoveredCardIdx(null); }
       } else if (crystalHits.length > 0) {
         if (!hoveredCrystalRef.current) { hoveredCrystalRef.current = true; setHoveredCrystal(true); }
         if (hoveredCardRef.current !== null) { hoveredCardRef.current = null; setHoveredCardIdx(null); }
@@ -476,11 +700,20 @@ export function TarotTable() {
       );
       return;
     }
+    if (phase === "reveal" && hoveredCandleRef.current) {
+      event.preventDefault(); event.stopPropagation();
+      setRevealPage((prev) => {
+        if (prev === "cards") { setAiText(""); return "ai_loading"; }
+        if (prev === "ai_result") return "cards";
+        return prev;
+      });
+      return;
+    }
     if (phase === "reveal" && hoveredCardRef.current !== null) {
       event.preventDefault(); event.stopPropagation();
-      setPhase("idle");
       setSelectedIndexes([]);
       setFlipProgress(0);
+      setRevealPage("cards");
       setHoveredCrystal(false);
       setHoveredCardIdx(null);
       return;
@@ -491,6 +724,8 @@ export function TarotTable() {
       setSelectedIndexes([]);
       setResult(null);
       setFlipProgress(0);
+      setRevealPage("cards");
+      setAiText("");
       setCardFaceTextures(new Map());
       setHoveredCrystal(false);
       return;
@@ -591,6 +826,23 @@ export function TarotTable() {
           <meshBasicMaterial color="#5d4db6" transparent opacity={0.7} depthWrite={false} />
         </mesh>
       )}
+
+      {/* candle page flip — always visible, left candle at [-1.18, 1.35, 4.18] */}
+      <mesh
+        ref={candleMeshRef}
+        position={[-1.18, 1.35, 4.18]}
+      >
+        <sphereGeometry args={[hoveredPageBtn ? 0.42 : 0.32, 16, 12]} />
+        <meshStandardMaterial
+          color={hoveredPageBtn ? "#ffd977" : "#5d4db6"}
+          emissive={hoveredPageBtn ? "#ffd977" : "#5d4db6"}
+          emissiveIntensity={hoveredPageBtn ? 0.65 : phase === "reveal" ? 0.25 : 0.12}
+          roughness={0.3}
+          transparent
+          opacity={hoveredPageBtn ? 0.55 : phase === "reveal" ? 0.25 : 0.12}
+          depthWrite={false}
+        />
+      </mesh>
     </group>
   );
 }
