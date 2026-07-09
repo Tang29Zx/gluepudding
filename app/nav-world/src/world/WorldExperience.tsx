@@ -23,6 +23,7 @@ import {
   type GomokuPlacement,
 } from "../modules/gomoku/gomokuWorldTypes";
 import { CameraRig } from "./CameraRig";
+import { GameOverlay } from "../modules/GameOverlay";
 import {
   getInteractionTargetById,
   type InteractionTargetId,
@@ -360,6 +361,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
     useState<InteractionTargetId | null>(null);
   const [forcedFortuneAssetMode] =
     useState<ForcedFortuneAssetMode>(getForcedFortuneAssetMode);
+  const [isGameOpen, setIsGameOpen] = useState(false);
 
   const aimedTarget = getInteractionTargetById(aimedTargetId);
   const focusedModule = focusedModuleId
@@ -395,11 +397,19 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
   }, []);
 
   const focusAreaModule = useCallback((targetId: InteractionTargetId) => {
+    if (targetId === "game-door") {
+      setIsGameOpen(true);
+      return;
+    }
     setFocusedModuleId(getWorldModuleIdByTargetId(targetId));
     setSelectedTargetId(targetId);
   }, []);
 
   const selectObject = useCallback((targetId: InteractionTargetId) => {
+    if (targetId === "game-door") {
+      setIsGameOpen(true);
+      return;
+    }
     setFocusedModuleId(getWorldModuleIdByTargetId(targetId));
     setSelectedTargetId(targetId);
   }, []);
@@ -503,6 +513,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
   }, []);
 
   return (
+    <>
     <main className="world-shell" aria-label="gluepudding 3D World">
       <Canvas
         className="world-canvas"
@@ -622,5 +633,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
         </button>
       </div>
     </main>
+    {isGameOpen && <GameOverlay onClose={() => setIsGameOpen(false)} />}
+    </>
   );
 }

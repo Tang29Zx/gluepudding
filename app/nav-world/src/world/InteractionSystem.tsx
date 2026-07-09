@@ -10,7 +10,8 @@ import {
 export type InteractionTargetId =
   | "divination-house"
   | "laboratory"
-  | "gomoku-board";
+  | "gomoku-board"
+  | "game-door";
 
 export type InteractionActivationMode = "area" | "object";
 
@@ -54,6 +55,7 @@ const [
 ] = landmarkPositions.divinationHouse;
 const [laboratoryX, laboratoryY, laboratoryZ] = landmarkPositions.laboratory;
 const [gomokuBoardX, gomokuBoardY, gomokuBoardZ] = landmarkPositions.gomokuBoard;
+const [gameRoomX, gameRoomY, gameRoomZ] = landmarkPositions.gameRoom;
 
 export const interactionTargets: readonly InteractionTarget[] = [
   {
@@ -104,6 +106,20 @@ export const interactionTargets: readonly InteractionTarget[] = [
     panelTitle: "五子棋模块外壳",
     panelBody:
       "Layer 4 验证棋局外壳在世界内打开。真正棋局面板和落子会在 Layer 7 实现。",
+  },
+  {
+    id: "game-door",
+    label: "视角塑影师",
+    position: [gameRoomX, gameRoomY, gameRoomZ],
+    aimPosition: [gameRoomX, gameRoomY + 1.5, gameRoomZ],
+    proximityRadius: 5,
+    raycastRadius: 2.5,
+    enabled: true,
+    accentColor: "#4a90d9",
+    areaPrompt: "靠近游戏门，按 E 进入《视角塑影师》。",
+    objectPrompt: "准星对准游戏门，左键进入《视角塑影师》。",
+    panelTitle: "视角塑影师",
+    panelBody: "3D 空间解谜游戏——移动物体改变影子，旋转视角解锁可能。",
   },
 ];
 

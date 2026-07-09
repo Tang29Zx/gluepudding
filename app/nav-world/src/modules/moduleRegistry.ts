@@ -22,12 +22,14 @@ const targetToModuleId: Record<InteractionTargetId, WorldModuleId> = {
   "divination-house": "divination",
   laboratory: "laboratory",
   "gomoku-board": "gomoku",
+  "game-door": "game",
 };
 
 const defaultWorldModuleStatuses = {
   divination: "ready",
   laboratory: "ready",
   gomoku: "ready",
+  game: "ready",
 } satisfies Record<WorldModuleId, WorldModuleStatus>;
 
 const sharedStatusCopy = {
@@ -44,6 +46,7 @@ const [
 ] = landmarkPositions.divinationHouse;
 const [laboratoryX, laboratoryY, laboratoryZ] = landmarkPositions.laboratory;
 const [gomokuBoardX, gomokuBoardY, gomokuBoardZ] = landmarkPositions.gomokuBoard;
+const [gameRoomX, gameRoomY, gameRoomZ] = landmarkPositions.gameRoom;
 
 export const worldModuleDefinitions = {
   divination: {
@@ -86,10 +89,22 @@ export const worldModuleDefinitions = {
     targetId: "gomoku-board",
     title: "Gomoku",
   },
+  game: {
+    accentColor: "#4a90d9",
+    capabilities: ["Shadow puzzle door"],
+    id: "game",
+    panelPosition: [gameRoomX, gameRoomY + 1.5, gameRoomZ],
+    panelRotation: [0, 0, 0],
+    panelSize: [3, 2],
+    statusCopy: sharedStatusCopy,
+    subtitle: "Perspective puzzle game portal",
+    targetId: "game-door",
+    title: "Game",
+  },
 } satisfies Record<WorldModuleId, WorldModuleDefinition>;
 
 export const worldModuleDefinitionList = Object.values(worldModuleDefinitions).filter(
-  (definition) => definition.id !== "gomoku",
+  (definition) => definition.id !== "gomoku" && definition.id !== "game",
 );
 
 export function createDefaultWorldModuleStatuses(): Record<
