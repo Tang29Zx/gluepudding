@@ -60,3 +60,25 @@
 截图：用户明确本次画面由用户手测；Codex 未生成桌面端 / 移动端截图。
 
 剩余风险：未做自动化视觉截图；塔罗 `single` 模式和 78 张完整牌组未作为本次验收范围；周易提问阶段仍使用受控 DOM 输入层，实机交互体验以用户手测确认。
+
+## 2026-07-09 / Layer 8 内容屏重叠修复
+
+日期：2026-07-09
+
+版本 / Layer：Layer 8 占卜屋交互与真实占卜接口层
+
+现象：用户实机截图显示周易新内容屏和 `main` 里 Layer 5.5 保留的旧空白内容屏重叠，导致画面像两块屏幕叠在一起。
+
+原因判断：合并冲突时同时保留了 `main` 的 `BlankContentScreens` 和 `fortune` 的 `ZodiacWheel` / `TarotTable` / `IchingHexagram` 自带内容屏。三者使用相同或接近的屏幕坐标，真实内容屏会覆盖在旧屏幕上。
+
+解决方案：从 `FortuneAssetStage` 移除 `BlankContentScreens`、旧屏幕坐标定义和不再使用的 `DoubleSide` import；保留 Layer 8 真实星座、塔罗、周易内容屏和占卜屋氛围灯。
+
+涉及文件：`app/nav-world/src/modules/divination/FortuneAssetStage.tsx`、`validation/layer-8/debug.md`。
+
+验证结果：`npm run assets:fortune:check` 通过；`npm run build` 通过，仍有既有 `WorldExperience` chunk 超 500KB 警告；`npm run assets:check` 通过。画面由用户实机手测。
+
+画面变化：是，旧空白内容屏不再渲染，避免和真实内容屏重叠。
+
+截图：用户实机验证，本轮 Codex 不生成截图。
+
+剩余风险：如果真实内容屏自身位置仍需微调，以用户实机反馈继续调整。
