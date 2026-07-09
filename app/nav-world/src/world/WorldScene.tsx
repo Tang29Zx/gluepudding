@@ -64,7 +64,6 @@ interface WorldSceneProps {
   fortuneRoomState: FortuneRoomState;
   gomokuPlacement: GomokuPlacement | null;
   isFortuneRoomInteriorVisible: boolean;
-  isLaboratoryDebugAccessEnabled: boolean;
   isLaboratoryDebugScreenVisible: boolean;
   isLaboratoryLoginInputActive: boolean;
   isLaboratoryLoginScreenVisible: boolean;
@@ -97,7 +96,6 @@ interface WorldSceneProps {
     username: string,
     password: string,
   ) => Promise<LaboratoryAccessSnapshot>;
-  onLaboratoryDebugAccessToggle: () => void;
   onModuleStatusChange: (
     moduleId: WorldModuleId,
     status: WorldModuleStatus,
@@ -116,7 +114,6 @@ export function WorldScene({
   fortuneRoomState,
   gomokuPlacement,
   isFortuneRoomInteriorVisible,
-  isLaboratoryDebugAccessEnabled,
   isLaboratoryDebugScreenVisible,
   isLaboratoryLoginInputActive,
   isLaboratoryLoginScreenVisible,
@@ -135,7 +132,6 @@ export function WorldScene({
   onLaboratoryLoginInputActiveChange,
   onLaboratoryLoginScreenClose,
   onLaboratoryLoginSubmit,
-  onLaboratoryDebugAccessToggle,
   onModuleStatusChange,
   onNearestTargetChange,
   onSelectObject,
@@ -194,10 +190,8 @@ export function WorldScene({
       {isOutsideWorldVisible ? (
         <>
           <LaboratoryDebugAccessScreen
-            isDebugAccessEnabled={isLaboratoryDebugAccessEnabled}
             isVisible={isLaboratoryDebugScreenVisible}
             onAimedControlChange={onAimedLaboratoryDebugControlChange}
-            onToggleDebugAccess={onLaboratoryDebugAccessToggle}
           />
           <GamePortal />
         </>

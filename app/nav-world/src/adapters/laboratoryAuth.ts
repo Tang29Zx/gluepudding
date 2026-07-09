@@ -32,21 +32,6 @@ export const initialLaboratoryAccessSnapshot: LaboratoryAccessSnapshot = {
   user: null,
 };
 
-export function createLaboratoryDebugAccessSnapshot(
-  isLoggedIn: boolean,
-): LaboratoryAccessSnapshot {
-  if (!isLoggedIn) {
-    return createAccessSnapshot("guest", "测试后门：当前模拟未登录");
-  }
-
-  return createAccessSnapshot("ready", "测试后门：当前模拟已登录", {
-    displayName: "Laboratory Debug",
-    id: "laboratory_debug",
-    roles: ["admin"],
-    username: "laboratory-debug",
-  });
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -171,7 +156,7 @@ export async function getLaboratoryAccess(): Promise<LaboratoryAccessSnapshot> {
   if (shouldUseLocalAuthFallback()) {
     return createAccessSnapshot(
       "guest",
-      "本地预览未连接登录服务，可使用测试屏切换实验室权限",
+      "本地预览未连接登录服务，无法确认实验室权限",
     );
   }
 
@@ -201,7 +186,7 @@ export async function loginLaboratoryAccess(
   if (shouldUseLocalAuthFallback()) {
     return createAccessSnapshot(
       "error",
-      "本地预览未连接登录服务，请使用测试屏切换实验室权限",
+      "本地预览未连接登录服务，无法提交实验室登录",
     );
   }
 

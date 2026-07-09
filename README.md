@@ -103,6 +103,12 @@ npm run preview -- --host 127.0.0.1 --port 4174
 - `app/frontend/models/**/*.glb` 是构建输出，继续被 `.gitignore` 忽略。
 - `app/nav-world/public/models/**/*.glb` 是运行时源资源；是否作为普通 Git 文件提交，按后续资源交付口径单独确认。
 
+## 模型资源版权声明
+
+- "Float Island - low ploy" (https://skfb.ly/oPpL7) by 18gen is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
+- "Sci-Fi Teleporter" (https://skfb.ly/pxIX9) by GMT is licensed under Creative Commons Attribution-ShareAlike (http://creativecommons.org/licenses/by-sa/4.0/).
+- "Sci- Fi / Future Building 2: Simple Dome" (https://skfb.ly/oBvET) by 𝗻𝗲𝗻𝗸𝗲𝗮 is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
+
 ## resources 目录规则
 
 `resources/` 是本地参考输入，不是仓库交付物。

@@ -7,7 +7,6 @@ import {
   Vector3,
 } from "three";
 import {
-  createLaboratoryDebugAccessSnapshot,
   getLaboratoryAccess,
   initialLaboratoryAccessSnapshot,
   loginLaboratoryAccess,
@@ -82,7 +81,6 @@ interface WorldRuntimeProps {
   forcedFortuneAssetMode: ForcedFortuneAssetMode;
   gomokuPlacement: GomokuPlacement | null;
   isLoading: boolean;
-  isLaboratoryDebugAccessEnabled: boolean;
   isLaboratoryDebugScreenVisible: boolean;
   isLaboratoryLoginInputActive: boolean;
   isLaboratoryLoginScreenVisible: boolean;
@@ -107,7 +105,6 @@ interface WorldRuntimeProps {
     username: string,
     password: string,
   ) => Promise<LaboratoryAccessSnapshot>;
-  onLaboratoryDebugAccessToggle: () => void;
   onLaboratoryTeleportDenied: () => void;
   onAimedTargetChange: (targetId: InteractionTargetId | null) => void;
   onFortuneInteriorReadyChange: (isReady: boolean) => void;
@@ -132,7 +129,6 @@ function WorldRuntime({
   forcedFortuneAssetMode,
   gomokuPlacement,
   isLoading,
-  isLaboratoryDebugAccessEnabled,
   isLaboratoryDebugScreenVisible,
   isLaboratoryLoginInputActive,
   isLaboratoryLoginScreenVisible,
@@ -152,7 +148,6 @@ function WorldRuntime({
   onLaboratoryLoginInputActiveChange,
   onLaboratoryLoginScreenClose,
   onLaboratoryLoginSubmit,
-  onLaboratoryDebugAccessToggle,
   onLaboratoryTeleportDenied,
   onModuleStatusChange,
   onNearestTargetChange,
@@ -573,7 +568,6 @@ function WorldRuntime({
         aimedGomokuTarget={aimedGomokuTarget}
         aimedModuleControl={aimedModuleControl}
         fortuneRoomState={fortuneRoomState}
-        isLaboratoryDebugAccessEnabled={isLaboratoryDebugAccessEnabled}
         isFortuneRoomInteriorVisible={isFortuneRoomInteriorVisible}
         isLaboratoryDebugScreenVisible={isLaboratoryDebugScreenVisible}
         isLaboratoryLoginInputActive={isLaboratoryLoginInputActive}
@@ -600,7 +594,6 @@ function WorldRuntime({
         }
         onLaboratoryLoginScreenClose={onLaboratoryLoginScreenClose}
         onLaboratoryLoginSubmit={onLaboratoryLoginSubmit}
-        onLaboratoryDebugAccessToggle={onLaboratoryDebugAccessToggle}
         onAimedTargetChange={onAimedTargetChange}
         onFortuneInteriorReadyChange={setFortuneInteriorReadyValue}
         onModuleStatusChange={onModuleStatusChange}
@@ -667,8 +660,6 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
     useState(false);
   const [laboratoryAccess, setLaboratoryAccess] =
     useState<LaboratoryAccessSnapshot>(initialLaboratoryAccessSnapshot);
-  const [laboratoryAccessOverride, setLaboratoryAccessOverride] =
-    useState<LaboratoryAccessSnapshot | null>(null);
   const [moduleStatuses, setModuleStatuses] = useState(
     createDefaultWorldModuleStatuses,
   );
@@ -688,11 +679,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
   const nearestTarget = getInteractionTargetById(nearestTargetId);
   const selectedTarget = getInteractionTargetById(selectedTargetId);
   const selectableTarget = aimedTarget ?? nearestTarget;
-  const effectiveLaboratoryAccess =
-    laboratoryAccessOverride ?? laboratoryAccess;
   const isLaboratoryDebugScreenVisible = shouldShowLaboratoryDebugScreen();
-  const isLaboratoryDebugAccessEnabled =
-    effectiveLaboratoryAccess.status === "ready";
 
   const refreshLaboratoryAccess = useCallback(async () => {
     const snapshot = await getLaboratoryAccess();
@@ -716,14 +703,14 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
   }, []);
 
   useEffect(() => {
-    if (effectiveLaboratoryAccess.status !== "ready") {
+    if (laboratoryAccess.status !== "ready") {
       return;
     }
 
     setIsLaboratoryLoginScreenVisible(false);
     setIsLaboratoryLoginInputActive(false);
     setAimedLaboratoryLoginControl(null);
-  }, [effectiveLaboratoryAccess.status]);
+  }, [laboratoryAccess.status]);
 
   useEffect(() => {
     if (isLaboratoryLoginScreenVisible || !isLaboratoryLoginInputActive) {
@@ -740,12 +727,12 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
     setIsLaboratoryLoginScreenVisible(true);
 
     if (
-      effectiveLaboratoryAccess.status === "checking" ||
-      effectiveLaboratoryAccess.status === "error"
+      laboratoryAccess.status === "checking" ||
+      laboratoryAccess.status === "error"
     ) {
       void refreshLaboratoryAccess();
     }
-  }, [effectiveLaboratoryAccess.status, refreshLaboratoryAccess]);
+  }, [laboratoryAccess.status, refreshLaboratoryAccess]);
 
   const closeLaboratoryLoginScreen = useCallback(() => {
     setIsLaboratoryLoginInputActive(false);
@@ -755,7 +742,6 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
 
   const submitLaboratoryLogin = useCallback(
     async (username: string, password: string) => {
-      setLaboratoryAccessOverride(null);
       setLaboratoryAccess({
         message: "正在登录",
         status: "loggingIn",
@@ -776,20 +762,6 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
     },
     [],
   );
-
-  const toggleLaboratoryDebugAccess = useCallback(() => {
-    const nextIsLoggedIn = effectiveLaboratoryAccess.status !== "ready";
-
-    setLaboratoryAccessOverride(
-      createLaboratoryDebugAccessSnapshot(nextIsLoggedIn),
-    );
-    setIsLaboratoryLoginInputActive(false);
-
-    if (nextIsLoggedIn) {
-      setIsLaboratoryLoginScreenVisible(false);
-      setAimedLaboratoryLoginControl(null);
-    }
-  }, [effectiveLaboratoryAccess.status]);
 
   useEffect(() => {
     if (!isCanvasReady || !isTerrainReady) {
@@ -899,8 +871,8 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
 
     if (aimedLaboratoryDebugControl) {
       return [
-        "准星命中：出生点测试屏 / 登录切换",
-        "左键切换实验室测试登录状态；正式上线后替换为说明 / 关于。",
+        "准星命中：资源版权与备案",
+        "当前小屏列出 3D 模型资源授权和网站备案信息。",
       ];
     }
 
@@ -965,7 +937,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
     if (focusedModule) {
       if (focusedModule.id === "laboratory") {
         return [
-          effectiveLaboratoryAccess.status === "ready"
+          laboratoryAccess.status === "ready"
             ? "实验室权限已通过；传送台上按 Space 上行。"
             : "传送台上按 Space 会先检查实验室权限。",
           "天空实验室大屏已接入视频纹理。",
@@ -1007,7 +979,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
     gomokuPlacement,
     isLaboratoryLoginInputActive,
     isLaboratoryLoginScreenVisible,
-    effectiveLaboratoryAccess.status,
+    laboratoryAccess.status,
     nearestTarget,
   ]);
 
@@ -1112,11 +1084,10 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
             forcedFortuneAssetMode={forcedFortuneAssetMode}
             gomokuPlacement={gomokuPlacement}
             isLoading={!isCanvasReady || !isTerrainReady}
-            isLaboratoryDebugAccessEnabled={isLaboratoryDebugAccessEnabled}
             isLaboratoryDebugScreenVisible={isLaboratoryDebugScreenVisible}
             isLaboratoryLoginInputActive={isLaboratoryLoginInputActive}
             isLaboratoryLoginScreenVisible={isLaboratoryLoginScreenVisible}
-            laboratoryAccess={effectiveLaboratoryAccess}
+            laboratoryAccess={laboratoryAccess}
             moduleStatuses={moduleStatuses}
             onActivateArea={focusAreaModule}
             onAimedLaboratoryDebugControlChange={
@@ -1134,7 +1105,6 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
             }
             onLaboratoryLoginScreenClose={closeLaboratoryLoginScreen}
             onLaboratoryLoginSubmit={submitLaboratoryLogin}
-            onLaboratoryDebugAccessToggle={toggleLaboratoryDebugAccess}
             onLaboratoryTeleportDenied={showLaboratoryLoginScreen}
             onAimedTargetChange={setAimedTargetId}
             onFortuneInteriorReadyChange={ignoreFortuneInteriorReady}
@@ -1165,16 +1135,16 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
       <div
         aria-label={
           aimedLaboratoryDebugControl
-            ? `准星命中出生点测试屏：${aimedLaboratoryDebugControl.label}`
+            ? `准星命中资源版权与备案：${aimedLaboratoryDebugControl.label}`
             : aimedLaboratoryLoginControl
-            ? `准星命中实验室登录：${aimedLaboratoryLoginControl.label}`
-            : aimedGomokuTarget
-            ? `准星命中五子棋：${aimedGomokuTarget.label}`
-            : aimedModuleControl
-            ? `准星命中模块控件：${aimedModuleControl.moduleTitle} ${aimedModuleControl.label}`
-            : aimedTarget
-              ? `准星对准：${aimedTarget.label}`
-              : "中心准星"
+              ? `准星命中实验室登录：${aimedLaboratoryLoginControl.label}`
+              : aimedGomokuTarget
+                ? `准星命中五子棋：${aimedGomokuTarget.label}`
+                : aimedModuleControl
+                  ? `准星命中模块控件：${aimedModuleControl.moduleTitle} ${aimedModuleControl.label}`
+                  : aimedTarget
+                    ? `准星对准：${aimedTarget.label}`
+                    : "中心准星"
         }
         className={`world-crosshair${
           aimedTarget ||

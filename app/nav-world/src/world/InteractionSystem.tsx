@@ -344,25 +344,11 @@ export function InteractionSystem({
           isNearest,
           isSelected,
         });
-        const ringScale = isSelected ? 1.12 : isAimed ? 1.06 : 1;
         const shouldShowAimMarker =
           target.id !== "divination-house" && target.id !== "laboratory";
 
         return (
           <group key={target.id}>
-            <mesh
-              position={[target.position[0], target.position[1] + 0.055, target.position[2]]}
-              rotation={[Math.PI / 2, 0, 0]}
-              scale={[ringScale, ringScale, ringScale]}
-            >
-              <torusGeometry args={[target.proximityRadius, 0.055, 12, 80]} />
-              <meshBasicMaterial
-                color={target.accentColor}
-                opacity={opacity}
-                transparent
-              />
-            </mesh>
-
             <mesh
               position={target.aimPosition}
               ref={(mesh) => {
