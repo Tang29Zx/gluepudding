@@ -1,0 +1,86 @@
+{
+  "aries": {
+    "texts": [
+      { "overall": 85, "love": 72, "career": 90, "health": 80, "luckyColor": "红色", "luckyNumber": 3, "good": "主动出击", "bad": "冲动行事", "level": "大吉", "summary": "今天行动力爆棚，是开启新项目的好时机。工作上会有突破性进展，但感情方面需要多一些耐心。" },
+      { "overall": 70, "love": 85, "career": 65, "health": 75, "luckyColor": "橙色", "luckyNumber": 7, "good": "表达爱意", "bad": "工作急躁", "level": "吉", "summary": "感情运势上升，适合向心仪的人表达心意。工作中可能会遇到一些小挫折，保持冷静即可化解。" },
+      { "overall": 60, "love": 55, "career": 68, "health": 70, "luckyColor": "黄色", "luckyNumber": 1, "good": "耐心沟通", "bad": "一意孤行", "level": "平", "summary": "今天适合放慢脚步，多听取他人意见。人际关系需要用心经营，独来独往可能会错失良机。" }
+    ]
+  },
+  "taurus": {
+    "texts": [
+      { "overall": 78, "love": 80, "career": 72, "health": 82, "luckyColor": "绿色", "luckyNumber": 6, "good": "理财规划", "bad": "过度保守", "level": "吉", "summary": "财运不错，适合重新审视自己的资产配置。感情方面稳定甜蜜，单身的金牛有机会遇到靠谱的对象。" },
+      { "overall": 65, "love": 60, "career": 75, "health": 70, "luckyColor": "棕色", "luckyNumber": 4, "good": "坚持努力", "bad": "拒绝改变", "level": "平", "summary": "工作上稳扎稳打会有回报，但感情中需要适当改变固有模式。健康方面注意肩颈疲劳。" },
+      { "overall": 90, "love": 88, "career": 92, "health": 85, "luckyColor": "粉色", "luckyNumber": 9, "good": "享受生活", "bad": "暴饮暴食", "level": "大吉", "summary": "今天运气超好，各方面都有不错的表现。适合约朋友聚餐或安排一次短途旅行，会有意外惊喜。" }
+    ]
+  },
+  "gemini": {
+    "texts": [
+      { "overall": 82, "love": 75, "career": 88, "health": 78, "luckyColor": "蓝色", "luckyNumber": 5, "good": "创意发挥", "bad": "三心二意", "level": "吉", "summary": "头脑灵活的一天，创意和沟通能力都很强。工作上应该抓住灵感，但要注意专注力，避免同时做太多事。" },
+      { "overall": 68, "love": 82, "career": 60, "health": 72, "luckyColor": "白色", "luckyNumber": 2, "good": "社交表达", "bad": "信息过载", "level": "平", "summary": "社交运势旺盛，适合参加聚会或线上交流。工作中可能会遇到信息混乱的情况，需要梳理优先级。" },
+      { "overall": 55, "love": 50, "career": 58, "health": 65, "luckyColor": "灰色", "luckyNumber": 8, "good": "深度思考", "bad": "半途而废", "level": "凶", "summary": "今天容易分心，建议把重要任务放在上午完成。感情中注意不要模棱两可，诚实表达自己的想法。" }
+    ]
+  },
+  "cancer": {
+    "texts": [
+      { "overall": 88, "love": 92, "career": 80, "health": 85, "luckyColor": "银色", "luckyNumber": 2, "good": "家庭互动", "bad": "过度敏感", "level": "大吉", "summary": "家庭和感情运势极佳，适合与家人共度时光。单身的巨蟹有桃花出现，已婚的与伴侣关系升温。" },
+      { "overall": 72, "love": 70, "career": 78, "health": 68, "luckyColor": "紫色", "luckyNumber": 4, "good": "情绪管理", "bad": "胡思乱想", "level": "吉", "summary": "工作上按部就班会有不错进展。情绪波动较大，学会给自己留空间，不要被他人情绪牵着走。" },
+      { "overall": 58, "love": 62, "career": 55, "health": 60, "luckyColor": "蓝色", "luckyNumber": 1, "good": "自我关怀", "bad": "逃避问题", "level": "平", "summary": "今天适合宅家充电，给自己一段安静时间。遇到问题不要逃避，小步推进比停滞不前要好。" }
+    ]
+  },
+  "leo": {
+    "texts": [
+      { "overall": 92, "love": 85, "career": 95, "health": 88, "luckyColor": "金色", "luckyNumber": 1, "good": "展现领导力", "bad": "骄傲自满", "level": "大吉", "summary": "主角光环全开的一天。职场上有机会展现自己的才能，可能会有升职或重要项目的机会。保持谦虚更添魅力。" },
+      { "overall": 75, "love": 78, "career": 82, "health": 70, "luckyColor": "橙色", "luckyNumber": 5, "good": "团队协作", "bad": "独断专行", "level": "吉", "summary": "团队合作会让你事半功倍。感情方面要多关注对方的感受，不要总是以自我为中心。" },
+      { "overall": 62, "love": 55, "career": 65, "health": 72, "luckyColor": "红色", "luckyNumber": 9, "good": "回顾反思", "bad": "急于求成", "level": "平", "summary": "别急着往前冲，回头看看走过的路。今天适合复盘和规划，而不是冒进地做决定。" }
+    ]
+  },
+  "virgo": {
+    "texts": [
+      { "overall": 80, "love": 68, "career": 90, "health": 78, "luckyColor": "米色", "luckyNumber": 6, "good": "细节把控", "bad": "过于挑剔", "level": "吉", "summary": "细节决定成败的一天，工作上你的认真会得到认可。感情方面不要太苛求完美，学会欣赏不完美。" },
+      { "overall": 70, "love": 75, "career": 68, "health": 72, "luckyColor": "绿色", "luckyNumber": 3, "good": "整理收纳", "bad": "过度焦虑", "level": "吉", "summary": "适合整理工作和生活空间。感情中放轻松一些，顺其自然反而会有好结果。" },
+      { "overall": 55, "love": 50, "career": 60, "health": 58, "luckyColor": "白色", "luckyNumber": 7, "good": "适度放松", "bad": "自我否定", "level": "平", "summary": "注意不要给自己太大压力，你已经做得很好了。健康方面注意肠胃问题，规律饮食很重要。" }
+    ]
+  },
+  "libra": {
+    "texts": [
+      { "overall": 86, "love": 90, "career": 78, "health": 82, "luckyColor": "粉色", "luckyNumber": 2, "good": "人际交往", "bad": "优柔寡断", "level": "大吉", "summary": "人缘极佳的一天，社交活动中容易结识贵人。感情方面魅力四射，但要明确自己的心意再行动。" },
+      { "overall": 72, "love": 70, "career": 75, "health": 74, "luckyColor": "蓝色", "luckyNumber": 4, "good": "平衡协调", "bad": "犹豫不决", "level": "吉", "summary": "需要做决定时要果断一些。工作中适合担任桥梁角色，协调各方会让你如鱼得水。" },
+      { "overall": 60, "love": 58, "career": 62, "health": 66, "luckyColor": "紫色", "luckyNumber": 8, "good": "寻找平衡", "bad": "讨好所有人", "level": "平", "summary": "别试图让每个人都满意，先把精力放在最重要的事上。今天适合独处思考和审美活动。" }
+    ]
+  },
+  "scorpio": {
+    "texts": [
+      { "overall": 84, "love": 82, "career": 88, "health": 80, "luckyColor": "黑色", "luckyNumber": 9, "good": "深入钻研", "bad": "猜忌怀疑", "level": "吉", "summary": "洞察力敏锐的一天，能看透问题的本质。工作中会发现别人没注意到的关键细节，但感情中不要过分猜疑。" },
+      { "overall": 66, "love": 72, "career": 60, "health": 70, "luckyColor": "深红", "luckyNumber": 5, "good": "自我反思", "bad": "钻牛角尖", "level": "平", "summary": "今天适合内省而非对外行动。感情中有深度交流的机会，但不要过度解读对方的话。" },
+      { "overall": 90, "love": 95, "career": 85, "health": 88, "luckyColor": "紫色", "luckyNumber": 7, "good": "深度连接", "bad": "控制欲强", "level": "大吉", "summary": "感情运势爆棚，适合表白或加深关系。工作中会遇到转机，之前卡住的事情有望突破。" }
+    ]
+  },
+  "sagittarius": {
+    "texts": [
+      { "overall": 90, "love": 82, "career": 88, "health": 92, "luckyColor": "紫色", "luckyNumber": 3, "good": "冒险探索", "bad": "粗心大意", "level": "大吉", "summary": "冒险精神高涨，尝试新事物会带来好运。旅行或学习新技能的绝佳时机，身心都充满能量。" },
+      { "overall": 72, "love": 68, "career": 78, "health": 70, "luckyColor": "蓝色", "luckyNumber": 1, "good": "学习充电", "bad": "不计后果", "level": "吉", "summary": "适合报名课程或开始阅读一本书。做事前多考虑后果，不要因为一时冲动做出让自己后悔的决定。" },
+      { "overall": 58, "love": 55, "career": 62, "health": 60, "luckyColor": "橙色", "luckyNumber": 6, "good": "脚踏实地", "bad": "好高骛远", "level": "平", "summary": "理想很丰满但现实需要一步步走。今天先把眼前的小事做好，远大的目标自然水到渠成。" }
+    ]
+  },
+  "capricorn": {
+    "texts": [
+      { "overall": 88, "love": 72, "career": 95, "health": 82, "luckyColor": "棕色", "luckyNumber": 8, "good": "职业规划", "bad": "工作过度", "level": "大吉", "summary": "事业运极佳，可能会有晋升或重要合作机会。勤奋终将得到回报，但别忘了留时间给生活和爱人。" },
+      { "overall": 75, "love": 70, "career": 80, "health": 72, "luckyColor": "灰色", "luckyNumber": 4, "good": "踏实前行", "bad": "过于严肃", "level": "吉", "summary": "按计划走就能有好结果。试着在工作之余放松一下，你的严肃有时候会把别人吓跑。" },
+      { "overall": 62, "love": 68, "career": 60, "health": 65, "luckyColor": "黑色", "luckyNumber": 2, "good": "适当休息", "bad": "自我施压", "level": "平", "summary": "你已经很努力了，今天给自己放个假吧。感情方面，放下工作多陪陪重要的人。" }
+    ]
+  },
+  "aquarius": {
+    "texts": [
+      { "overall": 85, "love": 78, "career": 90, "health": 80, "luckyColor": "银色", "luckyNumber": 7, "good": "创新思维", "bad": "脱离实际", "level": "大吉", "summary": "创意迸发的一天，独特想法会受到关注。工作上适合脑力风暴和方案策划，注意落地可行性。" },
+      { "overall": 68, "love": 65, "career": 72, "health": 70, "luckyColor": "蓝色", "luckyNumber": 1, "good": "团队交流", "bad": "过于疏离", "level": "平", "summary": "多参与团队讨论会有收获。感情中不要太冷漠，偶尔的温暖关怀会让关系更亲密。" },
+      { "overall": 72, "love": 80, "career": 65, "health": 74, "luckyColor": "绿色", "luckyNumber": 5, "good": "社交联系", "bad": "天马行空", "level": "吉", "summary": "适合与老朋友联系，会收获意外消息。感情方面桃花不错，但要注意言行保持一致。" }
+    ]
+  },
+  "pisces": {
+    "texts": [
+      { "overall": 80, "love": 88, "career": 72, "health": 78, "luckyColor": "海蓝", "luckyNumber": 2, "good": "艺术创作", "bad": "沉迷幻想", "level": "吉", "summary": "灵感如泉涌，艺术和创意工作会有出色发挥。感情方面浪漫甜蜜，但也要分清理想和现实。" },
+      { "overall": 65, "love": 75, "career": 58, "health": 68, "luckyColor": "紫色", "luckyNumber": 4, "good": "情感表达", "bad": "逃避现实", "level": "平", "summary": "感情方面有不错的互动，但工作上需要更务实。不要把所有事都推到明天。" },
+      { "overall": 88, "love": 90, "career": 82, "health": 85, "luckyColor": "粉色", "luckyNumber": 9, "good": "追随直觉", "bad": "过度牺牲", "level": "大吉", "summary": "直觉特别准的一天，相信自己的感受。感情运势高涨，适合约会、表白或深入交流。" }
+    ]
+  }
+}
