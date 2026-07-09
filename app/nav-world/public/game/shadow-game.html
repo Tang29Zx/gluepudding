@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>视角塑影师 - 3D 空间解谜</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:'Georgia',serif}
+#c{display:block}
+#ui{position:fixed;top:0;left:0;pointer-events:none;width:100%;height:100%;z-index:10}
+#level-info{position:absolute;top:20px;left:20px;color:#fff;font-size:18px;background:rgba(0,0,0,0.6);padding:8px 16px;border-radius:8px}
+#level-info span{color:#ffaa44;font-weight:bold}
+#btn-reset{position:absolute;top:20px;right:180px;pointer-events:auto;background:rgba(0,0,0,0.6);color:#fff;border:1px solid #666;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px}
+#btn-reset:hover{background:rgba(50,50,70,0.8)}
+#btn-hint{position:absolute;top:20px;right:100px;pointer-events:auto;background:rgba(0,0,0,0.6);color:#ffaa44;border:1px solid #ffaa44;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px}
+#btn-hint:hover{background:rgba(60,40,20,0.8)}
+#btn-camera{position:absolute;top:20px;right:20px;pointer-events:auto;background:rgba(0,0,0,0.6);color:#fff;border:1px solid #666;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px}
+#btn-camera:hover{background:rgba(50,50,70,0.8)}
+#hint-banner{position:absolute;top:70px;left:50%;transform:translateX(-50%);color:#ffaa44;font-size:16px;background:rgba(40,20,0,0.9);border:1px solid #ff8866;padding:8px 20px;border-radius:8px;display:none;pointer-events:none;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+#hint{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);color:#aaa;font-size:14px;text-align:center;transition:opacity 0.5s}
+#victory{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:none;background:rgba(20,20,40,0.92);border:2px solid #ffaa44;border-radius:16px;padding:40px 50px;text-align:center;color:#fff}
+#victory h2{font-size:36px;color:#ffaa44;margin-bottom:10px}
+#victory p{font-size:18px;color:#ccc;margin-bottom:20px}
+#victory button{pointer-events:auto;background:#ffaa44;color:#1a1a2e;border:none;padding:12px 30px;border-radius:8px;font-size:18px;cursor:pointer;font-weight:bold}
+#victory button:hover{background:#ffbb66}
+#match-bar{position:absolute;bottom:80px;left:50%;transform:translateX(-50%);width:260px;height:6px;background:rgba(255,255,255,0.15);border-radius:3px}
+#match-bar-inner{display:flex;align-items:center;gap:6px}
+#match-label{color:#aaa;font-size:11px}
+#match-fill{height:100%;background:#4f4;border-radius:3px;transition:width 0.3s;width:0%}
+#target-overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;opacity:0.12}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div id="level-info">关卡 <span id="lvl-num">1</span> / 10</div>
+  <button id="btn-reset">🔄 重置</button>
+  <button id="btn-hint">💡 提示</button>
+  <button id="btn-camera">📷 复位视角</button>
+  <div id="hint-banner">💡 提示已展示答案 — 请按重置后自己操作完成</div>
+  <div id="hint">🖱 左键拖拽(水平) &nbsp;|&nbsp; Shift+左键拖拽(上下) &nbsp;|&nbsp; 右键旋转视角 &nbsp;|&nbsp; 滚轮缩放 &nbsp;|&nbsp; R键重置</div>
+  <div id="match-bar"><div id="match-fill"></div></div>
+  <div id="victory">
+    <h2>✨ 完美拼接！</h2>
+    <p id="vic-msg">阴影完全匹配</p>
+    <button id="btn-next">下一关 ▶</button>
+  </div>
+</div>
+
+<script type="importmap">
+{"imports":{
+  "three":"https://unpkg.com/three@0.170.0/build/three.module.js",
+  "three/addons/":"https://unpkg.com/three@0.170.0/examples/jsm/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const canvas = document.getElementById('c');
+const lvlNum = document.getElementById('lvl-num');
+const hintEl = document.getElementById('hint');
+const victoryEl = document.getElementById('victory');
+const vicMsg = document.getElementById('vic-msg');
+const matchFill = document.getElementById('match-fill');
+const btnNext = document.getElementById('btn-next');
+
+// ==================== SCENE ====================
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#1a1a2e');
+scene.fog = new THREE.Fog('#1a1a2e', 10, 25);
+
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 50);
+camera.position.set(6, 4, 8);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1, 0);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+controls.minDistance = 3; controls.maxDistance = 15;
+controls.maxPolarAngle = Math.PI * 0.7;
+controls.update();
+
+// ==================== LIGHTING ====================
+scene.add(new THREE.AmbientLight('#334466', 0.6));
+
+const dirLight = new THREE.DirectionalLight('#ffffff', 4);
+dirLight.position.set(2, 8, -6);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(2048, 2048);
+dirLight.shadow.camera.near = 0.5; dirLight.shadow.camera.far = 30;
+dirLight.shadow.camera.left = -8; dirLight.shadow.camera.right = 8;
+dirLight.shadow.camera.top = 8; dirLight.shadow.camera.bottom = -8;
+dirLight.shadow.bias = -0.0001;
+scene.add(dirLight);
+
+// ==================== ENVIRONMENT ====================
+const loader = new GLTFLoader();
+const ghostGroup = new THREE.Group();
+scene.add(ghostGroup);
+
+// --- Circular ground platform ---
+loader.load('../models/game/environment_ground.glb', (gltf) => {
+  const ground = gltf.scene;
+  ground.position.set(0, 0.01, 0);
+  ground.traverse(c => { if (c.isMesh) { c.receiveShadow = true; c.castShadow = false; } });
+  scene.add(ground);
+  console.log('Ground loaded');
+});
+
+// --- Projection screen ---
+loader.load('../models/game/environment_screen.glb', (gltf) => {
+  const screen = gltf.scene;
+  // Screen is built in Blender XY → becomes XZ in Three.js after GLTF conversion.
+  // Rotate to stand it up facing the camera (XY plane).
+  screen.rotation.x = -Math.PI / 2;
+  screen.position.set(0, 2, -4.8);
+  screen.traverse(c => { if (c.isMesh) { c.receiveShadow = true; c.castShadow = false; } });
+  scene.add(screen);
+
+  // Position ghost indicators on the screen surface
+  ghostGroup.position.set(0, 2, -4.78);
+  console.log('Screen loaded');
+});
+
+// --- Four decorative pillars ---
+loader.load('../models/game/environment_pillar.glb', (gltf) => {
+  const pillarPositions = [
+    [-4, 0, -4],
+    [4, 0, -4],
+    [-4, 0, 4],
+    [4, 0, 4],
+  ];
+  pillarPositions.forEach(([px, py, pz]) => {
+    const pillar = gltf.scene.clone();
+    pillar.position.set(px, py, pz);
+    pillar.traverse(c => { if (c.isMesh) { c.castShadow = false; c.receiveShadow = false; } });
+    scene.add(pillar);
+  });
+  console.log('Pillars loaded');
+});
+
+// ==================== GAME STATE ====================
+let currentLevel = 0;
+let puzzleObjects = [];
+let ghostMeshes = [];
+let isDragging = false;
+let dragTarget = null;
+let hintUsed = false;        // true = hint was shown, victory blocked
+let hintAnimating = false;   // true = objects animating to targets
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.72);
+let dragOffset = new THREE.Vector3();
+let prevMatchScore = 0;
+let settleCounter = 0;
+let prevMouseY = 0;
+const hintBanner = document.getElementById('hint-banner');
+
+// ==================== LEVELS ====================
+// startPos: where objects spawn (wrong positions, player fixes them)
+// targetPos: where objects should be for the correct shadow
+// targetShadow: ghost outlines on the wall showing target
+
+const LEVELS = [
+  // L1: 2 objects, simple - cube+sphere side by side
+  { objects: [
+    { type:'box', startPos:[2,1,1], targetPos:[-0.5,0.9,0], size:[0.8,0.8,0.8], color:'#4a90d9' },
+    { type:'sphere', startPos:[-1.5,1,1.5], targetPos:[1,0.8,0], size:[0.7], color:'#e8833a' },
+  ], camPos:[6,4,8], camTarget:[0,1,0] },
+
+  // L2: 2 objects - stacked
+  { objects: [
+    { type:'box', startPos:[1.5,0.9,1.5], targetPos:[0,0.85,0], size:[0.7,1.0,0.7], color:'#4a90d9' },
+    { type:'sphere', startPos:[-2,1,1], targetPos:[0,1.5,-0.5], size:[0.65], color:'#e8833a' },
+  ], camPos:[5,5,7], camTarget:[0,1,0] },
+
+  // L3: 2 objects - horizontal bar + cylinder
+  { objects: [
+    { type:'box', startPos:[1.8,0.8,1.2], targetPos:[0,0.85,0], size:[1.2,0.5,0.5], color:'#5b9bd5' },
+    { type:'cylinder', startPos:[-1.5,0.9,1], targetPos:[0,0.85,-0.5], size:[0.35,1.2], color:'#f0a050' },
+  ], camPos:[7,4,7], camTarget:[0,1,0] },
+
+  // L4: 3 objects, occlusion possible
+  { objects: [
+    { type:'box', startPos:[1.5,0.9,1.5], targetPos:[-0.8,0.9,-0.2], size:[0.6,0.9,0.6], color:'#4a90d9' },
+    { type:'sphere', startPos:[-1.8,0.8,1], targetPos:[0.8,0.8,-0.2], size:[0.55], color:'#e8833a' },
+    { type:'box', startPos:[0,0.9,2], targetPos:[0,0.95,0.6], size:[0.7,0.7,0.4], color:'#55b87a' },
+  ], camPos:[6,5,8], camTarget:[0,1,0] },
+
+  // L5: 3 objects
+  { objects: [
+    { type:'box', startPos:[2,0.9,1], targetPos:[0,1.0,0], size:[0.6,1.2,0.6], color:'#4a90d9' },
+    { type:'cylinder', startPos:[-1.5,0.9,1.5], targetPos:[-0.8,0.8,-0.3], size:[0.3,0.9], color:'#e8833a' },
+    { type:'sphere', startPos:[0,0.8,2], targetPos:[1.0,0.75,-0.2], size:[0.5], color:'#55b87a' },
+  ], camPos:[7,5,6], camTarget:[0,1,0] },
+
+  // L6: 4 objects
+  { objects: [
+    { type:'box', startPos:[2,0.9,1.5], targetPos:[-0.8,0.85,0], size:[0.6,0.8,0.6], color:'#4a90d9' },
+    { type:'box', startPos:[-2,0.9,1], targetPos:[0.9,0.8,0.3], size:[0.5,0.7,0.5], color:'#e8833a' },
+    { type:'sphere', startPos:[0,0.8,2], targetPos:[0,0.65,-0.5], size:[0.45], color:'#55b87a' },
+    { type:'cylinder', startPos:[-0.5,0.9,2], targetPos:[0.3,0.9,0.9], size:[0.25,0.7], color:'#9b59b6' },
+  ], camPos:[8,5,7], camTarget:[0,1,0] },
+
+  // L7: 4 objects, tighter
+  { objects: [
+    { type:'box', startPos:[2,0.9,1.5], targetPos:[-1.0,0.85,0.4], size:[0.5,0.9,0.5], color:'#4a90d9' },
+    { type:'box', startPos:[-2,0.9,1], targetPos:[1.0,0.9,-0.3], size:[0.6,0.8,0.6], color:'#e8833a' },
+    { type:'cylinder', startPos:[-1,0.9,1.8], targetPos:[0,0.75,0], size:[0.3,1.0], color:'#55b87a' },
+    { type:'sphere', startPos:[1,0.9,1.8], targetPos:[-0.4,0.7,-0.8], size:[0.4], color:'#9b59b6' },
+  ], camPos:[7,6,8], camTarget:[0,1,0] },
+
+  // L8: 4 objects, rotated
+  { objects: [
+    { type:'box', startPos:[2,0.9,1], targetPos:[-0.6,0.85,0], size:[0.6,0.8,0.8], rot:[0,0,0], color:'#4a90d9' },
+    { type:'box', startPos:[-2,0.9,1.2], targetPos:[0.7,0.8,0.3], size:[0.8,0.5,0.5], rot:[0,0.4,0], color:'#e8833a' },
+    { type:'cylinder', startPos:[1,0.9,1.8], targetPos:[0,1.0,-0.4], size:[0.3,0.8], rot:[0.3,0,0], color:'#55b87a' },
+    { type:'sphere', startPos:[-1,0.9,1.8], targetPos:[0,0.7,0.7], size:[0.45], rot:[0,0,0], color:'#9b59b6' },
+  ], camPos:[8,5,9], camTarget:[0,1,0] },
+
+  // L9: 5 objects
+  { objects: [
+    { type:'box', startPos:[2,0.9,1.5], targetPos:[-1.2,0.9,0.3], size:[0.5,0.9,0.5], color:'#4a90d9' },
+    { type:'box', startPos:[-2,0.9,1], targetPos:[1.0,0.85,-0.3], size:[0.5,0.8,0.5], color:'#e8833a' },
+    { type:'sphere', startPos:[1.5,0.9,1.8], targetPos:[0,0.65,-0.5], size:[0.4], color:'#55b87a' },
+    { type:'cylinder', startPos:[-1.5,0.9,1.8], targetPos:[-0.5,0.85,0.8], size:[0.25,0.7], color:'#9b59b6' },
+    { type:'box', startPos:[0,0.9,2], targetPos:[0.5,0.8,0.7], size:[0.4,0.6,0.4], color:'#f0d060' },
+  ], camPos:[8,6,9], camTarget:[0,1,0] },
+
+  // L10: 5 objects, expert
+  { objects: [
+    { type:'box', startPos:[2,0.9,1.5], targetPos:[-1.0,0.85,0], size:[0.5,0.9,0.6], color:'#4a90d9' },
+    { type:'box', startPos:[-2,0.9,1], targetPos:[1.0,0.9,0], size:[0.6,0.7,0.5], rot:[0,0.5,0], color:'#e8833a' },
+    { type:'sphere', startPos:[1.5,0.9,1.8], targetPos:[0,0.7,-0.6], size:[0.4], color:'#55b87a' },
+    { type:'cylinder', startPos:[-1.5,0.9,1.8], targetPos:[-0.6,0.85,0.7], size:[0.25,0.9], rot:[0.1,0,0], color:'#9b59b6' },
+    { type:'sphere', startPos:[0,0.9,2], targetPos:[0.5,0.7,0.6], size:[0.35], color:'#f0d060' },
+  ], camPos:[8,6,10], camTarget:[0,1,0] },
+];
+
+// ==================== OBJECT MANAGEMENT ====================
+function clearAll() {
+  puzzleObjects.forEach(o => scene.remove(o));
+  puzzleObjects = [];
+  ghostMeshes.forEach(g => ghostGroup.remove(g));
+  ghostMeshes = [];
+}
+
+function createPuzzleObject(cfg, atTarget) {
+  let geo;
+  const t = cfg.type;
+  if (t === 'box') geo = new THREE.BoxGeometry(...(cfg.size||[0.8,0.8,0.8]));
+  else if (t === 'sphere') geo = new THREE.SphereGeometry(cfg.size[0], 32, 32);
+  else if (t === 'cylinder') geo = new THREE.CylinderGeometry(cfg.size[0], cfg.size[0], cfg.size[1]||1, 32);
+  else if (t === 'cone') geo = new THREE.ConeGeometry(cfg.size[0], cfg.size[1]||1, 32);
+
+  const color = new THREE.Color(cfg.color||'#4a90d9');
+  const mat = new THREE.MeshStandardMaterial({
+    color, roughness: 0.3, metalness: 0.05,
+    emissive: new THREE.Color(0), emissiveIntensity: 0,
+  });
+
+  const mesh = new THREE.Mesh(geo, mat);
+  const pos = atTarget ? cfg.targetPos : cfg.startPos;
+  mesh.position.set(...pos);
+  if (cfg.rot) mesh.rotation.set(...cfg.rot);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  mesh.userData = { isPuzzle: true, cfg, colorHex: cfg.color };
+
+  return mesh;
+}
+
+function loadLevel(idx) {
+  clearAll();
+  currentLevel = idx;
+  lvlNum.textContent = idx + 1;
+  const lvl = LEVELS[idx];
+
+  // Create puzzle objects at START positions (wrong positions)
+  lvl.objects.forEach(cfg => {
+    const obj = createPuzzleObject(cfg, false);
+    scene.add(obj);
+    puzzleObjects.push(obj);
+  });
+
+  // Create ghost outlines at TARGET positions (on the wall surface)
+  lvl.objects.forEach(cfg => {
+    const gColor = new THREE.Color(cfg.color);
+    const ghostGeo = new THREE.PlaneGeometry(cfg.size[0] * 1.1, (cfg.size[2]||cfg.size[0]) * 1.1);
+    const ghostMat = new THREE.MeshBasicMaterial({
+      color: gColor,
+      transparent: true, opacity: 0.25,
+      side: THREE.DoubleSide, depthWrite: false,
+    });
+    const ghost = new THREE.Mesh(ghostGeo, ghostMat);
+    // Project target position onto the wall (X→X, Y→Y on wall, Z is fixed to wall surface)
+    ghost.position.set(cfg.targetPos[0], cfg.targetPos[1], -4.97);
+    ghost.renderOrder = 1; ghost.material.depthTest = false;
+    ghostGroup.add(ghost);
+    ghostMeshes.push(ghost);
+  });
+
+  // Camera
+  camera.position.set(...lvl.camPos);
+  controls.target.set(...lvl.camTarget); controls.update();
+
+  victoryEl.style.display = 'none';
+  matchFill.style.width = '0%';
+  prevMatchScore = 0; settleCounter = 0;
+  hintUsed = false; hintAnimating = false;
+  hintBanner.style.display = 'none';
+  hintEl.style.opacity = '1';
+  setTimeout(() => { hintEl.style.opacity = '0'; }, 5000);
+}
+
+// ==================== DRAG & DROP ====================
+function getIntersections(event) {
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  // Get ALL intersections sorted by distance
+  return raycaster.intersectObjects(scene.children, true);
+}
+
+canvas.addEventListener('pointerdown', (event) => {
+  if (event.button !== 0) return;
+  if (hintAnimating) return;
+
+  const intersects = getIntersections(event);
+  const puzzleHits = intersects.filter(h => h.object.userData && h.object.userData.isPuzzle);
+
+  if (puzzleHits.length === 0) return;
+
+  const firstPuzzleHit = puzzleHits[0];
+  const target = firstPuzzleHit.object;
+
+  const targetIdxInAll = intersects.findIndex(h => h.object === target);
+  const firstPuzzleIdxInAll = intersects.findIndex(h => h.object.userData && h.object.userData.isPuzzle);
+
+  if (targetIdxInAll !== firstPuzzleIdxInAll) {
+    target.material.emissive = new THREE.Color('#ff0000');
+    target.material.emissiveIntensity = 0.6;
+    setTimeout(() => {
+      target.material.emissive = new THREE.Color(0);
+      target.material.emissiveIntensity = 0;
+    }, 350);
+    return;
+  }
+
+  isDragging = true;
+  dragTarget = target;
+  dragOffset.copy(firstPuzzleHit.point).sub(target.position);
+  dragPlane.set(new THREE.Vector3(0, 1, 0), -target.position.y);
+  prevMouseY = event.clientY;
+  canvas.style.cursor = 'grabbing';
+});
+
+let shiftDown = false;
+window.addEventListener('keydown', (e) => { if (e.key === 'Shift') shiftDown = true; });
+window.addEventListener('keyup', (e) => { if (e.key === 'Shift') shiftDown = false; });
+
+window.addEventListener('pointermove', (event) => {
+  if (isDragging && dragTarget) {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+
+    if (shiftDown) {
+      // Shift held: vertical movement based on mouse Y delta
+      const deltaY = (prevMouseY - event.clientY) * 0.015;
+      dragTarget.position.y = THREE.MathUtils.clamp(dragTarget.position.y + deltaY, 0.72, 3.5);
+      prevMouseY = event.clientY;
+    } else {
+      // Normal: horizontal movement on fixed-height plane
+      const pt = new THREE.Vector3();
+      if (raycaster.ray.intersectPlane(dragPlane, pt)) {
+        const newPos = pt.clone().sub(dragOffset);
+        newPos.y = dragTarget.position.y; // keep Y locked
+        newPos.x = THREE.MathUtils.clamp(newPos.x, -1.8, 1.8);
+        newPos.z = THREE.MathUtils.clamp(newPos.z, -1.2, 1.2);
+        dragTarget.position.copy(newPos);
+      }
+    }
+    return;
+  }
+
+  // Hover effects
+  const intersects = getIntersections(event);
+  const puzzleHits = intersects.filter(h => h.object.userData && h.object.userData.isPuzzle);
+
+  puzzleObjects.forEach(o => {
+    o.material.emissive = new THREE.Color(0);
+    o.material.emissiveIntensity = 0;
+  });
+
+  if (puzzleHits.length > 0) {
+    const first = puzzleHits[0];
+    const firstPuzzleIdx = intersects.findIndex(h => h.object.userData && h.object.userData.isPuzzle);
+    const targetIdx = intersects.findIndex(h => h.object === first.object);
+
+    if (targetIdx === firstPuzzleIdx) {
+      // Not blocked → highlight
+      first.object.material.emissive = new THREE.Color('#ffff88');
+      first.object.material.emissiveIntensity = 0.35;
+      canvas.style.cursor = 'grab';
+    } else {
+      canvas.style.cursor = 'not-allowed';
+    }
+  } else {
+    canvas.style.cursor = 'default';
+  }
+});
+
+window.addEventListener('pointerup', () => {
+  isDragging = false;
+  dragTarget = null;
+  canvas.style.cursor = 'default';
+  checkMatch();
+});
+
+// ==================== MATCHING ====================
+function checkMatch() {
+  const lvl = LEVELS[currentLevel];
+  let totalDist = 0;
+  const n = lvl.objects.length;
+
+  puzzleObjects.forEach((obj, i) => {
+    const cfg = lvl.objects[i];
+    if (!cfg) return;
+    const tx = cfg.targetPos[0], tz = cfg.targetPos[2];
+    const dx = obj.position.x - tx, dz = obj.position.z - tz;
+    totalDist += Math.sqrt(dx*dx + dz*dz);
+  });
+
+  // Score: closer to target = higher score
+  // Max acceptable deviation per object: ~3 units
+  const maxDev = n * 3.0;
+  const score = Math.max(0, Math.min(1, 1 - totalDist / maxDev));
+  matchFill.style.width = (score * 100).toFixed(0) + '%';
+
+  // Color: red→yellow→green, OR orange if hint was used
+  if (hintUsed) { matchFill.style.background = '#ffaa44'; }
+  else if (score < 0.35) matchFill.style.background = '#f44';
+  else if (score < 0.6) matchFill.style.background = '#fa4';
+  else if (score < 0.85) matchFill.style.background = '#ff4';
+  else matchFill.style.background = '#4f4';
+
+  // Victory blocked if hint was used
+  if (hintUsed) { settleCounter = 0; return; }
+
+  // Victory requires stable score ≥ 85%
+  if (score >= 0.85) {
+    settleCounter++;
+    if (settleCounter >= 10) {
+      if (currentLevel < LEVELS.length - 1) {
+        vicMsg.textContent = `第 ${currentLevel+1} 关完成！`;
+      } else {
+        vicMsg.textContent = '🎉 全部通关！你是视角塑影大师！';
+        btnNext.textContent = '🎉 太棒了！';
+      }
+      victoryEl.style.display = 'block';
+    }
+  } else {
+    settleCounter = Math.max(0, settleCounter - 1);
+  }
+
+  prevMatchScore = score;
+}
+
+// ==================== BUTTONS ====================
+document.getElementById('btn-reset').addEventListener('click', () => loadLevel(currentLevel));
+
+// Hint button — animate objects to target positions to show the answer
+document.getElementById('btn-hint').addEventListener('click', () => {
+  if (hintAnimating) return;
+  hintUsed = true;
+  hintAnimating = true;
+  hintBanner.style.display = 'block';
+
+  const lvl = LEVELS[currentLevel];
+  const duration = 800; // ms
+  const startTime = performance.now();
+
+  // Store start positions
+  const startPositions = puzzleObjects.map(o => o.position.clone());
+
+  function animateHint(now) {
+    const elapsed = now - startTime;
+    const t = Math.min(elapsed / duration, 1.0);
+    // Ease in-out
+    const e = t < 0.5 ? 2*t*t : -1 + (4-2*t)*t;
+
+    puzzleObjects.forEach((obj, i) => {
+      const cfg = lvl.objects[i];
+      if (!cfg) return;
+      const sx = startPositions[i].x, sy = startPositions[i].y, sz = startPositions[i].z;
+      const tx = cfg.targetPos[0], ty = cfg.targetPos[1], tz = cfg.targetPos[2];
+      obj.position.set(
+        sx + (tx - sx) * e,
+        sy + (ty - sy) * e,
+        sz + (tz - sz) * e
+      );
+      // Flash green during animation
+      obj.material.emissive = new THREE.Color('#00ff44');
+      obj.material.emissiveIntensity = 0.5 * (1 - e);
+    });
+
+    if (t < 1) {
+      requestAnimationFrame(animateHint);
+    } else {
+      // Snap to exact target positions
+      puzzleObjects.forEach((obj, i) => {
+        const cfg = lvl.objects[i];
+        if (!cfg) return;
+        obj.position.set(...cfg.targetPos);
+        obj.material.emissive = new THREE.Color(0);
+        obj.material.emissiveIntensity = 0;
+      });
+      hintAnimating = false;
+      matchFill.style.width = '100%';
+      matchFill.style.background = '#ffaa44'; // orange = hint mode
+      // Block victory — matchFill stays orange to remind player hint was used
+    }
+  }
+  requestAnimationFrame(animateHint);
+});
+document.getElementById('btn-camera').addEventListener('click', () => {
+  const lvl = LEVELS[currentLevel];
+  camera.position.set(...lvl.camPos);
+  controls.target.set(...lvl.camTarget); controls.update();
+});
+btnNext.addEventListener('click', () => {
+  if (currentLevel < LEVELS.length - 1) loadLevel(currentLevel + 1);
+  else loadLevel(0);
+});
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'r' || e.key === 'R') loadLevel(currentLevel);
+});
+
+// ==================== RESIZE ====================
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ==================== LOOP ====================
+let tick = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  tick++;
+  if (!isDragging && tick % 20 === 0) checkMatch();
+  renderer.render(scene, camera);
+}
+
+// ==================== START ====================
+loadLevel(0);
+animate();
+console.log('🎮 视角塑影师 ready!');
+</script>
+</body>
+</html>

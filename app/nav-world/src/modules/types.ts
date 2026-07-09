@@ -7,7 +7,7 @@ export const worldModuleStatuses = [
 
 export type WorldModuleStatus = (typeof worldModuleStatuses)[number];
 
-export type WorldModuleId = "divination" | "laboratory" | "gomoku";
+export type WorldModuleId = "divination" | "laboratory" | "gomoku" | "game";
 
 export type WorldModuleControlId =
   `${WorldModuleId}:status:${WorldModuleStatus}`;

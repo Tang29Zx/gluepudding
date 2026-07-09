@@ -7,6 +7,7 @@ import {
   IslandTerrain,
   WorldTerrainErrorBoundary,
 } from "./IslandTerrain";
+import { GamePortal } from "../modules/GamePortal";
 import { FortuneAssetStage } from "../modules/divination/FortuneAssetStage";
 import { GomokuWorldBoard } from "../modules/gomoku/GomokuWorldBoard";
 import type {
@@ -180,6 +181,7 @@ export function WorldScene({
       </WorldTerrainErrorBoundary>
 
       <ReferenceLandmarks />
+      <GamePortal />
       <FortuneAssetStage
         shouldLoadInterior={shouldLoadFortuneInterior}
         shouldLoadShell={shouldLoadFortuneShell}
