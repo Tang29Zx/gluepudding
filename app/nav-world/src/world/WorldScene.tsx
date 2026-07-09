@@ -9,6 +9,17 @@ import {
 } from "./IslandTerrain";
 import { FortuneAssetStage } from "../modules/divination/FortuneAssetStage";
 import { GomokuWorldBoard } from "../modules/gomoku/GomokuWorldBoard";
+import { LaboratoryAerialStage } from "../modules/laboratory/LaboratoryAerialStage";
+import {
+  LaboratoryDebugAccessScreen,
+  type AimedLaboratoryDebugControl,
+} from "../modules/laboratory/LaboratoryDebugAccessScreen";
+import type {
+  LaboratoryAccessSnapshot,
+} from "../adapters/laboratoryAuth";
+import type {
+  AimedLaboratoryLoginControl,
+} from "../modules/laboratory/LaboratoryLoginScreen";
 import type {
   GomokuAimTarget,
   GomokuPlacement,
@@ -21,47 +32,7 @@ import type {
 } from "../modules/types";
 import type { PlayerControllerState } from "./PlayerController";
 import type { TerrainSampler } from "./terrainSampler";
-import { landmarkPositions, worldColors, worldScale } from "./sceneConfig";
-
-function LaboratoryBlock() {
-  const [x, y, z] = landmarkPositions.laboratory;
-
-  return (
-    <group position={[x, y, z]}>
-      <mesh receiveShadow position={[0, 0.12, 0]}>
-        <boxGeometry args={[15, 0.24, 10]} />
-        <meshStandardMaterial color="#c6e7f8" roughness={0.84} />
-      </mesh>
-      <mesh castShadow receiveShadow position={[0, 2, 0]}>
-        <boxGeometry args={[12, 4, 7.5]} />
-        <meshStandardMaterial color={worldColors.lab} roughness={0.58} />
-      </mesh>
-      <mesh castShadow position={[0, 3.05, 3.82]}>
-        <boxGeometry args={[5.6, 1.85, 0.12]} />
-        <meshStandardMaterial color="#1f3445" emissive="#234b70" emissiveIntensity={0.28} />
-      </mesh>
-      <mesh position={[-4.2, 1.15, 3.86]}>
-        <boxGeometry args={[1.35, 2.3, 0.1]} />
-        <meshStandardMaterial color="#31546c" roughness={0.62} />
-      </mesh>
-    </group>
-  );
-}
-
-function SpawnScaleMarker() {
-  return (
-    <group position={[4.8, 1.58, 36]}>
-      <mesh castShadow position={[0, 0.86, 0]}>
-        <capsuleGeometry args={[0.32, 1.08, 12, 24]} />
-        <meshStandardMaterial color={worldColors.player} roughness={0.62} />
-      </mesh>
-      <mesh castShadow position={[0, 1.84, 0]}>
-        <sphereGeometry args={[0.24, 24, 16]} />
-        <meshStandardMaterial color={worldColors.playerAccent} roughness={0.54} />
-      </mesh>
-    </group>
-  );
-}
+import { worldColors, worldScale } from "./sceneConfig";
 
 function FallbackGround() {
   return (
@@ -83,19 +54,17 @@ function FallbackGround() {
   );
 }
 
-function ReferenceLandmarks() {
-  return (
-    <group>
-      <LaboratoryBlock />
-      <SpawnScaleMarker />
-    </group>
-  );
-}
-
 interface WorldSceneProps {
+  aimedLaboratoryDebugControl: AimedLaboratoryDebugControl | null;
+  aimedLaboratoryLoginControl: AimedLaboratoryLoginControl | null;
   aimedModuleControl: AimedWorldModuleControl | null;
   aimedGomokuTarget: GomokuAimTarget | null;
   gomokuPlacement: GomokuPlacement | null;
+  isLaboratoryDebugAccessEnabled: boolean;
+  isLaboratoryDebugScreenVisible: boolean;
+  isLaboratoryLoginInputActive: boolean;
+  isLaboratoryLoginScreenVisible: boolean;
+  laboratoryAccess: LaboratoryAccessSnapshot;
   moduleStatuses: Record<WorldModuleId, WorldModuleStatus>;
   placementTerrainSamplerRef: MutableRefObject<TerrainSampler | null>;
   player: PlayerControllerState;
@@ -103,13 +72,26 @@ interface WorldSceneProps {
   shouldLoadFortuneInterior: boolean;
   shouldLoadFortuneShell: boolean;
   onActivateArea: (targetId: InteractionTargetId) => void;
+  onAimedLaboratoryDebugControlChange: (
+    control: AimedLaboratoryDebugControl | null,
+  ) => void;
   onAimedGomokuTargetChange: (target: GomokuAimTarget | null) => void;
+  onAimedLaboratoryLoginControlChange: (
+    control: AimedLaboratoryLoginControl | null,
+  ) => void;
   onAimedTargetChange: (targetId: InteractionTargetId | null) => void;
   onAimedModuleControlChange: (
     control: AimedWorldModuleControl | null,
   ) => void;
   onGomokuHudMessageChange: (message: string | null) => void;
   onGomokuPlacementChange: (placement: GomokuPlacement | null) => void;
+  onLaboratoryLoginInputActiveChange: (isActive: boolean) => void;
+  onLaboratoryLoginScreenClose: () => void;
+  onLaboratoryLoginSubmit: (
+    username: string,
+    password: string,
+  ) => Promise<LaboratoryAccessSnapshot>;
+  onLaboratoryDebugAccessToggle: () => void;
   onModuleStatusChange: (
     moduleId: WorldModuleId,
     status: WorldModuleStatus,
@@ -121,16 +103,29 @@ interface WorldSceneProps {
 }
 
 export function WorldScene({
+  aimedLaboratoryDebugControl,
+  aimedLaboratoryLoginControl,
   aimedGomokuTarget,
   aimedModuleControl,
   gomokuPlacement,
+  isLaboratoryDebugAccessEnabled,
+  isLaboratoryDebugScreenVisible,
+  isLaboratoryLoginInputActive,
+  isLaboratoryLoginScreenVisible,
+  laboratoryAccess,
   moduleStatuses,
   onActivateArea,
+  onAimedLaboratoryDebugControlChange,
   onAimedGomokuTargetChange,
+  onAimedLaboratoryLoginControlChange,
   onAimedModuleControlChange,
   onAimedTargetChange,
   onGomokuHudMessageChange,
   onGomokuPlacementChange,
+  onLaboratoryLoginInputActiveChange,
+  onLaboratoryLoginScreenClose,
+  onLaboratoryLoginSubmit,
+  onLaboratoryDebugAccessToggle,
   onModuleStatusChange,
   onNearestTargetChange,
   onSelectObject,
@@ -179,11 +174,26 @@ export function WorldScene({
         </Suspense>
       </WorldTerrainErrorBoundary>
 
-      <ReferenceLandmarks />
+      <LaboratoryDebugAccessScreen
+        isDebugAccessEnabled={isLaboratoryDebugAccessEnabled}
+        isVisible={isLaboratoryDebugScreenVisible}
+        onAimedControlChange={onAimedLaboratoryDebugControlChange}
+        onToggleDebugAccess={onLaboratoryDebugAccessToggle}
+      />
       <FortuneAssetStage
         shouldLoadInterior={shouldLoadFortuneInterior}
         shouldLoadShell={shouldLoadFortuneShell}
       />
+      <Suspense fallback={null}>
+        <LaboratoryAerialStage
+          laboratoryAccess={laboratoryAccess}
+          isLoginScreenVisible={isLaboratoryLoginScreenVisible}
+          onAimedLoginControlChange={onAimedLaboratoryLoginControlChange}
+          onLoginInputActiveChange={onLaboratoryLoginInputActiveChange}
+          onLoginScreenClose={onLaboratoryLoginScreenClose}
+          onLoginSubmit={onLaboratoryLoginSubmit}
+        />
+      </Suspense>
       <Suspense fallback={null}>
         <GomokuWorldBoard
           onAimedTargetChange={onAimedGomokuTargetChange}
@@ -196,7 +206,13 @@ export function WorldScene({
       </Suspense>
       <InteractionSystem
         isPanelOpen={false}
-        isWorldControlAimed={Boolean(aimedModuleControl || aimedGomokuTarget)}
+        isWorldControlAimed={Boolean(
+          aimedModuleControl ||
+            aimedGomokuTarget ||
+            aimedLaboratoryDebugControl ||
+            aimedLaboratoryLoginControl ||
+            isLaboratoryLoginInputActive,
+        )}
         onActivateArea={onActivateArea}
         onAimedTargetChange={onAimedTargetChange}
         onNearestTargetChange={onNearestTargetChange}

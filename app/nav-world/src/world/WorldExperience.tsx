@@ -6,6 +6,13 @@ import {
   SRGBColorSpace,
   Vector3,
 } from "three";
+import {
+  createLaboratoryDebugAccessSnapshot,
+  getLaboratoryAccess,
+  initialLaboratoryAccessSnapshot,
+  loginLaboratoryAccess,
+  type LaboratoryAccessSnapshot,
+} from "../adapters/laboratoryAuth";
 import { fortuneAssetLoadingConfig } from "../modules/divination/fortuneModelAssets";
 import {
   createDefaultWorldModuleStatuses,
@@ -22,6 +29,12 @@ import {
   type GomokuAimTarget,
   type GomokuPlacement,
 } from "../modules/gomoku/gomokuWorldTypes";
+import type {
+  AimedLaboratoryLoginControl,
+} from "../modules/laboratory/LaboratoryLoginScreen";
+import type {
+  AimedLaboratoryDebugControl,
+} from "../modules/laboratory/LaboratoryDebugAccessScreen";
 import { CameraRig } from "./CameraRig";
 import {
   getInteractionTargetById,
@@ -35,6 +48,7 @@ import {
   landmarkPositions,
   worldColors,
 } from "./sceneConfig";
+import { sampleLaboratorySurface } from "./worldColliders";
 
 interface WorldExperienceProps {
   onReady: () => void;
@@ -45,19 +59,40 @@ type ForcedFortuneAssetMode = "interior" | "shell" | null;
 const fortuneFloorNormal = new Vector3(0, 1, 0);
 
 interface WorldRuntimeProps {
+  aimedLaboratoryDebugControl: AimedLaboratoryDebugControl | null;
+  aimedLaboratoryLoginControl: AimedLaboratoryLoginControl | null;
   aimedGomokuTarget: GomokuAimTarget | null;
   aimedModuleControl: AimedWorldModuleControl | null;
   focusedModuleId: WorldModuleId | null;
   forcedFortuneAssetMode: ForcedFortuneAssetMode;
   gomokuPlacement: GomokuPlacement | null;
+  isLaboratoryDebugAccessEnabled: boolean;
+  isLaboratoryDebugScreenVisible: boolean;
+  isLaboratoryLoginInputActive: boolean;
+  isLaboratoryLoginScreenVisible: boolean;
+  laboratoryAccess: LaboratoryAccessSnapshot;
   moduleStatuses: Record<WorldModuleId, WorldModuleStatus>;
   onActivateArea: (targetId: InteractionTargetId) => void;
+  onAimedLaboratoryDebugControlChange: (
+    control: AimedLaboratoryDebugControl | null,
+  ) => void;
   onAimedGomokuTargetChange: (target: GomokuAimTarget | null) => void;
+  onAimedLaboratoryLoginControlChange: (
+    control: AimedLaboratoryLoginControl | null,
+  ) => void;
   onAimedModuleControlChange: (
     control: AimedWorldModuleControl | null,
   ) => void;
   onGomokuHudMessageChange: (message: string | null) => void;
   onGomokuPlacementChange: (placement: GomokuPlacement | null) => void;
+  onLaboratoryLoginInputActiveChange: (isActive: boolean) => void;
+  onLaboratoryLoginScreenClose: () => void;
+  onLaboratoryLoginSubmit: (
+    username: string,
+    password: string,
+  ) => Promise<LaboratoryAccessSnapshot>;
+  onLaboratoryDebugAccessToggle: () => void;
+  onLaboratoryTeleportDenied: () => void;
   onAimedTargetChange: (targetId: InteractionTargetId | null) => void;
   onModuleStatusChange: (
     moduleId: WorldModuleId,
@@ -70,18 +105,32 @@ interface WorldRuntimeProps {
 }
 
 function WorldRuntime({
+  aimedLaboratoryDebugControl,
+  aimedLaboratoryLoginControl,
   aimedGomokuTarget,
   aimedModuleControl,
   focusedModuleId,
   forcedFortuneAssetMode,
   gomokuPlacement,
+  isLaboratoryDebugAccessEnabled,
+  isLaboratoryDebugScreenVisible,
+  isLaboratoryLoginInputActive,
+  isLaboratoryLoginScreenVisible,
+  laboratoryAccess,
   moduleStatuses,
   onActivateArea,
+  onAimedLaboratoryDebugControlChange,
   onAimedGomokuTargetChange,
+  onAimedLaboratoryLoginControlChange,
   onAimedModuleControlChange,
   onAimedTargetChange,
   onGomokuHudMessageChange,
   onGomokuPlacementChange,
+  onLaboratoryLoginInputActiveChange,
+  onLaboratoryLoginScreenClose,
+  onLaboratoryLoginSubmit,
+  onLaboratoryDebugAccessToggle,
+  onLaboratoryTeleportDenied,
   onModuleStatusChange,
   onNearestTargetChange,
   onSelectObject,
@@ -109,7 +158,7 @@ function WorldRuntime({
     }
 
     return {
-      sampleGround(x, z) {
+      sampleGround(x, z, referenceY) {
         const distanceToFortuneFloor = Math.hypot(
           x - fortuneStageX,
           z - fortuneStageZ,
@@ -122,7 +171,7 @@ function WorldRuntime({
           };
         }
 
-        return rawTerrainSampler.sampleGround(x, z);
+        return rawTerrainSampler.sampleGround(x, z, referenceY);
       },
     };
   }, [fortuneStageX, fortuneStageY, fortuneStageZ, rawTerrainSampler]);
@@ -132,12 +181,23 @@ function WorldRuntime({
     }
 
     return {
-      sampleGround(x, z) {
-        const terrainSample = placementTerrainSampler.sampleGround(x, z);
+      sampleGround(x, z, referenceY) {
+        const terrainSample = placementTerrainSampler.sampleGround(
+          x,
+          z,
+          referenceY,
+        );
+        const laboratorySample = sampleLaboratorySurface(
+          x,
+          z,
+          terrainSample,
+          referenceY,
+        );
+        const baseSample = laboratorySample ?? terrainSample;
 
         return (
-          sampleGomokuSurface(gomokuPlacement, x, z, terrainSample) ??
-          terrainSample
+          sampleGomokuSurface(gomokuPlacement, x, z, baseSample) ??
+          baseSample
         );
       },
     };
@@ -151,8 +211,15 @@ function WorldRuntime({
   const setTerrainSampler = useCallback((sampler: TerrainSampler | null) => {
     setRawTerrainSampler(sampler);
   }, []);
+  const canUseLaboratoryTeleport = useCallback(
+    () => laboratoryAccess.status === "ready",
+    [laboratoryAccess.status],
+  );
   const player = usePlayerController({
+    canUseLaboratoryTeleport,
+    isKeyboardInputCaptured: isLaboratoryLoginInputActive,
     isMovementEnabled: true,
+    onLaboratoryTeleportDenied,
     terrainSamplerRef,
   });
   const [shouldLoadFortuneInteriorByDistance, setShouldLoadFortuneInteriorByDistance] =
@@ -186,17 +253,36 @@ function WorldRuntime({
     <>
       <CameraRig player={player} />
       <WorldScene
+        aimedLaboratoryDebugControl={aimedLaboratoryDebugControl}
+        aimedLaboratoryLoginControl={aimedLaboratoryLoginControl}
         aimedGomokuTarget={aimedGomokuTarget}
         aimedModuleControl={aimedModuleControl}
+        isLaboratoryDebugAccessEnabled={isLaboratoryDebugAccessEnabled}
+        isLaboratoryDebugScreenVisible={isLaboratoryDebugScreenVisible}
+        isLaboratoryLoginInputActive={isLaboratoryLoginInputActive}
+        isLaboratoryLoginScreenVisible={isLaboratoryLoginScreenVisible}
+        laboratoryAccess={laboratoryAccess}
         moduleStatuses={moduleStatuses}
         gomokuPlacement={gomokuPlacement}
         onTerrainReadyChange={onTerrainReadyChange}
         onTerrainSamplerChange={setTerrainSampler}
         onActivateArea={onActivateArea}
+        onAimedLaboratoryDebugControlChange={
+          onAimedLaboratoryDebugControlChange
+        }
         onAimedGomokuTargetChange={onAimedGomokuTargetChange}
+        onAimedLaboratoryLoginControlChange={
+          onAimedLaboratoryLoginControlChange
+        }
         onAimedModuleControlChange={onAimedModuleControlChange}
         onGomokuHudMessageChange={onGomokuHudMessageChange}
         onGomokuPlacementChange={onGomokuPlacementChange}
+        onLaboratoryLoginInputActiveChange={
+          onLaboratoryLoginInputActiveChange
+        }
+        onLaboratoryLoginScreenClose={onLaboratoryLoginScreenClose}
+        onLaboratoryLoginSubmit={onLaboratoryLoginSubmit}
+        onLaboratoryDebugAccessToggle={onLaboratoryDebugAccessToggle}
         onAimedTargetChange={onAimedTargetChange}
         onModuleStatusChange={onModuleStatusChange}
         onNearestTargetChange={onNearestTargetChange}
@@ -223,7 +309,22 @@ function getForcedFortuneAssetMode(): ForcedFortuneAssetMode {
   return null;
 }
 
+function shouldShowLaboratoryDebugScreen(): boolean {
+  const hostname = window.location.hostname;
+
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    import.meta.env.VITE_LAB_AUTH_DEBUG === "true"
+  );
+}
+
 export function WorldExperience({ onReady }: WorldExperienceProps) {
+  const [aimedLaboratoryDebugControl, setAimedLaboratoryDebugControl] =
+    useState<AimedLaboratoryDebugControl | null>(null);
+  const [aimedLaboratoryLoginControl, setAimedLaboratoryLoginControl] =
+    useState<AimedLaboratoryLoginControl | null>(null);
   const [aimedModuleControl, setAimedModuleControl] =
     useState<AimedWorldModuleControl | null>(null);
   const [isCanvasReady, setIsCanvasReady] = useState(false);
@@ -238,6 +339,14 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
     useState<string | null>(null);
   const [gomokuPlacement, setGomokuPlacement] =
     useState<GomokuPlacement | null>(null);
+  const [isLaboratoryLoginInputActive, setIsLaboratoryLoginInputActive] =
+    useState(false);
+  const [isLaboratoryLoginScreenVisible, setIsLaboratoryLoginScreenVisible] =
+    useState(false);
+  const [laboratoryAccess, setLaboratoryAccess] =
+    useState<LaboratoryAccessSnapshot>(initialLaboratoryAccessSnapshot);
+  const [laboratoryAccessOverride, setLaboratoryAccessOverride] =
+    useState<LaboratoryAccessSnapshot | null>(null);
   const [moduleStatuses, setModuleStatuses] = useState(
     createDefaultWorldModuleStatuses,
   );
@@ -255,6 +364,108 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
   const nearestTarget = getInteractionTargetById(nearestTargetId);
   const selectedTarget = getInteractionTargetById(selectedTargetId);
   const selectableTarget = aimedTarget ?? nearestTarget;
+  const effectiveLaboratoryAccess =
+    laboratoryAccessOverride ?? laboratoryAccess;
+  const isLaboratoryDebugScreenVisible = shouldShowLaboratoryDebugScreen();
+  const isLaboratoryDebugAccessEnabled =
+    effectiveLaboratoryAccess.status === "ready";
+
+  const refreshLaboratoryAccess = useCallback(async () => {
+    const snapshot = await getLaboratoryAccess();
+
+    setLaboratoryAccess(snapshot);
+    return snapshot;
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void getLaboratoryAccess().then((snapshot) => {
+      if (isMounted) {
+        setLaboratoryAccess(snapshot);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (effectiveLaboratoryAccess.status !== "ready") {
+      return;
+    }
+
+    setIsLaboratoryLoginScreenVisible(false);
+    setIsLaboratoryLoginInputActive(false);
+    setAimedLaboratoryLoginControl(null);
+  }, [effectiveLaboratoryAccess.status]);
+
+  useEffect(() => {
+    if (isLaboratoryLoginScreenVisible || !isLaboratoryLoginInputActive) {
+      return;
+    }
+
+    setIsLaboratoryLoginInputActive(false);
+    setAimedLaboratoryLoginControl(null);
+  }, [isLaboratoryLoginInputActive, isLaboratoryLoginScreenVisible]);
+
+  const showLaboratoryLoginScreen = useCallback(() => {
+    setFocusedModuleId("laboratory");
+    setSelectedTargetId("laboratory");
+    setIsLaboratoryLoginScreenVisible(true);
+
+    if (
+      effectiveLaboratoryAccess.status === "checking" ||
+      effectiveLaboratoryAccess.status === "error"
+    ) {
+      void refreshLaboratoryAccess();
+    }
+  }, [effectiveLaboratoryAccess.status, refreshLaboratoryAccess]);
+
+  const closeLaboratoryLoginScreen = useCallback(() => {
+    setIsLaboratoryLoginInputActive(false);
+    setIsLaboratoryLoginScreenVisible(false);
+    setAimedLaboratoryLoginControl(null);
+  }, []);
+
+  const submitLaboratoryLogin = useCallback(
+    async (username: string, password: string) => {
+      setLaboratoryAccessOverride(null);
+      setLaboratoryAccess({
+        message: "正在登录",
+        status: "loggingIn",
+        user: null,
+      });
+
+      const snapshot = await loginLaboratoryAccess(username, password);
+
+      setLaboratoryAccess(snapshot);
+
+      if (snapshot.status === "ready") {
+        setIsLaboratoryLoginInputActive(false);
+        setIsLaboratoryLoginScreenVisible(false);
+        setAimedLaboratoryLoginControl(null);
+      }
+
+      return snapshot;
+    },
+    [],
+  );
+
+  const toggleLaboratoryDebugAccess = useCallback(() => {
+    const nextIsLoggedIn = effectiveLaboratoryAccess.status !== "ready";
+
+    setLaboratoryAccessOverride(
+      createLaboratoryDebugAccessSnapshot(nextIsLoggedIn),
+    );
+    setIsLaboratoryLoginInputActive(false);
+
+    if (nextIsLoggedIn) {
+      setIsLaboratoryLoginScreenVisible(false);
+      setAimedLaboratoryLoginControl(null);
+    }
+  }, [effectiveLaboratoryAccess.status]);
 
   useEffect(() => {
     if (!isCanvasReady || !isTerrainReady) {
@@ -301,6 +512,34 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
   }, [aimedModuleControl, changeModuleStatus]);
 
   const interactionLines = useMemo(() => {
+    if (aimedLaboratoryDebugControl) {
+      return [
+        "准星命中：出生点测试屏 / 登录切换",
+        "左键切换实验室测试登录状态；正式上线后替换为说明 / 关于。",
+      ];
+    }
+
+    if (aimedLaboratoryLoginControl) {
+      return [
+        `准星命中：实验室登录 / ${aimedLaboratoryLoginControl.label}`,
+        "左键选择输入框；输入时按 Esc 或点击框外恢复移动。",
+      ];
+    }
+
+    if (isLaboratoryLoginInputActive) {
+      return [
+        "正在输入实验室登录信息。",
+        "键盘输入只进入当前框，鼠标仍可转向；Esc 取消输入。",
+      ];
+    }
+
+    if (isLaboratoryLoginScreenVisible) {
+      return [
+        "进入天空实验室需要 admin/armbot/door 权限。",
+        "准星对准用户名或密码框后左键开始输入。",
+      ];
+    }
+
     if (aimedGomokuTarget) {
       if (aimedGomokuTarget.kind === "control") {
         return [
@@ -339,6 +578,15 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
     }
 
     if (focusedModule) {
+      if (focusedModule.id === "laboratory") {
+        return [
+          effectiveLaboratoryAccess.status === "ready"
+            ? "实验室权限已通过；传送台上按 Space 上行。"
+            : "传送台上按 Space 会先检查实验室权限。",
+          "天空实验室大屏已接入视频纹理。",
+        ];
+      }
+
       return [
         `${focusedModule.title} 常驻在世界表面，可继续移动和转向。`,
         "准星瞄准状态芯片后左键或 E 切换 ready / loading / offline / error。",
@@ -347,7 +595,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
 
     if (!nearestTarget && !aimedTarget) {
       return [
-        "按 G 可展开五子棋棋盘；占卜屋和实验室模块面板已常驻贴在世界表面。",
+        "按 G 可展开五子棋棋盘；天空实验室大屏已使用视频纹理承载外部世界。",
       ];
     }
 
@@ -364,11 +612,16 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
     return lines;
   }, [
     aimedGomokuTarget,
+    aimedLaboratoryDebugControl,
+    aimedLaboratoryLoginControl,
     aimedModuleControl,
     aimedTarget,
     focusedModule,
     gomokuHudMessage,
     gomokuPlacement,
+    isLaboratoryLoginInputActive,
+    isLaboratoryLoginScreenVisible,
+    effectiveLaboratoryAccess.status,
     nearestTarget,
   ]);
 
@@ -378,16 +631,44 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
         return;
       }
 
+      if (isLaboratoryLoginInputActive) {
+        event.preventDefault();
+        event.stopPropagation();
+        setIsLaboratoryLoginInputActive(false);
+        setAimedLaboratoryLoginControl(null);
+        return;
+      }
+
       setFocusedModuleId(null);
       setSelectedTargetId(null);
     };
 
-    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, true);
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keydown", handleKeyDown, true);
     };
-  }, []);
+  }, [isLaboratoryLoginInputActive]);
+
+  useEffect(() => {
+    if (!isLaboratoryLoginInputActive) {
+      return;
+    }
+
+    const handleClick = () => {
+      if (aimedLaboratoryLoginControl) {
+        return;
+      }
+
+      setIsLaboratoryLoginInputActive(false);
+    };
+
+    window.addEventListener("click", handleClick, true);
+
+    return () => {
+      window.removeEventListener("click", handleClick, true);
+    };
+  }, [aimedLaboratoryLoginControl, isLaboratoryLoginInputActive]);
 
   return (
     <main className="world-shell" aria-label="gluepudding 3D World">
@@ -415,17 +696,37 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
       >
         <Suspense fallback={null}>
           <WorldRuntime
+            aimedLaboratoryDebugControl={aimedLaboratoryDebugControl}
+            aimedLaboratoryLoginControl={aimedLaboratoryLoginControl}
             aimedGomokuTarget={aimedGomokuTarget}
             aimedModuleControl={aimedModuleControl}
             focusedModuleId={focusedModuleId}
             forcedFortuneAssetMode={forcedFortuneAssetMode}
             gomokuPlacement={gomokuPlacement}
+            isLaboratoryDebugAccessEnabled={isLaboratoryDebugAccessEnabled}
+            isLaboratoryDebugScreenVisible={isLaboratoryDebugScreenVisible}
+            isLaboratoryLoginInputActive={isLaboratoryLoginInputActive}
+            isLaboratoryLoginScreenVisible={isLaboratoryLoginScreenVisible}
+            laboratoryAccess={effectiveLaboratoryAccess}
             moduleStatuses={moduleStatuses}
             onActivateArea={focusAreaModule}
+            onAimedLaboratoryDebugControlChange={
+              setAimedLaboratoryDebugControl
+            }
             onAimedGomokuTargetChange={setAimedGomokuTarget}
+            onAimedLaboratoryLoginControlChange={
+              setAimedLaboratoryLoginControl
+            }
             onAimedModuleControlChange={setAimedModuleControl}
             onGomokuHudMessageChange={setGomokuHudMessage}
             onGomokuPlacementChange={setGomokuPlacement}
+            onLaboratoryLoginInputActiveChange={
+              setIsLaboratoryLoginInputActive
+            }
+            onLaboratoryLoginScreenClose={closeLaboratoryLoginScreen}
+            onLaboratoryLoginSubmit={submitLaboratoryLogin}
+            onLaboratoryDebugAccessToggle={toggleLaboratoryDebugAccess}
+            onLaboratoryTeleportDenied={showLaboratoryLoginScreen}
             onAimedTargetChange={setAimedTargetId}
             onModuleStatusChange={changeModuleStatus}
             onNearestTargetChange={setNearestTargetId}
@@ -451,7 +752,11 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
 
       <div
         aria-label={
-          aimedGomokuTarget
+          aimedLaboratoryDebugControl
+            ? `准星命中出生点测试屏：${aimedLaboratoryDebugControl.label}`
+            : aimedLaboratoryLoginControl
+            ? `准星命中实验室登录：${aimedLaboratoryLoginControl.label}`
+            : aimedGomokuTarget
             ? `准星命中五子棋：${aimedGomokuTarget.label}`
             : aimedModuleControl
             ? `准星命中模块控件：${aimedModuleControl.moduleTitle} ${aimedModuleControl.label}`
@@ -460,7 +765,13 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
               : "中心准星"
         }
         className={`world-crosshair${
-          aimedTarget || aimedModuleControl || aimedGomokuTarget ? " is-aimed" : ""
+          aimedTarget ||
+          aimedModuleControl ||
+          aimedGomokuTarget ||
+          aimedLaboratoryDebugControl ||
+          aimedLaboratoryLoginControl
+            ? " is-aimed"
+            : ""
         }`}
       />
 
@@ -477,7 +788,11 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
 
       <div className="world-touch-actions" aria-label="移动端交互操作">
         <button
-          disabled={!aimedModuleControl && !nearestTarget}
+          disabled={
+            isLaboratoryLoginScreenVisible ||
+            isLaboratoryLoginInputActive ||
+            (!aimedModuleControl && !nearestTarget)
+          }
           onClick={() => {
             if (activateAimedModuleControl()) {
               return;
@@ -492,7 +807,11 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
           Interact
         </button>
         <button
-          disabled={!aimedModuleControl && !selectableTarget}
+          disabled={
+            isLaboratoryLoginScreenVisible ||
+            isLaboratoryLoginInputActive ||
+            (!aimedModuleControl && !selectableTarget)
+          }
           onClick={() => {
             if (activateAimedModuleControl()) {
               return;

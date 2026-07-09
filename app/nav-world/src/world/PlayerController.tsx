@@ -9,6 +9,11 @@ import {
   type PlayerSpawn,
 } from "./sceneConfig";
 import type { TerrainSample, TerrainSampler } from "./terrainSampler";
+import {
+  getLaboratoryTeleportTarget,
+  isWorldMovementBlocked,
+  type LaboratoryTeleportDirection,
+} from "./worldColliders";
 
 export interface PlayerControllerState {
   spawn: PlayerSpawn;
@@ -22,7 +27,10 @@ export interface PlayerControllerState {
 }
 
 interface UsePlayerControllerOptions {
+  canUseLaboratoryTeleport: () => boolean;
+  isKeyboardInputCaptured: boolean;
   isMovementEnabled: boolean;
+  onLaboratoryTeleportDenied: () => void;
   terrainSamplerRef: MutableRefObject<TerrainSampler | null>;
 }
 
@@ -71,6 +79,7 @@ function sampleWalkableGround(
   terrainSampler: TerrainSampler | null,
   x: number,
   z: number,
+  referenceY?: number,
 ): TerrainSample | null {
   if (!terrainSampler) {
     const maxDistanceFromCenter = worldScale.groundRadius - playerSpawn.radius;
@@ -85,7 +94,7 @@ function sampleWalkableGround(
     };
   }
 
-  const sample = terrainSampler.sampleGround(x, z);
+  const sample = terrainSampler.sampleGround(x, z, referenceY);
 
   if (!sample || sample.normal.y < worldTerrain.minWalkableNormalY) {
     return null;
@@ -140,7 +149,10 @@ function writeHorizontalVelocity(
 }
 
 export function usePlayerController({
+  canUseLaboratoryTeleport,
+  isKeyboardInputCaptured,
   isMovementEnabled,
+  onLaboratoryTeleportDenied,
   terrainSamplerRef,
 }: UsePlayerControllerOptions): PlayerControllerState {
   const activeKeysRef = useRef<Set<MovementKey>>(new Set());
@@ -165,6 +177,37 @@ export function usePlayerController({
     horizontalVelocityRef.current.set(0, 0, 0);
   }, [clearMovementInput]);
 
+  const teleportTo = useCallback(
+    (targetPosition: Vector3) => {
+      clearMovementInput();
+      horizontalVelocityRef.current.set(0, 0, 0);
+      verticalVelocityRef.current = 0;
+      jumpGroundDetachTimerRef.current = 0;
+      jumpBufferTimerRef.current = 0;
+      lastGroundYRef.current = targetPosition.y;
+      positionRef.current.copy(targetPosition);
+
+      return true;
+    },
+    [clearMovementInput],
+  );
+
+  const teleportLaboratory = useCallback(
+    (direction: LaboratoryTeleportDirection) => {
+      const targetPosition = getLaboratoryTeleportTarget(
+        positionRef.current,
+        direction,
+      );
+
+      if (!targetPosition) {
+        return false;
+      }
+
+      return teleportTo(targetPosition);
+    },
+    [teleportTo],
+  );
+
   const rotateView = useCallback((movementX: number, movementY: number) => {
     if (!isMovementEnabled) {
       return;
@@ -185,6 +228,13 @@ export function usePlayerController({
   }, [clearMovementInput, isMovementEnabled]);
 
   useEffect(() => {
+    if (isKeyboardInputCaptured) {
+      clearMovementInput();
+      horizontalVelocityRef.current.set(0, 0, 0);
+    }
+  }, [clearMovementInput, isKeyboardInputCaptured]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.code === "Escape") {
         if (isMovementEnabled) {
@@ -196,6 +246,11 @@ export function usePlayerController({
       }
 
       if (!isMovementEnabled) {
+        return;
+      }
+
+      if (isKeyboardInputCaptured) {
+        clearMovementInput();
         return;
       }
 
@@ -215,10 +270,35 @@ export function usePlayerController({
         return;
       }
 
+      if (event.code === "ControlLeft" || event.code === "ControlRight") {
+        if (!event.repeat && teleportLaboratory("down")) {
+          event.preventDefault();
+        }
+
+        return;
+      }
+
       if (event.code === "Space") {
         event.preventDefault();
 
         if (!event.repeat) {
+          const targetPosition = getLaboratoryTeleportTarget(
+            positionRef.current,
+            "up",
+          );
+
+          if (targetPosition) {
+            if (canUseLaboratoryTeleport()) {
+              teleportTo(targetPosition);
+            } else {
+              clearMovementInput();
+              horizontalVelocityRef.current.set(0, 0, 0);
+              onLaboratoryTeleportDenied();
+            }
+
+            return;
+          }
+
           jumpBufferTimerRef.current = playerControls.jumpBufferSeconds;
         }
       }
@@ -226,6 +306,10 @@ export function usePlayerController({
 
     const handleKeyUp = (event: KeyboardEvent) => {
       if (!isMovementEnabled) {
+        return;
+      }
+
+      if (isKeyboardInputCaptured) {
         return;
       }
 
@@ -253,7 +337,16 @@ export function usePlayerController({
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", clearMovement);
     };
-  }, [clearMovement, clearMovementInput, isMovementEnabled]);
+  }, [
+    clearMovement,
+    clearMovementInput,
+    canUseLaboratoryTeleport,
+    isKeyboardInputCaptured,
+    isMovementEnabled,
+    onLaboratoryTeleportDenied,
+    teleportTo,
+    teleportLaboratory,
+  ]);
 
   useFrame((_, delta) => {
     if (jumpGroundDetachTimerRef.current > 0) {
@@ -274,6 +367,7 @@ export function usePlayerController({
       terrainSamplerRef.current,
       positionRef.current.x,
       positionRef.current.z,
+      positionRef.current.y,
     );
     const currentGroundY = currentGroundSample?.y ?? lastGroundYRef.current;
 
@@ -320,6 +414,7 @@ export function usePlayerController({
         terrainSamplerRef.current,
         positionRef.current.x,
         positionRef.current.z,
+        positionRef.current.y,
       );
       const landingGroundY = landingGroundSample?.y ?? lastGroundYRef.current;
 
@@ -360,10 +455,23 @@ export function usePlayerController({
       .copy(positionRef.current)
       .addScaledVector(horizontalVelocity, delta);
 
+    if (
+      isWorldMovementBlocked(
+        positionRef.current,
+        candidatePosition,
+        playerSpawn.radius,
+        playerSpawn.height,
+      )
+    ) {
+      horizontalVelocity.set(0, 0, 0);
+      return;
+    }
+
     const candidateGroundSample = sampleWalkableGround(
       terrainSamplerRef.current,
       candidatePosition.x,
       candidatePosition.z,
+      candidatePosition.y,
     );
 
     if (!candidateGroundSample) {

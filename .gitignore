@@ -66,3 +66,4 @@ resources/
 app/frontend/models/world/*.glb
 app/frontend/models/fortune/**/*.glb
 app/frontend/models/gomoku/*.glb
+app/frontend/models/laboratory/*.glb

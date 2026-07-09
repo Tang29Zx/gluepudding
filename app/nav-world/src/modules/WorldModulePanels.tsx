@@ -37,6 +37,10 @@ interface ModuleControlDefinition extends AimedWorldModuleControl {
 
 const screenCenter = new Vector2(0, 0);
 const moduleRaycaster = new Raycaster();
+const hiddenModulePanelIds = new Set<WorldModuleId>([
+  "divination",
+  "laboratory",
+]);
 const statusOrder = ["ready", "loading", "offline", "error"] as const;
 const statusLabels = {
   error: "Error",
@@ -480,7 +484,7 @@ export function WorldModulePanels({
   return (
     <group>
       {worldModuleDefinitionList
-        .filter((definition) => definition.id !== "divination")
+        .filter((definition) => !hiddenModulePanelIds.has(definition.id))
         .map((definition) => (
           <WorldModuleErrorBoundary
             fallback={<ModulePanelFallback definition={definition} />}

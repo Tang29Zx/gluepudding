@@ -64,15 +64,15 @@ export const worldModuleDefinitions = {
   },
   laboratory: {
     accentColor: "#77aee8",
-    capabilities: ["WebRTC screen slot", "RDK model slot", "Door console slot"],
+    capabilities: ["外部世界视频纹理"],
     id: "laboratory",
     panelPosition: [laboratoryX, laboratoryY + 3.05, laboratoryZ + 3.9],
     panelRotation: [0, 0, 0],
     panelSize: [5.65, 2.55],
     statusCopy: sharedStatusCopy,
-    subtitle: "Laboratory module surface",
+    subtitle: "链接外部世界",
     targetId: "laboratory",
-    title: "Laboratory",
+    title: "天空实验室",
   },
   gomoku: {
     accentColor: "#ffd977",
