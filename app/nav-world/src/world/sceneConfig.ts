@@ -57,7 +57,8 @@ export const worldTerrain = {
 
 export const landmarkPositions = {
   divinationHouse: [-12, 2.14, 25] satisfies Vector3Tuple,
-  laboratory: [12, 1.74, 25] satisfies Vector3Tuple,
+  laboratory: [12, 44, 25] satisfies Vector3Tuple,
+  laboratoryGroundTeleporter: [12, 1.74, 25] satisfies Vector3Tuple,
   gomokuBoard: [0, 1.36, 24] satisfies Vector3Tuple,
   gameRoom: [8, 1.15, 36] satisfies Vector3Tuple,
 };

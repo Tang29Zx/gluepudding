@@ -6,5 +6,9 @@ export interface TerrainSample {
 }
 
 export interface TerrainSampler {
-  sampleGround: (x: number, z: number) => TerrainSample | null;
+  sampleGround: (
+    x: number,
+    z: number,
+    referenceY?: number,
+  ) => TerrainSample | null;
 }

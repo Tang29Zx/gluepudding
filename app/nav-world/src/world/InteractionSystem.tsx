@@ -54,6 +54,11 @@ const [
   divinationHouseZ,
 ] = landmarkPositions.divinationHouse;
 const [laboratoryX, laboratoryY, laboratoryZ] = landmarkPositions.laboratory;
+const [
+  laboratoryGroundX,
+  laboratoryGroundY,
+  laboratoryGroundZ,
+] = landmarkPositions.laboratoryGroundTeleporter;
 const [gomokuBoardX, gomokuBoardY, gomokuBoardZ] = landmarkPositions.gomokuBoard;
 const [gameRoomX, gameRoomY, gameRoomZ] = landmarkPositions.gameRoom;
 
@@ -80,17 +85,17 @@ export const interactionTargets: readonly InteractionTarget[] = [
   {
     id: "laboratory",
     label: "实验室",
-    position: [laboratoryX, laboratoryY, laboratoryZ + 3.82],
-    aimPosition: [laboratoryX, laboratoryY + 2.45, laboratoryZ + 3.82],
-    proximityRadius: 13,
-    raycastRadius: 4.6,
+    position: [laboratoryGroundX, laboratoryGroundY, laboratoryGroundZ],
+    aimPosition: [laboratoryX, laboratoryY + 1.9, laboratoryZ],
+    proximityRadius: 14,
+    raycastRadius: 16.5,
     enabled: true,
     accentColor: "#77aee8",
-    areaPrompt: "靠近实验室，按 E 聚焦实验室常驻模块表面。",
-    objectPrompt: "准星对准实验室大屏区域，左键聚焦常驻模块表面。",
-    panelTitle: "实验室模块外壳",
+    areaPrompt: "传送台上按 Space 上行；需要 admin/armbot/door 权限；空中按 Ctrl 返回。",
+    objectPrompt: "准星对准天空实验室大屏，左键聚焦。",
+    panelTitle: "天空实验室",
     panelBody:
-      "这里后续承载 WebRTC 大屏、RDK 展示台和门禁控制台。当前验证模块外壳和降级状态。",
+      "大屏使用视频纹理链接外部世界，真实流不可用时保持可演示状态。",
   },
   {
     id: "gomoku-board",
@@ -343,7 +348,8 @@ export function InteractionSystem({
           isSelected,
         });
         const ringScale = isSelected ? 1.12 : isAimed ? 1.06 : 1;
-        const shouldShowAimMarker = target.id !== "divination-house";
+        const shouldShowAimMarker =
+          target.id !== "divination-house" && target.id !== "laboratory";
 
         return (
           <group key={target.id}>
