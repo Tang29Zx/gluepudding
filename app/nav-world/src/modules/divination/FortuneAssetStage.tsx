@@ -3,6 +3,7 @@ import {
   Component,
   Suspense,
   useMemo,
+  useState,
   type ErrorInfo,
   type ReactNode,
 } from "react";
@@ -19,6 +20,7 @@ import { ZodiacWheel } from "./ZodiacWheel";
 import { TarotTable } from "./TarotTable";
 import { IchingDesk } from "./IchingDesk";
 import { IchingHexagram } from "./IchingHexagram";
+import type { LotResult } from "./ichingLots";
 
 interface FortuneAssetStageProps {
   shouldLoadInterior: boolean;
@@ -203,6 +205,7 @@ export function FortuneAssetStage({
   shouldLoadInterior,
   shouldLoadShell,
 }: FortuneAssetStageProps) {
+  const [ichingLotResult, setIchingLotResult] = useState<LotResult | null>(null);
   const [anchorX, anchorY, anchorZ] = landmarkPositions.divinationHouse;
   const stagePosition = [
     anchorX + fortuneAssetLoadingConfig.shellAnchorOffset[0],
@@ -229,8 +232,11 @@ export function FortuneAssetStage({
             <InteriorModels />
             <ZodiacWheel />
             <TarotTable />
-            <IchingDesk />
-            <IchingHexagram />
+            <IchingDesk onLotResult={setIchingLotResult} />
+            <IchingHexagram
+              lotResult={ichingLotResult}
+              onLotResultClear={() => setIchingLotResult(null)}
+            />
           </Suspense>
         </FortuneAssetBoundary>
       ) : null}

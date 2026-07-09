@@ -3,42 +3,76 @@
 // 流程：点击水晶球 → 输入问题 → 22张牌弧形选牌(上浮) → 翻面(牌面图片)
 // ============================================================
 
-import { useGLTF, useTexture } from "@react-three/drei";
+import { useGLTF } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  AdditiveBlending,
   CanvasTexture,
   DoubleSide,
   Group,
   Mesh,
+  MeshBasicMaterial,
+  MeshPhysicalMaterial,
   MeshStandardMaterial,
+  PointLight,
   Raycaster,
+  LinearFilter,
+  SRGBColorSpace,
   Texture,
+  TextureLoader,
   Vector2,
 } from "three";
+import { consumeCanvasClick } from "./canvasEvents";
 import { getTarotAiReading, getTarotReading } from "./fortuneApi";
-import type { AiInterpretResult, TarotResult } from "./types";
+import {
+  drawWrappedText,
+  type FortuneQuestionControl,
+} from "./screenInput";
+import type { TarotResult } from "./types";
+import { useScreenTextInput } from "./useScreenTextInput";
 import {
   canSelectCard,
   deselectCard,
-  MAJOR_LABELS,
   selectCard,
 } from "./business/tarotLogic";
 
 const screenCenter = new Vector2(0, 0);
 
 // ---- crystal ball ----
-const CRYSTAL_POS: [number, number, number] = [0, 1.42, 3.72];
+const CRYSTAL_POS: [number, number, number] = [0, 1.8, 3.72];
 const CRYSTAL_RAYCAST_R = 0.42;
 const CRYSTAL_URL = "./models/fortune/tarot_crystal_ball.glb";
+const CRYSTAL_VISUAL_SCALE = 0.62;
+const crystalSparkles = [
+  { color: "#fff2b8", phase: 0.1, position: [-0.18, 0.2, 0.28], size: 0.14 },
+  { color: "#ffffff", phase: 1.4, position: [0.2, 0.1, 0.31], size: 0.1 },
+  { color: "#d8c9ff", phase: 2.2, position: [-0.28, -0.04, 0.18], size: 0.09 },
+  { color: "#fff8d6", phase: 3.5, position: [0.06, 0.31, 0.22], size: 0.08 },
+  { color: "#b8f3ff", phase: 4.6, position: [0.26, -0.16, 0.16], size: 0.07 },
+] satisfies Array<{
+  color: string;
+  phase: number;
+  position: [number, number, number];
+  size: number;
+}>;
 
 // ---- content screen ----
-const SCREEN_POS: [number, number, number] = [0, 2.0, 5.85];
+const SCREEN_POS: [number, number, number] = [0, 3.125, 5.85];
 const SCREEN_ROT: [number, number, number] = [0, Math.PI, 0];
-const SCREEN_W = 3.6;
-const SCREEN_H = 2.25;
-const CANVAS_W = 1280;
-const CANVAS_H = 800;
+const SCREEN_W = 7.2;
+const SCREEN_H = 4.5;
+const CANVAS_W = 1536;
+const CANVAS_H = 960;
+const questionControls: FortuneQuestionControl[] = ["input", "confirm", "cancel"];
+const questionControlLayout = {
+  input: { position: [0, 0.2, 0.08], size: [5.35, 0.62] },
+  confirm: { position: [-1.15, -1.1, 0.08], size: [1.3, 0.46] },
+  cancel: { position: [1.15, -1.1, 0.08], size: [1.3, 0.46] },
+} satisfies Record<
+  FortuneQuestionControl,
+  { position: [number, number, number]; size: [number, number] }
+>;
 
 // ---- card arc ----
 const CARD_COUNT = 22;
@@ -87,8 +121,9 @@ function createScreenCanvas(): { canvas: HTMLCanvasElement; texture: CanvasTextu
   c.width = CANVAS_W;
   c.height = CANVAS_H;
   const t = new CanvasTexture(c);
-  t.minFilter = 1006;
-  t.magFilter = 1006;
+  t.minFilter = LinearFilter;
+  t.magFilter = LinearFilter;
+  t.colorSpace = SRGBColorSpace;
   return { canvas: c, texture: t };
 }
 
@@ -130,11 +165,22 @@ function createCardBackCanvas(): HTMLCanvasElement {
 
 // ---- screen drawing helpers ----
 
-const BG = "#f7f5fb";
-const DARK = "#1a1436";
-const ACCENT = "#5d4db6";
-const GOLD = "#c9a84c";
-const SOFT = "#e8e4f2";
+const BG = "#ded4e6";
+const DARK = "#1d102f";
+const ACCENT = "#6754a8";
+const ACCENT_HOVER = "#7461b8";
+const GOLD = "#b99d53";
+const SOFT = "#cbbfd8";
+const PANEL = "#e8ddea";
+const PANEL_ACTIVE = "#f0e7f2";
+const TEXT = "#2c203b";
+const MUTED = "#756a82";
+const SUBTLE = "#9f93ad";
+const HEADER_TEXT = "#f5eef9";
+const GOOD_BG = "#d9e8d7";
+const GOOD_TEXT = "#346f47";
+const WARN_BG = "#ecd8d4";
+const WARN_TEXT = "#914841";
 
 function drawIdle(ctx: CanvasRenderingContext2D): void {
   const w = CANVAS_W, h = CANVAS_H;
@@ -146,7 +192,7 @@ function drawIdle(ctx: CanvasRenderingContext2D): void {
   // gold line under bar
   ctx.fillStyle = GOLD; ctx.fillRect(w * 0.3, h * 0.095, w * 0.4, 2);
 
-  ctx.fillStyle = "#fff";
+  ctx.fillStyle = HEADER_TEXT;
   ctx.font = `500 ${Math.round(h * 0.038)}px sans-serif`;
   ctx.textAlign = "center";
   ctx.fillText("Tarot · 塔罗占卜", w / 2, h * 0.065);
@@ -154,7 +200,7 @@ function drawIdle(ctx: CanvasRenderingContext2D): void {
   // centered card illustration
   const cx = w / 2, cy = h * 0.52;
   // card shadow
-  ctx.fillStyle = "rgba(90,77,182,0.08)";
+  ctx.fillStyle = "rgba(80, 58, 122, 0.08)";
   ctx.roundRect(cx - 64, cy - 90, 128, 180, 8); ctx.fill();
   // card bg
   ctx.fillStyle = DARK;
@@ -170,12 +216,12 @@ function drawIdle(ctx: CanvasRenderingContext2D): void {
   ctx.font = "42px serif"; ctx.textAlign = "center";
   ctx.fillText("\u2605", cx, cy - 12);
   // text
-  ctx.fillStyle = "#fff";
+  ctx.fillStyle = HEADER_TEXT;
   ctx.font = "15px serif";
   ctx.fillText("T A R O T", cx, cy + 28);
 
   // hint below
-  ctx.fillStyle = "#999";
+  ctx.fillStyle = MUTED;
   ctx.font = `${Math.round(h * 0.028)}px sans-serif`;
   ctx.fillText("对准桌面上的水晶球开始占卜", w / 2, h * 0.88);
   // gold dot
@@ -190,7 +236,7 @@ function drawLoading(ctx: CanvasRenderingContext2D): void {
   ctx.fillStyle = DARK; ctx.fillRect(0, 0, w, h * 0.095);
   ctx.fillStyle = GOLD; ctx.fillRect(w * 0.3, h * 0.095, w * 0.4, 2);
 
-  ctx.fillStyle = "#fff";
+  ctx.fillStyle = HEADER_TEXT;
   ctx.font = `500 ${Math.round(h * 0.038)}px sans-serif`;
   ctx.textAlign = "center";
   ctx.fillText("Tarot · 塔罗占卜", w / 2, h * 0.065);
@@ -206,9 +252,80 @@ function drawLoading(ctx: CanvasRenderingContext2D): void {
   ctx.font = `${Math.round(h * 0.032)}px sans-serif`;
   ctx.fillText("牌灵正在解读命运...", cx, cy + 60);
 
-  ctx.fillStyle = "#bbb";
+  ctx.fillStyle = SUBTLE;
   ctx.font = `${Math.round(h * 0.026)}px sans-serif`;
   ctx.fillText("三张牌分别代表 过去 · 现在 · 未来", cx, cy + 88);
+}
+
+function drawQuestion(
+  ctx: CanvasRenderingContext2D,
+  draft: string,
+  isActive: boolean,
+  hoveredControl: FortuneQuestionControl | null,
+): void {
+  const w = CANVAS_W, h = CANVAS_H;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = DARK; ctx.fillRect(0, 0, w, h * 0.095);
+  ctx.fillStyle = GOLD; ctx.fillRect(w * 0.3, h * 0.095, w * 0.4, 2);
+  ctx.fillStyle = HEADER_TEXT;
+  ctx.font = `500 ${Math.round(h * 0.038)}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.fillText("Tarot · 输入问题", w / 2, h * 0.065);
+
+  ctx.fillStyle = TEXT;
+  ctx.font = `500 ${Math.round(h * 0.036)}px sans-serif`;
+  ctx.fillText("你想问什么？", w / 2, h * 0.22);
+
+  ctx.fillStyle = MUTED;
+  ctx.font = `${Math.round(h * 0.022)}px sans-serif`;
+  ctx.fillText("对准输入框左键开始输入", w / 2, h * 0.285);
+
+  const inputX = w * 0.18;
+  const inputY = h * 0.38;
+  const inputW = w * 0.64;
+  const inputH = h * 0.15;
+  ctx.fillStyle = isActive || hoveredControl === "input" ? PANEL_ACTIVE : PANEL;
+  ctx.beginPath(); ctx.roundRect(inputX, inputY, inputW, inputH, 14); ctx.fill();
+  ctx.strokeStyle = isActive ? ACCENT : hoveredControl === "input" ? GOLD : SOFT;
+  ctx.lineWidth = isActive ? 4 : 2;
+  ctx.stroke();
+
+  ctx.textAlign = "left";
+  ctx.fillStyle = draft ? TEXT : MUTED;
+  ctx.font = `${Math.round(h * 0.026)}px sans-serif`;
+  const visibleDraft = draft || "例如：我的感情发展如何？";
+  drawWrappedText(ctx, visibleDraft, inputX + w * 0.035, inputY + h * 0.057, 38, h * 0.04, 2);
+  if (isActive) {
+    ctx.fillStyle = ACCENT;
+    ctx.fillRect(inputX + inputW - 28, inputY + inputH * 0.32, 3, inputH * 0.36);
+  }
+
+  const buttonY = h * 0.71;
+  const buttonWidth = w * 0.18;
+  const buttons = [
+    { id: "confirm" as const, label: "开始选牌", x: w * 0.34 - buttonWidth / 2, width: buttonWidth },
+    { id: "cancel" as const, label: "取消", x: w * 0.66 - buttonWidth / 2, width: buttonWidth },
+  ];
+  buttons.forEach((button) => {
+    ctx.fillStyle = hoveredControl === button.id
+      ? (button.id === "confirm" ? ACCENT_HOVER : PANEL_ACTIVE)
+      : (button.id === "confirm" ? ACCENT : PANEL);
+    ctx.beginPath();
+    ctx.roundRect(button.x, buttonY, button.width, h * 0.07, 10);
+    ctx.fill();
+    ctx.strokeStyle = button.id === "confirm" ? ACCENT : SOFT;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = button.id === "confirm" ? HEADER_TEXT : TEXT;
+    ctx.font = `500 ${Math.round(h * 0.024)}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.fillText(button.label, button.x + button.width / 2, buttonY + h * 0.046);
+  });
+
+  ctx.fillStyle = MUTED;
+  ctx.font = `${Math.round(h * 0.019)}px sans-serif`;
+  ctx.fillText("Enter 确认 · Esc 取消", w / 2, h * 0.88);
 }
 
 function drawResult(ctx: CanvasRenderingContext2D, result: TarotResult): void {
@@ -218,7 +335,7 @@ function drawResult(ctx: CanvasRenderingContext2D, result: TarotResult): void {
   // top bar
   ctx.fillStyle = DARK; ctx.fillRect(0, 0, w, h * 0.095);
   ctx.fillStyle = GOLD; ctx.fillRect(w * 0.3, h * 0.095, w * 0.4, 2);
-  ctx.fillStyle = "#fff";
+  ctx.fillStyle = HEADER_TEXT;
   ctx.font = `500 ${Math.round(h * 0.038)}px sans-serif`;
   ctx.textAlign = "center";
   ctx.fillText("Tarot · 占卜结果", w / 2, h * 0.065);
@@ -234,8 +351,8 @@ function drawResult(ctx: CanvasRenderingContext2D, result: TarotResult): void {
     const bx = cx - cardBoxW / 2, by = cardStartY;
 
     // card background
-    ctx.fillStyle = "#ffffff";
-    ctx.shadowColor = "rgba(90,77,182,0.1)";
+    ctx.fillStyle = PANEL_ACTIVE;
+    ctx.shadowColor = "rgba(80, 58, 122, 0.12)";
     ctx.shadowBlur = 8; ctx.shadowOffsetY = 2;
     ctx.beginPath(); ctx.roundRect(bx, by, cardBoxW, cardBoxH, 8); ctx.fill();
     ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
@@ -248,21 +365,21 @@ function drawResult(ctx: CanvasRenderingContext2D, result: TarotResult): void {
     ctx.fillText(posLabel, cx, by + h * 0.03);
 
     // card name
-    ctx.fillStyle = DARK;
+    ctx.fillStyle = TEXT;
     ctx.font = `500 ${Math.round(h * 0.028)}px sans-serif`;
     ctx.fillText(card.name, cx, by + h * 0.07);
 
     // nameEn
-    ctx.fillStyle = "#888";
+    ctx.fillStyle = MUTED;
     ctx.font = `${Math.round(h * 0.018)}px sans-serif`;
     ctx.fillText(card.nameEn || "", cx, by + h * 0.095);
 
     // orientation badge
     const oriY = by + h * 0.115;
     const isUp = card.isUpright;
-    ctx.fillStyle = isUp ? "#e8f5e9" : "#fbe9e7";
+    ctx.fillStyle = isUp ? GOOD_BG : WARN_BG;
     ctx.beginPath(); ctx.roundRect(cx - 28, oriY, 56, 22, 11); ctx.fill();
-    ctx.fillStyle = isUp ? "#2e7d32" : "#c62828";
+    ctx.fillStyle = isUp ? GOOD_TEXT : WARN_TEXT;
     ctx.font = `500 ${Math.round(h * 0.02)}px sans-serif`;
     ctx.fillText(isUp ? "正位" : "逆位", cx, oriY + 15);
 
@@ -284,7 +401,7 @@ function drawResult(ctx: CanvasRenderingContext2D, result: TarotResult): void {
 
     // meaning
     const meanY = kwY + 3 * h * 0.032 + h * 0.025;
-    ctx.fillStyle = "#666";
+    ctx.fillStyle = MUTED;
     ctx.font = `${Math.round(h * 0.018)}px sans-serif`;
     ctx.textAlign = "center";
     const words = card.meaning;
@@ -296,12 +413,12 @@ function drawResult(ctx: CanvasRenderingContext2D, result: TarotResult): void {
 
   // bottom summary
   const summaryY = cardStartY + cardBoxH + h * 0.03;
-  ctx.fillStyle = DARK;
+  ctx.fillStyle = TEXT;
   ctx.font = `500 ${Math.round(h * 0.025)}px sans-serif`;
   ctx.textAlign = "center";
   ctx.fillText("综合解读", w / 2, summaryY);
 
-  ctx.fillStyle = "#666";
+  ctx.fillStyle = MUTED;
   ctx.font = `${Math.round(h * 0.02)}px sans-serif`;
   const maxChars = 42;
   for (let i = 0; i < result.summary.length; i += maxChars) {
@@ -319,7 +436,7 @@ function drawAiLoading(ctx: CanvasRenderingContext2D): void {
   ctx.fillStyle = BG; ctx.fillRect(0, 0, w, h);
   ctx.fillStyle = DARK; ctx.fillRect(0, 0, w, h * 0.095);
   ctx.fillStyle = GOLD; ctx.fillRect(w * 0.3, h * 0.095, w * 0.4, 2);
-  ctx.fillStyle = "#fff";
+  ctx.fillStyle = HEADER_TEXT;
   ctx.font = `500 ${Math.round(h * 0.038)}px sans-serif`;
   ctx.textAlign = "center";
   ctx.fillText("AI 深度解读", w / 2, h * 0.065);
@@ -344,7 +461,7 @@ function drawAiResult(ctx: CanvasRenderingContext2D, text: string): void {
   ctx.fillStyle = BG; ctx.fillRect(0, 0, w, h);
   ctx.fillStyle = DARK; ctx.fillRect(0, 0, w, h * 0.095);
   ctx.fillStyle = GOLD; ctx.fillRect(w * 0.3, h * 0.095, w * 0.4, 2);
-  ctx.fillStyle = "#fff";
+  ctx.fillStyle = HEADER_TEXT;
   ctx.font = `500 ${Math.round(h * 0.038)}px sans-serif`;
   ctx.textAlign = "center";
   ctx.fillText("AI 深度解读", w / 2, h * 0.065);
@@ -352,13 +469,13 @@ function drawAiResult(ctx: CanvasRenderingContext2D, text: string): void {
   // content card
   const pad = w * 0.06;
   const contentY = h * 0.12;
-  ctx.fillStyle = "#ffffff";
-  ctx.shadowColor = "rgba(90,77,182,0.08)";
+  ctx.fillStyle = PANEL_ACTIVE;
+  ctx.shadowColor = "rgba(80, 58, 122, 0.1)";
   ctx.shadowBlur = 6; ctx.shadowOffsetY = 1;
   ctx.beginPath(); ctx.roundRect(pad, contentY, w - pad * 2, h * 0.72, 8); ctx.fill();
   ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
 
-  ctx.fillStyle = "#444";
+  ctx.fillStyle = TEXT;
   ctx.font = `${Math.round(h * 0.022)}px sans-serif`;
   ctx.textAlign = "left";
   const maxChars = 48;
@@ -396,35 +513,6 @@ function SelectionProgress({ count }: { count: number }) {
       ))}
     </group>
   );
-}
-
-// ---- input overlay ----
-function showQuestionOverlay(onConfirm: (q: string) => void, onCancel: () => void) {
-  if (document.getElementById("tarot-question-overlay")) return;
-  const overlay = document.createElement("div");
-  overlay.id = "tarot-question-overlay";
-  overlay.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;z-index:999;background:rgba(0,0,0,0.55);cursor:default;";
-  overlay.innerHTML = `<div style="background:#f8f7ff;border-radius:12px;padding:24px 32px;max-width:380px;width:90%;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.3);"><div style="font-size:18px;font-weight:500;color:#2a2048;margin-bottom:8px;">你想问什么？</div><div style="font-size:13px;color:#888;margin-bottom:16px;">默念你的问题，然后输入关键词</div><input id="tarot-question-input" type="text" placeholder="例如：我的感情发展如何？" style="width:100%;padding:10px 12px;border:1px solid #d3d1c7;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:16px;" autofocus /><div style="display:flex;gap:12px;justify-content:center;"><button id="tarot-question-cancel" style="padding:8px 24px;border:1px solid #d3d1c7;border-radius:8px;background:#fff;color:#666;font-size:14px;cursor:pointer;">取消</button><button id="tarot-question-confirm" style="padding:8px 28px;border:none;border-radius:8px;background:#5d4db6;color:#fff;font-size:14px;cursor:pointer;font-weight:500;">开始选牌</button></div></div>`;
-  document.body.appendChild(overlay);
-  const input = overlay.querySelector("#tarot-question-input") as HTMLInputElement;
-  input.focus();
-  overlay.querySelector("#tarot-question-confirm")!.addEventListener("click", () => {
-    const q = input.value.trim() || "未命名的问题";
-    overlay.remove();
-    onConfirm(q);
-  });
-  overlay.querySelector("#tarot-question-cancel")!.addEventListener("click", () => { overlay.remove(); onCancel(); });
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") { const q = input.value.trim() || "未命名的问题"; overlay.remove(); onConfirm(q); }
-    if (e.key === "Escape") { overlay.remove(); onCancel(); }
-  });
-}
-
-// ---- revealed card face loader ----
-function CardFaceTexture({ index, onLoad }: { index: number; onLoad: (tex: Texture) => void }) {
-  const texture = useTexture(cardFaceUrl(index));
-  useEffect(() => { onLoad(texture); }, [texture, onLoad]);
-  return null;
 }
 
 // ---- reveal center layout ----
@@ -519,6 +607,140 @@ function ArcCard({
   );
 }
 
+function SparklingCrystalEffect({ isHovered }: { isHovered: boolean }) {
+  const glowRef = useRef<Mesh>(null);
+  const coreRef = useRef<Mesh>(null);
+  const ringGroupRef = useRef<Group>(null);
+  const lightRef = useRef<PointLight>(null);
+  const sparkleRefs = useRef<Array<Group | null>>([]);
+
+  useFrame((_, delta) => {
+    const t = performance.now() / 1000;
+    const hoverBoost = isHovered ? 1.18 : 1;
+
+    if (coreRef.current) {
+      const pulse = 1 + Math.sin(t * 2.2) * 0.025 * hoverBoost;
+      coreRef.current.scale.setScalar(pulse);
+    }
+
+    if (glowRef.current) {
+      const pulse = 1 + Math.sin(t * 1.55) * 0.08 * hoverBoost;
+      glowRef.current.scale.setScalar(pulse);
+      const material = glowRef.current.material as MeshBasicMaterial;
+      material.opacity = (isHovered ? 0.34 : 0.24) + Math.sin(t * 1.8) * 0.045;
+    }
+
+    if (ringGroupRef.current) {
+      ringGroupRef.current.rotation.y += delta * 0.32;
+      ringGroupRef.current.rotation.z = Math.sin(t * 0.55) * 0.08;
+    }
+
+    if (lightRef.current) {
+      lightRef.current.intensity = (isHovered ? 1.65 : 1.05) + Math.sin(t * 2.6) * 0.22;
+    }
+
+    sparkleRefs.current.forEach((sparkle, index) => {
+      if (!sparkle) return;
+      const seed = crystalSparkles[index];
+      const pulse = 0.68 + Math.sin(t * 3.4 + seed.phase) * 0.32;
+      sparkle.scale.setScalar((0.75 + pulse * 0.75) * (isHovered ? 1.18 : 1));
+      sparkle.rotation.z += delta * (0.65 + index * 0.08);
+    });
+  });
+
+  return (
+    <group position={CRYSTAL_POS}>
+      <pointLight
+        ref={lightRef}
+        color="#c6b6ff"
+        distance={2.6}
+        intensity={1.05}
+      />
+      <mesh ref={glowRef}>
+        <sphereGeometry args={[0.47, 48, 32]} />
+        <meshBasicMaterial
+          blending={AdditiveBlending}
+          color="#8d78ff"
+          depthWrite={false}
+          opacity={0.24}
+          transparent
+        />
+      </mesh>
+      <mesh ref={coreRef}>
+        <sphereGeometry args={[0.405, 48, 32]} />
+        <meshPhysicalMaterial
+          clearcoat={1}
+          clearcoatRoughness={0.04}
+          color="#d9d2ff"
+          depthWrite={false}
+          emissive="#7061ff"
+          emissiveIntensity={isHovered ? 0.55 : 0.34}
+          metalness={0}
+          opacity={0.42}
+          roughness={0.08}
+          thickness={0.82}
+          transmission={0.38}
+          transparent
+        />
+      </mesh>
+      <group ref={ringGroupRef}>
+        <mesh rotation={[Math.PI / 2.6, 0, 0.18]}>
+          <torusGeometry args={[0.47, 0.006, 8, 96]} />
+          <meshBasicMaterial
+            blending={AdditiveBlending}
+            color="#fff0a8"
+            depthWrite={false}
+            opacity={0.48}
+            transparent
+          />
+        </mesh>
+        <mesh rotation={[Math.PI / 2.2, 0.55, -0.4]}>
+          <torusGeometry args={[0.35, 0.004, 8, 80]} />
+          <meshBasicMaterial
+            blending={AdditiveBlending}
+            color="#bdf3ff"
+            depthWrite={false}
+            opacity={0.32}
+            transparent
+          />
+        </mesh>
+      </group>
+      {crystalSparkles.map((sparkle, index) => (
+        <group
+          key={`${sparkle.position.join(":")}-${sparkle.phase}`}
+          ref={(node) => {
+            sparkleRefs.current[index] = node;
+          }}
+          position={sparkle.position}
+        >
+          <mesh rotation={[0, 0, Math.PI / 4]}>
+            <planeGeometry args={[sparkle.size, sparkle.size * 0.18]} />
+            <meshBasicMaterial
+              blending={AdditiveBlending}
+              color={sparkle.color}
+              depthWrite={false}
+              opacity={0.82}
+              side={DoubleSide}
+              transparent
+            />
+          </mesh>
+          <mesh rotation={[0, 0, -Math.PI / 4]}>
+            <planeGeometry args={[sparkle.size * 0.18, sparkle.size]} />
+            <meshBasicMaterial
+              blending={AdditiveBlending}
+              color={sparkle.color}
+              depthWrite={false}
+              opacity={0.82}
+              side={DoubleSide}
+              transparent
+            />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
 // ---- main ----
 
 export function TarotTable() {
@@ -535,31 +757,64 @@ export function TarotTable() {
   const [revealPage, setRevealPage] = useState<"cards" | "ai_loading" | "ai_result">("cards");
   const [aiText, setAiText] = useState("");
   const [hoveredPageBtn, setHoveredPageBtn] = useState(false);
+  const [questionDraft, setQuestionDraft] = useState("");
+  const [isQuestionInputActive, setIsQuestionInputActive] = useState(false);
+  const [hoveredQuestionControl, setHoveredQuestionControl] =
+    useState<FortuneQuestionControl | null>(null);
 
   const crystalMeshRef = useRef<Mesh | null>(null);
   const crystalModelRef = useRef<Mesh[]>([]);
   const cardMeshMap = useRef<Map<number, Mesh>>(new Map());
+  const questionControlMeshesRef = useRef<
+    Partial<Record<FortuneQuestionControl, Mesh>>
+  >({});
   const raycasterRef = useRef(new Raycaster());
   const hoveredCrystalRef = useRef(false);
   const hoveredCardRef = useRef<number | null>(null);
+  const hoveredQuestionControlRef = useRef<FortuneQuestionControl | null>(null);
+  const cardFaceTextureLoader = useMemo(() => new TextureLoader(), []);
+  const cardFaceTexturesRef = useRef(cardFaceTextures);
+  const loadingCardFaceIndexesRef = useRef<Set<number>>(new Set());
   const flipDelayRef = useRef(0);
   // load crystal ball model for surface highlight
   const crystalGltf = useGLTF(CRYSTAL_URL);
   const crystalScene = useMemo(() => {
     const s = crystalGltf.scene.clone(true);
     crystalModelRef.current = [];
-    s.traverse((c) => { if ((c as Mesh).isMesh) crystalModelRef.current.push(c as Mesh); });
+    s.traverse((c) => {
+      if (!(c as Mesh).isMesh) return;
+      const mesh = c as Mesh;
+      mesh.castShadow = false;
+      mesh.receiveShadow = false;
+      mesh.material = new MeshPhysicalMaterial({
+        clearcoat: 1,
+        clearcoatRoughness: 0.04,
+        color: "#cfc7ff",
+        depthWrite: false,
+        emissive: "#5f4ee8",
+        emissiveIntensity: 0.28,
+        metalness: 0,
+        opacity: 0.34,
+        roughness: 0.06,
+        thickness: 0.9,
+        transmission: 0.45,
+        transparent: true,
+      });
+      crystalModelRef.current.push(mesh);
+    });
     return s;
   }, [crystalGltf.scene]);
 
   // crystal ball surface glow on hover
   useEffect(() => {
-    const emissive = hoveredCrystal ? "#ffd977" : "#7c6fd3";
-    const intensity = hoveredCrystal ? 0.6 : 0.15;
+    const emissive = hoveredCrystal ? "#fff0a8" : "#5f4ee8";
+    const intensity = hoveredCrystal ? 0.68 : 0.28;
+    const opacity = hoveredCrystal ? 0.44 : 0.34;
     crystalModelRef.current.forEach((m) => {
       const mat = m.material as MeshStandardMaterial;
       if (mat.emissive) mat.emissive.set(emissive);
       if (mat.emissiveIntensity !== undefined) mat.emissiveIntensity = intensity;
+      if (mat.transparent) mat.opacity = opacity;
     });
   }, [hoveredCrystal]);
   const candleMeshRef = useRef<Mesh | null>(null);
@@ -568,6 +823,91 @@ export function TarotTable() {
   const flipStartRef = useRef(0);
 
   const { canvas: offCanvas, texture: screenTex } = useMemo(() => createScreenCanvas(), []);
+
+  useEffect(() => {
+    cardFaceTexturesRef.current = cardFaceTextures;
+  }, [cardFaceTextures]);
+
+  const loadCardFaceTexture = useCallback((index: number) => {
+    if (
+      cardFaceTexturesRef.current.has(index) ||
+      loadingCardFaceIndexesRef.current.has(index)
+    ) {
+      return;
+    }
+
+    loadingCardFaceIndexesRef.current.add(index);
+    cardFaceTextureLoader.load(
+      cardFaceUrl(index),
+      (texture) => {
+        loadingCardFaceIndexesRef.current.delete(index);
+        setCardFaceTextures((prev) => {
+          if (prev.has(index)) return prev;
+          const next = new Map(prev);
+          next.set(index, texture);
+          return next;
+        });
+      },
+      undefined,
+      () => {
+        loadingCardFaceIndexesRef.current.delete(index);
+      },
+    );
+  }, [cardFaceTextureLoader]);
+
+  const registerQuestionControl = useCallback(
+    (id: FortuneQuestionControl) => (mesh: Mesh | null) => {
+      if (mesh) questionControlMeshesRef.current[id] = mesh;
+      else delete questionControlMeshesRef.current[id];
+    },
+    [],
+  );
+
+  const setAimedQuestionControl = useCallback(
+    (id: FortuneQuestionControl | null) => {
+      if (hoveredQuestionControlRef.current === id) return;
+      hoveredQuestionControlRef.current = id;
+      setHoveredQuestionControl(id);
+    },
+    [],
+  );
+
+  const closeQuestionInput = useCallback(() => {
+    setIsQuestionInputActive(false);
+  }, []);
+
+  const cancelQuestion = useCallback(() => {
+    setQuestionDraft("");
+    setIsQuestionInputActive(false);
+    setAimedQuestionControl(null);
+    setHoveredCrystal(false);
+    setPhase("idle");
+  }, [setAimedQuestionControl]);
+
+  const confirmQuestion = useCallback(() => {
+    const q = questionDraft.trim() || "未命名的问题";
+    setQuestion(q);
+    setQuestionDraft("");
+    setIsQuestionInputActive(false);
+    setAimedQuestionControl(null);
+    setSelectedIndexes([]);
+    setResult(null);
+    setFlipProgress(0);
+    setRevealPage("cards");
+    setAiText("");
+    setCardFaceTextures(new Map());
+    setHoveredCrystal(false);
+    setPhase("select");
+  }, [questionDraft, setAimedQuestionControl]);
+
+  useScreenTextInput({
+    active: phase === "question" && isQuestionInputActive,
+    ariaLabel: "塔罗占卜问题输入",
+    onCancel: cancelQuestion,
+    onChange: setQuestionDraft,
+    onConfirm: confirmQuestion,
+    value: questionDraft,
+  });
 
   // screen idle
   useEffect(() => { const ctx = offCanvas.getContext("2d"); if (ctx) { drawIdle(ctx); screenTex.needsUpdate = true; } }, [offCanvas, screenTex]);
@@ -578,16 +918,33 @@ export function TarotTable() {
     if (!ctx) return;
     if (revealPage === "ai_loading") drawAiLoading(ctx);
     else if (revealPage === "ai_result") drawAiResult(ctx, aiText);
+    else if (phase === "question") drawQuestion(ctx, questionDraft, isQuestionInputActive, hoveredQuestionControl);
     else if (result) drawResult(ctx, result);
     else if (phase === "select" && selectedIndexes.length === MAX_SELECT) drawLoading(ctx);
     else drawIdle(ctx);
     screenTex.needsUpdate = true;
-  }, [phase, selectedIndexes, result, offCanvas, screenTex, revealPage, aiText]);
+  }, [
+    phase,
+    selectedIndexes,
+    result,
+    offCanvas,
+    screenTex,
+    revealPage,
+    aiText,
+    questionDraft,
+    isQuestionInputActive,
+    hoveredQuestionControl,
+  ]);
 
   // reset flip on enter reveal
   useEffect(() => {
     if (phase === "reveal") { setFlipProgress(0); setRevealPage("cards"); }
   }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "select" && phase !== "reveal") return;
+    selectedIndexes.forEach(loadCardFaceTexture);
+  }, [loadCardFaceTexture, phase, selectedIndexes]);
 
   // AI fetch when revealing AI page
   useEffect(() => {
@@ -650,7 +1007,30 @@ export function TarotTable() {
   // raycasting
   useFrame(() => {
     raycasterRef.current.setFromCamera(screenCenter, camera);
-    if (phase === "idle" || phase === "question") {
+    if (phase === "question") {
+      const controls = questionControls
+        .map((id) => [id, questionControlMeshesRef.current[id]] as const)
+        .filter((entry): entry is readonly [FortuneQuestionControl, Mesh] =>
+          Boolean(entry[1]),
+        );
+      const hits = raycasterRef.current.intersectObjects(
+        controls.map(([, mesh]) => mesh),
+        false,
+      );
+      const aimedEntry = hits
+        .map((hit) =>
+          controls.find(([, mesh]) => mesh === hit.object) ?? null,
+        )
+        .find((entry): entry is readonly [FortuneQuestionControl, Mesh] =>
+          Boolean(entry),
+        );
+      setAimedQuestionControl(aimedEntry?.[0] ?? null);
+      if (hoveredCrystalRef.current) { hoveredCrystalRef.current = false; setHoveredCrystal(false); }
+      if (hoveredCardRef.current !== null) { hoveredCardRef.current = null; setHoveredCardIdx(null); }
+      return;
+    }
+    if (phase === "idle") {
+      setAimedQuestionControl(null);
       const hits = crystalMeshRef.current ? raycasterRef.current.intersectObject(crystalMeshRef.current, false) : [];
       const h = hits.length > 0;
       if (hoveredCrystalRef.current !== h) { hoveredCrystalRef.current = h; setHoveredCrystal(h); }
@@ -701,19 +1081,37 @@ export function TarotTable() {
   // click
   const handleClick = useCallback((event: MouseEvent) => {
     if (event.button !== 0) return;
-    if (document.pointerLockElement !== domElement) return;
+    if (phase !== "question" && document.pointerLockElement !== domElement) return;
     if (phase === "idle" && hoveredCrystalRef.current) {
-      event.preventDefault(); event.stopPropagation();
-      document.exitPointerLock();
+      consumeCanvasClick(event);
+      setQuestionDraft("");
+      setIsQuestionInputActive(true);
+      setAimedQuestionControl(null);
+      setSelectedIndexes([]);
+      setResult(null);
+      setFlipProgress(0);
+      setRevealPage("cards");
+      setAiText("");
+      setCardFaceTextures(new Map());
       setPhase("question");
-      showQuestionOverlay(
-        (q) => { setQuestion(q); setSelectedIndexes([]); setHoveredCrystal(false); setPhase("select"); setTimeout(() => domElement.requestPointerLock?.(), 150); },
-        () => { setPhase("idle"); setHoveredCrystal(false); setTimeout(() => domElement.requestPointerLock?.(), 150); },
-      );
+      return;
+    }
+    if (phase === "question") {
+      const control = hoveredQuestionControlRef.current;
+      consumeCanvasClick(event);
+      if (control === "confirm") {
+        confirmQuestion();
+      } else if (control === "cancel") {
+        cancelQuestion();
+      } else if (control === "input") {
+        setIsQuestionInputActive(true);
+      } else if (isQuestionInputActive) {
+        closeQuestionInput();
+      }
       return;
     }
     if (phase === "reveal" && hoveredCandleRef.current) {
-      event.preventDefault(); event.stopPropagation();
+      consumeCanvasClick(event);
       setRevealPage((prev) => {
         if (prev === "cards") { setAiText(""); return "ai_loading"; }
         if (prev === "ai_result") return "cards";
@@ -722,7 +1120,7 @@ export function TarotTable() {
       return;
     }
     if (phase === "reveal" && hoveredCardRef.current !== null) {
-      event.preventDefault(); event.stopPropagation();
+      consumeCanvasClick(event);
       setSelectedIndexes([]);
       setFlipProgress(0);
       setRevealPage("cards");
@@ -731,7 +1129,7 @@ export function TarotTable() {
       return;
     }
     if (phase === "reveal" && hoveredCrystalRef.current) {
-      event.preventDefault(); event.stopPropagation();
+      consumeCanvasClick(event);
       setPhase("idle");
       setSelectedIndexes([]);
       setResult(null);
@@ -744,14 +1142,22 @@ export function TarotTable() {
     }
     if (phase === "select" && hoveredCardRef.current !== null) {
       const idx = hoveredCardRef.current;
-      event.preventDefault(); event.stopPropagation();
+      consumeCanvasClick(event);
       setSelectedIndexes((prev) => {
         if (prev.includes(idx)) return deselectCard(idx, prev);
         if (!canSelectCard(idx, prev, MAX_SELECT)) return prev;
         return selectCard(idx, prev, MAX_SELECT);
       });
     }
-  }, [domElement, phase]);
+  }, [
+    cancelQuestion,
+    closeQuestionInput,
+    confirmQuestion,
+    domElement,
+    isQuestionInputActive,
+    phase,
+    setAimedQuestionControl,
+  ]);
 
   useEffect(() => { domElement.addEventListener("click", handleClick); return () => domElement.removeEventListener("click", handleClick); }, [domElement, handleClick]);
 
@@ -772,24 +1178,17 @@ export function TarotTable() {
     else cardMeshMap.current.delete(index);
   }, []);
 
-  const handleFaceTextureLoad = useCallback((index: number, tex: Texture) => {
-    setCardFaceTextures((prev) => {
-      const next = new Map(prev);
-      next.set(index, tex);
-      return next;
-    });
-  }, []);
-
   return (
     <group>
-      {/* crystal — idle and reveal */}
-      {(phase === "idle" || phase === "reveal") && <>
-        <primitive object={crystalScene} position={CRYSTAL_POS} scale={0.62} />
+      {/* crystal model stays on the table; only its click target is phase-limited. */}
+      <primitive object={crystalScene} position={CRYSTAL_POS} scale={CRYSTAL_VISUAL_SCALE} />
+      <SparklingCrystalEffect isHovered={hoveredCrystal} />
+      {(phase === "idle" || phase === "reveal") && (
         <mesh ref={crystalMeshRef} position={CRYSTAL_POS}>
           <sphereGeometry args={[CRYSTAL_RAYCAST_R, 8, 6]} />
-          <meshBasicMaterial color="#fff" opacity={0} transparent />
+          <meshBasicMaterial visible={false} depthWrite={false} depthTest={false} />
         </mesh>
-      </>}
+      )}
 
       {/* card arc */}
       {(phase === "select" || phase === "reveal") && Array.from({ length: CARD_COUNT }, (_, i) => {
@@ -809,9 +1208,6 @@ export function TarotTable() {
               phase={phase}
               selectedIndexes={selectedIndexes}
             />
-            {isRevealedCard && !cardFaceTextures.has(i) && (
-              <CardFaceTexture index={i} onLoad={(tex) => handleFaceTextureLoad(i, tex)} />
-            )}
           </group>
         );
       })}
@@ -823,12 +1219,26 @@ export function TarotTable() {
       <group position={SCREEN_POS} rotation={SCREEN_ROT}>
         <mesh receiveShadow>
           <planeGeometry args={[SCREEN_W, SCREEN_H]} />
-          <meshBasicMaterial map={screenTex} side={DoubleSide} transparent opacity={0.95} />
+          <meshBasicMaterial map={screenTex} side={DoubleSide} toneMapped={false} />
         </mesh>
-        <mesh position={[0, 0, 0.018]}>
-          <boxGeometry args={[SCREEN_W + 0.1, SCREEN_H + 0.1, 0.035]} />
-          <meshBasicMaterial color="#2a2048" transparent opacity={0.32} />
-        </mesh>
+        {phase === "question" && questionControls.map((id) => {
+          const layout = questionControlLayout[id];
+          return (
+            <mesh
+              key={id}
+              ref={registerQuestionControl(id)}
+              position={layout.position}
+            >
+              <planeGeometry args={layout.size} />
+              <meshBasicMaterial
+                depthTest={false}
+                depthWrite={false}
+                side={DoubleSide}
+                visible={false}
+              />
+            </mesh>
+          );
+        })}
       </group>
 
       {/* question hint */}
@@ -842,7 +1252,7 @@ export function TarotTable() {
       {/* candle page flip — hover glow instead of sphere */}
       <mesh ref={candleMeshRef} position={[-1.18, 1.35, 4.18]}>
         <sphereGeometry args={[0.32, 8, 6]} />
-        <meshBasicMaterial color="#fff" opacity={0} transparent />
+        <meshBasicMaterial visible={false} depthWrite={false} depthTest={false} />
       </mesh>
       {hoveredPageBtn && (
         <pointLight position={[-1.18, 1.55, 4.18]} color="#ffd977" intensity={1.2} distance={1.5} />

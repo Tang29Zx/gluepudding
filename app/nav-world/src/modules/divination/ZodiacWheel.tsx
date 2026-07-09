@@ -9,11 +9,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CanvasTexture,
   DoubleSide,
+  LinearFilter,
   Mesh,
   Raycaster,
   RingGeometry,
+  SRGBColorSpace,
   Vector2,
 } from "three";
+import { consumeCanvasClick } from "./canvasEvents";
 import { getZodiacFortune } from "./fortuneApi";
 import type { ZodiacResult, ZodiacSign } from "./types";
 import { ZODIAC_SIGN_NAMES } from "./types";
@@ -33,20 +36,34 @@ const RING_Y = 0.04;
 
 const WHEEL_POS: [number, number, number] = [-6, 0.51 + RING_Y, 0];
 
-const SCREEN_POSITION: [number, number, number] = [-7.45, 2.0, 0];
+const SCREEN_POSITION: [number, number, number] = [-7.45, 3.125, 0];
 const SCREEN_ROTATION: [number, number, number] = [0, Math.PI / 2, 0];
-const SCREEN_W = 3.6;
-const SCREEN_H = 2.25;
-const CANVAS_W = 768;
-const CANVAS_H = 480;
+const SCREEN_W = 7.2;
+const SCREEN_H = 4.5;
+const CANVAS_W = 1536;
+const CANVAS_H = 960;
+const SCREEN_BG = "#ded4e6";
+const SCREEN_DARK = "#1d102f";
+const SCREEN_ACCENT = "#6754a8";
+const SCREEN_GOLD = "#b99d53";
+const SCREEN_SOFT = "#cbbfd8";
+const SCREEN_TEXT = "#2c203b";
+const SCREEN_MUTED = "#756a82";
+const SCREEN_HEADER_TEXT = "#f5eef9";
+const SCREEN_GOOD_BG = "#d9e8d7";
+const SCREEN_GOOD_TEXT = "#346f47";
+const SCREEN_WARN_BG = "#ecd8d4";
+const SCREEN_WARN_TEXT = "#914841";
+const SCREEN_ERROR_BG = "#e8d7dd";
 
 function createScreenTexture(): { canvas: HTMLCanvasElement; texture: CanvasTexture } {
   const canvas = document.createElement("canvas");
   canvas.width = CANVAS_W;
   canvas.height = CANVAS_H;
   const texture = new CanvasTexture(canvas);
-  texture.minFilter = 1006;
-  texture.magFilter = 1006;
+  texture.minFilter = LinearFilter;
+  texture.magFilter = LinearFilter;
+  texture.colorSpace = SRGBColorSpace;
   return { canvas, texture };
 }
 
@@ -55,13 +72,14 @@ function createScreenTexture(): { canvas: HTMLCanvasElement; texture: CanvasText
 function drawIdle(ctx: CanvasRenderingContext2D): void {
   const w = CANVAS_W, h = CANVAS_H, topH = h * 0.1;
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#f8f7ff"; ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = "#5d4db6"; ctx.fillRect(0, 0, w, topH);
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = SCREEN_BG; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = SCREEN_DARK; ctx.fillRect(0, 0, w, topH);
+  ctx.fillStyle = SCREEN_GOLD; ctx.fillRect(w * 0.3, topH - 2, w * 0.4, 2);
+  ctx.fillStyle = SCREEN_HEADER_TEXT;
   ctx.font = `500 ${Math.round(h * 0.04)}px sans-serif`;
   ctx.textAlign = "center";
   ctx.fillText("星座运势", w / 2, topH * 0.66);
-  ctx.fillStyle = "#999";
+  ctx.fillStyle = SCREEN_MUTED;
   ctx.font = `${Math.round(h * 0.035)}px sans-serif`;
   ctx.fillText("对准轮盘点击查看运势", w / 2, h * 0.52);
 }
@@ -69,13 +87,14 @@ function drawIdle(ctx: CanvasRenderingContext2D): void {
 function drawLoading(ctx: CanvasRenderingContext2D, signName: string): void {
   const w = CANVAS_W, h = CANVAS_H, topH = h * 0.1;
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#f8f7ff"; ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = "#5d4db6"; ctx.fillRect(0, 0, w, topH);
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = SCREEN_BG; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = SCREEN_DARK; ctx.fillRect(0, 0, w, topH);
+  ctx.fillStyle = SCREEN_GOLD; ctx.fillRect(w * 0.3, topH - 2, w * 0.4, 2);
+  ctx.fillStyle = SCREEN_HEADER_TEXT;
   ctx.font = `500 ${Math.round(h * 0.04)}px sans-serif`;
   ctx.textAlign = "center";
   ctx.fillText(signName, w / 2, topH * 0.66);
-  ctx.fillStyle = "#888";
+  ctx.fillStyle = SCREEN_MUTED;
   ctx.font = `${Math.round(h * 0.035)}px sans-serif`;
   ctx.fillText("正在解读星象...", w / 2, h * 0.52);
 }
@@ -83,13 +102,13 @@ function drawLoading(ctx: CanvasRenderingContext2D, signName: string): void {
 function drawError(ctx: CanvasRenderingContext2D, message: string): void {
   const w = CANVAS_W, h = CANVAS_H, topH = h * 0.1;
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#fff5f5"; ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = "#c62828"; ctx.fillRect(0, 0, w, topH);
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = SCREEN_ERROR_BG; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = SCREEN_WARN_TEXT; ctx.fillRect(0, 0, w, topH);
+  ctx.fillStyle = SCREEN_HEADER_TEXT;
   ctx.font = `500 ${Math.round(h * 0.038)}px sans-serif`;
   ctx.textAlign = "center";
   ctx.fillText("运势查询失败", w / 2, topH * 0.66);
-  ctx.fillStyle = "#888";
+  ctx.fillStyle = SCREEN_MUTED;
   ctx.font = `${Math.round(h * 0.032)}px sans-serif`;
   ctx.fillText(message, w / 2, h * 0.52);
 }
@@ -98,11 +117,12 @@ function drawResult(ctx: CanvasRenderingContext2D, result: ZodiacResult): void {
   const w = CANVAS_W, h = CANVAS_H, topH = h * 0.1;
 
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#f8f7ff"; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = SCREEN_BG; ctx.fillRect(0, 0, w, h);
 
   // top bar
-  ctx.fillStyle = "#5d4db6"; ctx.fillRect(0, 0, w, topH);
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = SCREEN_DARK; ctx.fillRect(0, 0, w, topH);
+  ctx.fillStyle = SCREEN_GOLD; ctx.fillRect(w * 0.3, topH - 2, w * 0.4, 2);
+  ctx.fillStyle = SCREEN_HEADER_TEXT;
   ctx.font = `500 ${Math.round(h * 0.04)}px sans-serif`;
   ctx.textAlign = "center";
   ctx.fillText(`${result.signName} · ${result.date}`, w / 2, topH * 0.66);
@@ -110,36 +130,36 @@ function drawResult(ctx: CanvasRenderingContext2D, result: ZodiacResult): void {
   // level badge
   const isGood = result.level.includes("吉");
   const badgeW = w * 0.12, badgeH = h * 0.06;
-  ctx.fillStyle = isGood ? "#e8f5e9" : "#fbe9e7";
+  ctx.fillStyle = isGood ? SCREEN_GOOD_BG : SCREEN_WARN_BG;
   ctx.beginPath();
   ctx.roundRect(w / 2 - badgeW / 2, h * 0.14, badgeW, badgeH, badgeH / 2);
   ctx.fill();
-  ctx.fillStyle = isGood ? "#2e7d32" : "#c62828";
+  ctx.fillStyle = isGood ? SCREEN_GOOD_TEXT : SCREEN_WARN_TEXT;
   ctx.font = `500 ${Math.round(h * 0.034)}px sans-serif`;
   ctx.fillText(result.level, w / 2, h * 0.14 + badgeH * 0.7);
 
   // score bars
   const scores = [
-    { label: "综合", value: result.overall, color: "#7c6fd3" },
-    { label: "爱情", value: result.love, color: "#e06ba0" },
-    { label: "事业", value: result.career, color: "#4da6d9" },
-    { label: "健康", value: result.health, color: "#5dc27a" },
+    { label: "综合", value: result.overall, color: "#8171c5" },
+    { label: "爱情", value: result.love, color: "#d982aa" },
+    { label: "事业", value: result.career, color: "#6caed2" },
+    { label: "健康", value: result.health, color: "#72b989" },
   ];
   const barStartY = h * 0.24, barGap = h * 0.08, barH = h * 0.042;
   const barMargin = w * 0.12, barMaxW = w - barMargin * 2;
 
   scores.forEach((s, i) => {
     const y = barStartY + i * barGap;
-    ctx.fillStyle = "#444";
+    ctx.fillStyle = SCREEN_TEXT;
     ctx.font = `${Math.round(h * 0.027)}px sans-serif`;
     ctx.textAlign = "right";
     ctx.fillText(s.label, barMargin * 0.82, y + barH * 0.82);
-    ctx.fillStyle = "#e8e5f2";
+    ctx.fillStyle = SCREEN_SOFT;
     ctx.fillRect(barMargin, y, barMaxW, barH);
     const fillW = (barMaxW * s.value) / 100;
     ctx.fillStyle = s.color;
     ctx.fillRect(barMargin, y, fillW, barH);
-    ctx.fillStyle = "#333";
+    ctx.fillStyle = SCREEN_TEXT;
     ctx.font = `500 ${Math.round(h * 0.028)}px sans-serif`;
     ctx.textAlign = "left";
     ctx.fillText(`${s.value}`, barMargin + fillW + 8, y + barH * 0.82);
@@ -155,17 +175,17 @@ function drawResult(ctx: CanvasRenderingContext2D, result: ZodiacResult): void {
   ];
   luckyItems.forEach((item, i) => {
     const x = w * 0.06 + w * 0.88 * (i / luckyItems.length);
-    ctx.fillStyle = "#5d4db6";
+    ctx.fillStyle = SCREEN_ACCENT;
     ctx.font = `${Math.round(h * 0.027)}px sans-serif`;
     ctx.fillText(item.label, x, luckyY);
-    ctx.fillStyle = "#333";
+    ctx.fillStyle = SCREEN_TEXT;
     ctx.font = `500 ${Math.round(h * 0.03)}px sans-serif`;
     ctx.fillText(item.value, x, luckyY + h * 0.042);
   });
 
   // summary
   const summaryY = luckyY + h * 0.12;
-  ctx.fillStyle = "#666";
+  ctx.fillStyle = SCREEN_MUTED;
   ctx.font = `${Math.round(h * 0.025)}px sans-serif`;
   ctx.textAlign = "center";
   const maxChars = 36;
@@ -263,8 +283,7 @@ export function ZodiacWheel() {
       if (document.pointerLockElement !== domElement) return;
       const sign = hoveredSignRef.current;
       if (!sign) return;
-      event.preventDefault();
-      event.stopPropagation();
+      consumeCanvasClick(event);
       setStatus("loading");
       setErrorMessage("");
       getZodiacFortune({ sign })
@@ -300,11 +319,7 @@ export function ZodiacWheel() {
       <group position={SCREEN_POSITION} rotation={SCREEN_ROTATION}>
         <mesh receiveShadow>
           <planeGeometry args={[SCREEN_W, SCREEN_H]} />
-          <meshBasicMaterial map={screenTexture} side={DoubleSide} transparent opacity={0.95} />
-        </mesh>
-        <mesh position={[0, 0, 0.018]}>
-          <boxGeometry args={[SCREEN_W + 0.1, SCREEN_H + 0.1, 0.035]} />
-          <meshBasicMaterial color="#7c6fd3" transparent opacity={0.32} />
+          <meshBasicMaterial map={screenTexture} side={DoubleSide} toneMapped={false} />
         </mesh>
       </group>
     </group>

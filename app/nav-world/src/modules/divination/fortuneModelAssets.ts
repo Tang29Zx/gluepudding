@@ -143,7 +143,7 @@ export const fortuneModelAssets = {
     },
     {
       id: "iching-coin",
-      position: positionOnIchingTable(0.48, 1.18, 0.22),
+      position: positionOnIchingTable(0.48, 1.112, 0.22),
       rotation: rotationOnIchingTable(0, 0.2),
       scale: 0.58,
       url: modelUrl("iching_coin.glb"),
