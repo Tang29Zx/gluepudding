@@ -50,6 +50,7 @@ interface WorldRuntimeProps {
   focusedModuleId: WorldModuleId | null;
   forcedFortuneAssetMode: ForcedFortuneAssetMode;
   gomokuPlacement: GomokuPlacement | null;
+  isLoading: boolean;
   moduleStatuses: Record<WorldModuleId, WorldModuleStatus>;
   onActivateArea: (targetId: InteractionTargetId) => void;
   onAimedGomokuTargetChange: (target: GomokuAimTarget | null) => void;
@@ -75,6 +76,7 @@ function WorldRuntime({
   focusedModuleId,
   forcedFortuneAssetMode,
   gomokuPlacement,
+  isLoading,
   moduleStatuses,
   onActivateArea,
   onAimedGomokuTargetChange,
@@ -181,6 +183,25 @@ function WorldRuntime({
       focusedModuleId === "divination" ||
       selectedTargetId === "divination-house" ||
       shouldLoadFortuneInteriorByDistance;
+
+  // global background music: loading → world → fortune interior
+  useEffect(() => {
+    const audio = new Audio();
+    audio.loop = true;
+    audio.volume = 0.3;
+
+    let src = "/audio/world_bgm.wav";
+    if (isLoading) src = "/audio/loading_bgm.wav";
+    else if (shouldLoadFortuneInterior) src = "/audio/fortune_bgm.wav";
+
+    audio.src = src;
+    audio.play().catch(() => {});
+
+    return () => {
+      audio.pause();
+      audio.src = "";
+    };
+  }, [isLoading, shouldLoadFortuneInterior]);
 
   return (
     <>
@@ -420,6 +441,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
             focusedModuleId={focusedModuleId}
             forcedFortuneAssetMode={forcedFortuneAssetMode}
             gomokuPlacement={gomokuPlacement}
+            isLoading={!isCanvasReady || !isTerrainReady}
             moduleStatuses={moduleStatuses}
             onActivateArea={focusAreaModule}
             onAimedGomokuTargetChange={setAimedGomokuTarget}
