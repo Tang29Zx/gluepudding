@@ -1,6 +1,11 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Vector3 } from "three";
+import {
+  ACESFilmicToneMapping,
+  PCFSoftShadowMap,
+  SRGBColorSpace,
+  Vector3,
+} from "three";
 import { fortuneAssetLoadingConfig } from "../modules/divination/fortuneModelAssets";
 import {
   createDefaultWorldModuleStatuses,
@@ -12,6 +17,11 @@ import type {
   WorldModuleId,
   WorldModuleStatus,
 } from "../modules/types";
+import {
+  sampleGomokuSurface,
+  type GomokuAimTarget,
+  type GomokuPlacement,
+} from "../modules/gomoku/gomokuWorldTypes";
 import { CameraRig } from "./CameraRig";
 import {
   getInteractionTargetById,
@@ -35,14 +45,19 @@ type ForcedFortuneAssetMode = "interior" | "shell" | null;
 const fortuneFloorNormal = new Vector3(0, 1, 0);
 
 interface WorldRuntimeProps {
+  aimedGomokuTarget: GomokuAimTarget | null;
   aimedModuleControl: AimedWorldModuleControl | null;
   focusedModuleId: WorldModuleId | null;
   forcedFortuneAssetMode: ForcedFortuneAssetMode;
+  gomokuPlacement: GomokuPlacement | null;
   moduleStatuses: Record<WorldModuleId, WorldModuleStatus>;
   onActivateArea: (targetId: InteractionTargetId) => void;
+  onAimedGomokuTargetChange: (target: GomokuAimTarget | null) => void;
   onAimedModuleControlChange: (
     control: AimedWorldModuleControl | null,
   ) => void;
+  onGomokuHudMessageChange: (message: string | null) => void;
+  onGomokuPlacementChange: (placement: GomokuPlacement | null) => void;
   onAimedTargetChange: (targetId: InteractionTargetId | null) => void;
   onModuleStatusChange: (
     moduleId: WorldModuleId,
@@ -55,13 +70,18 @@ interface WorldRuntimeProps {
 }
 
 function WorldRuntime({
+  aimedGomokuTarget,
   aimedModuleControl,
   focusedModuleId,
   forcedFortuneAssetMode,
+  gomokuPlacement,
   moduleStatuses,
   onActivateArea,
+  onAimedGomokuTargetChange,
   onAimedModuleControlChange,
   onAimedTargetChange,
+  onGomokuHudMessageChange,
+  onGomokuPlacementChange,
   onModuleStatusChange,
   onNearestTargetChange,
   onSelectObject,
@@ -79,14 +99,16 @@ function WorldRuntime({
     divinationHouseY + fortuneAssetLoadingConfig.shellAnchorOffset[1];
   const fortuneStageZ =
     divinationHouseZ + fortuneAssetLoadingConfig.shellAnchorOffset[2];
+  const placementTerrainSamplerRef = useRef<TerrainSampler | null>(null);
   const terrainSamplerRef = useRef<TerrainSampler | null>(null);
-  const setTerrainSampler = useCallback((sampler: TerrainSampler | null) => {
-    if (!sampler) {
-      terrainSamplerRef.current = null;
-      return;
+  const [rawTerrainSampler, setRawTerrainSampler] =
+    useState<TerrainSampler | null>(null);
+  const placementTerrainSampler = useMemo<TerrainSampler | null>(() => {
+    if (!rawTerrainSampler) {
+      return null;
     }
 
-    terrainSamplerRef.current = {
+    return {
       sampleGround(x, z) {
         const distanceToFortuneFloor = Math.hypot(
           x - fortuneStageX,
@@ -100,10 +122,35 @@ function WorldRuntime({
           };
         }
 
-        return sampler.sampleGround(x, z);
+        return rawTerrainSampler.sampleGround(x, z);
       },
     };
-  }, [fortuneStageX, fortuneStageY, fortuneStageZ]);
+  }, [fortuneStageX, fortuneStageY, fortuneStageZ, rawTerrainSampler]);
+  const worldTerrainSampler = useMemo<TerrainSampler | null>(() => {
+    if (!placementTerrainSampler) {
+      return null;
+    }
+
+    return {
+      sampleGround(x, z) {
+        const terrainSample = placementTerrainSampler.sampleGround(x, z);
+
+        return (
+          sampleGomokuSurface(gomokuPlacement, x, z, terrainSample) ??
+          terrainSample
+        );
+      },
+    };
+  }, [gomokuPlacement, placementTerrainSampler]);
+
+  useEffect(() => {
+    placementTerrainSamplerRef.current = placementTerrainSampler;
+    terrainSamplerRef.current = worldTerrainSampler;
+  }, [placementTerrainSampler, worldTerrainSampler]);
+
+  const setTerrainSampler = useCallback((sampler: TerrainSampler | null) => {
+    setRawTerrainSampler(sampler);
+  }, []);
   const player = usePlayerController({
     isMovementEnabled: true,
     terrainSamplerRef,
@@ -139,16 +186,22 @@ function WorldRuntime({
     <>
       <CameraRig player={player} />
       <WorldScene
+        aimedGomokuTarget={aimedGomokuTarget}
         aimedModuleControl={aimedModuleControl}
         moduleStatuses={moduleStatuses}
+        gomokuPlacement={gomokuPlacement}
         onTerrainReadyChange={onTerrainReadyChange}
         onTerrainSamplerChange={setTerrainSampler}
         onActivateArea={onActivateArea}
+        onAimedGomokuTargetChange={onAimedGomokuTargetChange}
         onAimedModuleControlChange={onAimedModuleControlChange}
+        onGomokuHudMessageChange={onGomokuHudMessageChange}
+        onGomokuPlacementChange={onGomokuPlacementChange}
         onAimedTargetChange={onAimedTargetChange}
         onModuleStatusChange={onModuleStatusChange}
         onNearestTargetChange={onNearestTargetChange}
         onSelectObject={onSelectObject}
+        placementTerrainSamplerRef={placementTerrainSamplerRef}
         player={player}
         selectedTargetId={selectedTargetId}
         shouldLoadFortuneInterior={shouldLoadFortuneInterior}
@@ -179,6 +232,12 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
     useState<InteractionTargetId | null>(null);
   const [focusedModuleId, setFocusedModuleId] =
     useState<WorldModuleId | null>(null);
+  const [aimedGomokuTarget, setAimedGomokuTarget] =
+    useState<GomokuAimTarget | null>(null);
+  const [gomokuHudMessage, setGomokuHudMessage] =
+    useState<string | null>(null);
+  const [gomokuPlacement, setGomokuPlacement] =
+    useState<GomokuPlacement | null>(null);
   const [moduleStatuses, setModuleStatuses] = useState(
     createDefaultWorldModuleStatuses,
   );
@@ -242,6 +301,36 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
   }, [aimedModuleControl, changeModuleStatus]);
 
   const interactionLines = useMemo(() => {
+    if (aimedGomokuTarget) {
+      if (aimedGomokuTarget.kind === "control") {
+        return [
+          `准星命中：五子棋控制屏 / ${aimedGomokuTarget.label}`,
+          "左键或 E 操作悔棋、重开、AI 强度或收回棋盘。",
+        ];
+      }
+
+      return [
+        `准星命中：${aimedGomokuTarget.label}`,
+        "左键落子；按 G 移动棋盘，按 H 收回棋盘。",
+      ];
+    }
+
+    if (gomokuHudMessage) {
+      return [
+        gomokuHudMessage,
+        gomokuPlacement
+          ? "按 G 可移动位置，按 H 可收回；棋盘和水平控制屏都可以踩上去通过。"
+          : "按 G 可在准星指向地面展开棋盘。",
+      ];
+    }
+
+    if (gomokuPlacement) {
+      return [
+        "五子棋棋盘已展开；玩家执黑，AI 执白。",
+        "左键棋盘交叉点落子；按 G 移动棋盘，按 H 收回棋盘。",
+      ];
+    }
+
     if (aimedModuleControl) {
       return [
         `准星命中：${aimedModuleControl.moduleTitle} / ${aimedModuleControl.label}`,
@@ -258,7 +347,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
 
     if (!nearestTarget && !aimedTarget) {
       return [
-        "三个模块面板已常驻贴在世界表面；靠近区域或准星瞄准按钮即可操作。",
+        "按 G 可展开五子棋棋盘；占卜屋和实验室模块面板已常驻贴在世界表面。",
       ];
     }
 
@@ -273,7 +362,15 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
     }
 
     return lines;
-  }, [aimedModuleControl, aimedTarget, focusedModule, nearestTarget]);
+  }, [
+    aimedGomokuTarget,
+    aimedModuleControl,
+    aimedTarget,
+    focusedModule,
+    gomokuHudMessage,
+    gomokuPlacement,
+    nearestTarget,
+  ]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -306,7 +403,11 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
         dpr={[1, 1.75]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
         onCreated={({ gl }) => {
+          gl.outputColorSpace = SRGBColorSpace;
+          gl.toneMapping = ACESFilmicToneMapping;
+          gl.toneMappingExposure = 0.96;
           gl.setClearColor(worldColors.sky);
+          gl.shadowMap.type = PCFSoftShadowMap;
           gl.domElement.tabIndex = 0;
           setIsCanvasReady(true);
         }}
@@ -314,12 +415,17 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
       >
         <Suspense fallback={null}>
           <WorldRuntime
+            aimedGomokuTarget={aimedGomokuTarget}
             aimedModuleControl={aimedModuleControl}
             focusedModuleId={focusedModuleId}
             forcedFortuneAssetMode={forcedFortuneAssetMode}
+            gomokuPlacement={gomokuPlacement}
             moduleStatuses={moduleStatuses}
             onActivateArea={focusAreaModule}
+            onAimedGomokuTargetChange={setAimedGomokuTarget}
             onAimedModuleControlChange={setAimedModuleControl}
+            onGomokuHudMessageChange={setGomokuHudMessage}
+            onGomokuPlacementChange={setGomokuPlacement}
             onAimedTargetChange={setAimedTargetId}
             onModuleStatusChange={changeModuleStatus}
             onNearestTargetChange={setNearestTargetId}
@@ -332,7 +438,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
 
       <div className="world-hud" aria-label="3D 世界状态">
         <div className="world-status">
-          <span>Layer 5A</span>
+          <span>Layer 5.5</span>
           <strong>
             {aimedModuleControl
               ? "Surface Control"
@@ -345,14 +451,16 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
 
       <div
         aria-label={
-          aimedModuleControl
+          aimedGomokuTarget
+            ? `准星命中五子棋：${aimedGomokuTarget.label}`
+            : aimedModuleControl
             ? `准星命中模块控件：${aimedModuleControl.moduleTitle} ${aimedModuleControl.label}`
             : aimedTarget
               ? `准星对准：${aimedTarget.label}`
               : "中心准星"
         }
         className={`world-crosshair${
-          aimedTarget || aimedModuleControl ? " is-aimed" : ""
+          aimedTarget || aimedModuleControl || aimedGomokuTarget ? " is-aimed" : ""
         }`}
       />
 

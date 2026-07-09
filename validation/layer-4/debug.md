@@ -214,3 +214,25 @@
 截图：`validation/layer-4-5/island-desktop.png`、`validation/layer-4-5/island-mobile.png`。
 
 剩余风险：当前截图验证的是 Layer 4.5 GLB 场景中的默认视角；如果后续真实业务内容变多，仍需重新设计面板容量或改为区域内近距离大屏。
+
+## 2026-07-09 / Layer 4 旧 Gomoku 模块表面退场
+
+日期：2026-07-09
+
+版本 / Layer：Layer 4 模块外壳层 / Layer 12 五子棋集成层联动
+
+现象：Layer 12 新增 `G/H` 展开式原生五子棋棋盘后，旧 Layer 4 的 Gomoku 常驻模块表面、交互小球和占位地板仍然出现在五子棋区域。
+
+原因判断：Layer 4 的三模块外壳曾用于验证统一模块表面；进入 Layer 12 后，五子棋已改为原生世界内棋盘和水平控制屏，旧 Gomoku 模块表面不再是当前交互入口。
+
+解决方案：当前场景中不再渲染旧 `gomoku` 模块表面；旧 `gomoku-board` 交互目标禁用并过滤渲染；删除五子棋旧占位地板。占卜屋和实验室的 Layer 4 模块表面保留。
+
+涉及文件：`app/nav-world/src/modules/moduleRegistry.ts`、`app/nav-world/src/world/InteractionSystem.tsx`、`app/nav-world/src/world/WorldScene.tsx`、`app/nav-world/src/world/WorldExperience.tsx`、`validation/layer-12/debug.md`
+
+验证结果：`npx tsc --noEmit` 通过；`npm run assets:check` 通过；`npm run build` 通过，仍有既有 `WorldExperience` chunk 超 500KB 警告；预览服务已重启到 `http://localhost:4174/` 和 `http://10.99.239.94:4174/`。
+
+画面变化：是，旧 Gomoku 模块表面、小球、靠近环和黄色占位地板不再渲染。
+
+截图：本轮未新增截图；用户正在实机测试。
+
+剩余风险：Layer 4 历史截图仍保留当时三模块外壳验收状态；当前最新场景以 Layer 12 的原生五子棋入口为准。

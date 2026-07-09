@@ -52,6 +52,17 @@
 - 2026-07-08：`resources/fortune/textures/` 下没有 JS/MJS；可复用脚本实际在 `resources/fortune/*.mjs`。塔罗牌面资源有 `textures/rws/` 原图约 67MB 和 `textures/rws-web/` 压缩图约 15MB。Layer 8 应避免一次性加载 78 张高清图，建议复制并懒加载 `rws-web` 中被选中的 3 张。
 - 2026-07-08：`app/nav-world` 使用项目级 `.npmrc` 固定 npm 源为 `https://registry.npmmirror.com/`，`package-lock.json` 的 `resolved` tarball 也同步为 `registry.npmmirror.com`，方便国内网络环境执行 `npm install` / `npm ci`。协作者若觉得 `npm install` 像卡死，可用 `npm install --loglevel=http` 查看下载/缓存命中进度。
 - 2026-07-08：用户明确当前 Codex 截图验证难度和成本过高，模型摆位微调的截图由用户实机验证即可；Codex 不再为这类小步视觉调整强行生成桌面/移动截图。后续仍需运行可用的构建、资源检查或类型检查，并在对应 Layer 的 `debug.md` 记录“截图由用户实机验证”。
+- 2026-07-08：新增 Layer 5.5 作为 235 视觉渲染基线层，范围只包括光照基线、屏幕材质和低成本“光追感”；当前不新增后处理依赖，不接真实 path tracing，不迁移 WebGPU，也不调整 Layer 5 已验收的占卜屋模型坐标。实现口径是 sRGB + ACES tone mapping、PCF soft shadow、低环境光 + 暖色主光 + 柔和天光、占卜屋深色发光内容屏、占卜屋局部氛围灯、实验室 / 五子棋模块面板屏幕质感，并移除室内临时坐标辅助。
+- 2026-07-09：用户确认 Layer 6 实验室模拟层验收通过；该确认只表示实验室模拟壳和演示口径通过，不代表真实 WebRTC、RDK 或 IoT 门禁服务已经接入。
+- 2026-07-09：`resources/gomoku-ai-academy-submission.zip` 已解压到 `resources/gomoku-ai-academy-submission/`；压缩包内 Windows 反斜杠路径已归一化为 Linux 目录结构。目录包含 Python 五子棋 AI / 规则代码、Android APK 包装、iPhone / PWA 静态资源、QA 证据和报告；仍属于 `resources/` 本地参考输入，不进 Git。后续 Layer 7 / Layer 12 复用前需要先做代码安全、许可证和集成边界评估。
+- 2026-07-09：`resources/gomoku-ai-academy-submission/` 复用评估结论：Layer 6 实验室模拟层不复用此包，因为它没有 WebRTC、RDK 模型、门禁或设备状态能力。Layer 12 可复用其五子棋能力，但不建议整包搬入主工程；优先抽 `iphone/ai_worker.js` 的 25x25 Worker AI 协议、棋盘状态机、胜负判断、`COURSE_PUZZLES` 和必要 canvas/R3F 渲染思路。Python 规则层当前 `BOARD_SIZE = 45`，PWA/Worker 为 25，不能直接混用。该包未发现明确 LICENSE / attribution 文件，进入主仓或上线前需要补许可证和素材来源确认。
+- 2026-07-09：Layer 12 原生五子棋资产已新增到 `app/nav-world/public/models/gomoku/`：`gomoku_board.glb`、`black_stone.glb`、`white_stone.glb`。模型由 `app/nav-world/scripts/generate-gomoku-models.mjs` 生成，棋盘为 25x25，当前棋盘约 2.603m x 2.603m x 0.116m、格距 0.096m，棋子约 0.075m 直径、0.036m 高；GLB `extras` 记录格距、棋盘顶面和用途。`@gltf-transform/cli` 已作为 `app/nav-world` 开发依赖，用于 `assets:gomoku:validate`。Blender 未安装，本次低面数资产采用脚本生成，便于后续改尺寸和重复生成。
+- 2026-07-09：Layer 12 世界内五子棋交互外壳采用稳定热键约定：`G` 只负责在准星指向地面展开棋盘或移动已展开棋盘，`H` 负责收回棋盘；控制屏上的“收回棋盘”按钮同样真实收回，其余控制屏按钮暂为占位反馈。不要再用“准星对准棋盘时按 G 收回”的方案，因为自动化和实机场景容易受射线命中帧状态影响。
+- 2026-07-09：玩家踩上棋盘、控制屏等低矮可踩物体时，第一人称相机高度不再直接瞬移到脚下目标高度；`CameraRig` 使用垂直阻尼和最大升降速度平滑跟随，大幅高度变化才 snap。Gomoku 棋盘和控制屏在地形采样层按一个组合可踩 footprint 处理，包含中间可见缝隙，并在外围增加约 `0.46m` 的高度过渡带，避免边缘和缝隙造成突然上下跳。
+- 2026-07-09：Layer 12 已接入原生 3D 人机五子棋逻辑，采用 `resources/gomoku-ai-academy-submission/iphone/ai_worker.js` 的 25x25 AI 思路移植为 Vite TypeScript Worker；玩家执黑先手、AI 执白，默认难度为 `legend` / “宗师”。`G` 只展开或移动棋盘，`H` 和控制屏“收回棋盘”只隐藏棋盘且保留棋局；只有“重开”清空棋局。当前不接玩家对战、训练、复盘、PWA 嵌入、后端 API 或持久化。
+- 2026-07-09：缩小后的 Layer 12 Gomoku 水平控制屏必须使用短标签和紧凑字号；按钮显示“悔棋 / 重开 / 宗师 / 收回”等短词，不再把“AI 强度：宗师”这类长文案直接放进按钮。控制屏底部讲解条已移除，避免近距离透视下文字贴边、错位或空白条遮挡。
+- 2026-07-09：Layer 12 最终验收通过。棋子摆放高度已从棋盘边框 / 可踩平台高度改为棋盘格线面高度，解决棋子悬浮和远景视差感；可踩平台高度仍保持不变，避免影响玩家走上棋盘和控制屏。
+- 2026-07-09：PR #1 `fortune -> main` 合并冲突解决口径：Layer 8 本次合并保留星座轮盘、三张塔罗、周易六爻和周易抽签；`single` 塔罗模式和 78 张完整牌组不作为本次合并阻塞项，留作后续增强。占卜类型文件当前为 `app/nav-world/src/modules/divination/types.ts`。本次画面由用户手测，Codex 侧以资源检查、类型检查和构建验证兜底。
 
 ## /new handoff
 

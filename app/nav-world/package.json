@@ -8,6 +8,9 @@
     "assets:world:prepare": "node scripts/prepare-world-assets.mjs",
     "assets:fortune:prepare": "node scripts/prepare-fortune-assets.mjs",
     "assets:fortune:check": "node scripts/prepare-fortune-assets.mjs --check",
+    "assets:gomoku:generate": "node scripts/generate-gomoku-models.mjs",
+    "assets:gomoku:check": "node scripts/generate-gomoku-models.mjs --check",
+    "assets:gomoku:validate": "gltf-transform validate public/models/gomoku/gomoku_board.glb && gltf-transform validate public/models/gomoku/black_stone.glb && gltf-transform validate public/models/gomoku/white_stone.glb",
     "build": "tsc --noEmit && vite build && npm run assets:prune",
     "assets:check": "node scripts/prune-untracked-frontend-assets.mjs --check",
     "assets:prune": "node scripts/prune-untracked-frontend-assets.mjs",
@@ -23,6 +26,7 @@
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@gltf-transform/cli": "^4.4.1",
     "@playwright/test": "^1.61.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

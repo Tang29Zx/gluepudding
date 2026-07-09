@@ -1,4 +1,4 @@
-import { Billboard, Text, useGLTF } from "@react-three/drei";
+import { useGLTF } from "@react-three/drei";
 import {
   Component,
   Suspense,
@@ -36,8 +36,23 @@ interface FortuneAssetBoundaryState {
 }
 
 const tentDoorFacingSpawnYaw = -2.47;
-const coordinateTicks = [-8, -6, -4, -2, 2, 4, 6, 8] as const;
-const blankScreenDefinitions: readonly { id: string; position: [number, number, number]; rotation: [number, number, number] }[] = [];
+const blankScreenDefinitions = [
+  {
+    id: "zodiac",
+    position: [-7.45, 2.0, 0],
+    rotation: [0, Math.PI / 2, 0],
+  },
+  {
+    id: "tarot",
+    position: [0, 2.0, 5.85],
+    rotation: [0, Math.PI, 0],
+  },
+  {
+    id: "iching",
+    position: [7.45, 2.0, 0],
+    rotation: [0, -Math.PI / 2, 0],
+  },
+] as const;
 
 class FortuneAssetBoundary extends Component<
   FortuneAssetBoundaryProps,
@@ -161,19 +176,27 @@ function BlankContentScreens() {
         >
           <mesh receiveShadow>
             <planeGeometry args={[2.45, 1.55]} />
-            <meshBasicMaterial
-              color="#fbfbff"
+            <meshStandardMaterial
+              color="#182034"
+              emissive="#8fa7ff"
+              emissiveIntensity={0.24}
+              metalness={0.18}
+              opacity={0.86}
+              roughness={0.42}
               side={DoubleSide}
               transparent
-              opacity={0.9}
             />
           </mesh>
-          <mesh position={[0, 0, 0.018]}>
+          <mesh position={[0, 0, -0.018]}>
             <boxGeometry args={[2.55, 1.65, 0.035]} />
-            <meshBasicMaterial
-              color="#e8dcff"
+            <meshStandardMaterial
+              color="#413457"
+              emissive="#6d58c8"
+              emissiveIntensity={0.2}
+              metalness={0.34}
+              opacity={0.72}
+              roughness={0.38}
               transparent
-              opacity={0.32}
             />
           </mesh>
         </group>
@@ -182,96 +205,31 @@ function BlankContentScreens() {
   );
 }
 
-function CoordinateLabel({
-  children,
-  color,
-  position,
-}: {
-  children: string;
-  color: string;
-  position: [number, number, number];
-}) {
+function FortuneMoodLights() {
   return (
-    <Billboard position={position}>
-      <Text
-        anchorX="center"
-        anchorY="middle"
-        color={color}
-        fontSize={0.28}
-        outlineColor="#f8fbff"
-        outlineWidth={0.018}
-      >
-        {children}
-      </Text>
-    </Billboard>
-  );
-}
-
-function FortuneCoordinateGuide() {
-  const guideY = fortuneAssetLoadingConfig.floorSurfaceOffset + 0.18;
-  const labelY = guideY + 0.42;
-
-  return (
-    <group>
-      <mesh position={[0, guideY, 0]}>
-        <boxGeometry args={[17.2, 0.035, 0.035]} />
-        <meshBasicMaterial color="#f04444" transparent opacity={0.92} />
-      </mesh>
-      <mesh position={[0, guideY, 0]}>
-        <boxGeometry args={[0.035, 0.035, 17.2]} />
-        <meshBasicMaterial color="#2d7dff" transparent opacity={0.92} />
-      </mesh>
-      <mesh position={[0, guideY + 0.025, 0]}>
-        <sphereGeometry args={[0.16, 18, 12]} />
-        <meshBasicMaterial color="#f8fbff" />
-      </mesh>
-
-      {coordinateTicks.map((tick) => (
-        <group key={`x-${tick}`}>
-          <mesh position={[tick, guideY + 0.02, 0]}>
-            <boxGeometry args={[0.035, 0.05, 0.42]} />
-            <meshBasicMaterial color="#f04444" />
-          </mesh>
-          <CoordinateLabel
-            color="#c72525"
-            position={[tick, labelY, tick % 4 === 0 ? 0.62 : -0.62]}
-          >
-            {`X ${tick}`}
-          </CoordinateLabel>
-        </group>
-      ))}
-
-      {coordinateTicks.map((tick) => (
-        <group key={`z-${tick}`}>
-          <mesh position={[0, guideY + 0.02, tick]}>
-            <boxGeometry args={[0.42, 0.05, 0.035]} />
-            <meshBasicMaterial color="#2d7dff" />
-          </mesh>
-          <CoordinateLabel
-            color="#1d5fd0"
-            position={[tick % 4 === 0 ? 0.72 : -0.72, labelY, tick]}
-          >
-            {`Z ${tick}`}
-          </CoordinateLabel>
-        </group>
-      ))}
-
-      <CoordinateLabel color="#ffffff" position={[0, labelY + 0.18, 0]}>
-        中心 0,0
-      </CoordinateLabel>
-      <CoordinateLabel color="#f04444" position={[8.75, labelY + 0.1, 0]}>
-        X+
-      </CoordinateLabel>
-      <CoordinateLabel color="#f04444" position={[-8.75, labelY + 0.1, 0]}>
-        X-
-      </CoordinateLabel>
-      <CoordinateLabel color="#2d7dff" position={[0, labelY + 0.1, 8.75]}>
-        Z+
-      </CoordinateLabel>
-      <CoordinateLabel color="#2d7dff" position={[0, labelY + 0.1, -8.75]}>
-        Z-
-      </CoordinateLabel>
-    </group>
+    <>
+      <pointLight
+        color="#ffd6a6"
+        decay={2}
+        distance={11}
+        intensity={1.45}
+        position={[0, 2.65, 4.15]}
+      />
+      <pointLight
+        color="#9d83ff"
+        decay={2}
+        distance={12}
+        intensity={1.05}
+        position={[0, 3.1, -0.7]}
+      />
+      <pointLight
+        color="#82d8ff"
+        decay={2}
+        distance={8}
+        intensity={0.48}
+        position={[-6.4, 1.7, 0.2]}
+      />
+    </>
   );
 }
 
@@ -316,6 +274,7 @@ export function FortuneAssetStage({
   return (
     <group position={stagePosition} rotation={[0, tentDoorFacingSpawnYaw, 0]}>
       <StageFloor />
+      <FortuneMoodLights />
       <FortuneAssetBoundary fallback={<ShellFallback />} label="Fortune shell">
         <Suspense fallback={null}>
           <ShellModels />
@@ -333,7 +292,6 @@ export function FortuneAssetStage({
           </Suspense>
         </FortuneAssetBoundary>
       ) : null}
-      {shouldLoadInterior ? <FortuneCoordinateGuide /> : null}
     </group>
   );
 }

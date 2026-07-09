@@ -18,6 +18,10 @@ export const cameraConfig = {
   position: [0, playerSpawn.position[1] + playerSpawn.eyeHeight, 40] satisfies Vector3Tuple,
   target: [0, 2.1, 18] satisfies Vector3Tuple,
   fov: 62,
+  verticalDamping: 16,
+  verticalSnapDistance: 4.5,
+  verticalMaxFallSpeed: 10,
+  verticalMaxRiseSpeed: 8,
   near: 0.1,
   far: 220,
 };
@@ -29,8 +33,8 @@ export const playerControls = {
   jumpGroundDetachSeconds: 0.14,
   jumpVelocity: 8.8,
   lookSensitivity: 0.0022,
-  maxPitch: Math.PI / 2.8,
-  minPitch: -Math.PI / 2.8,
+  maxPitch: Math.PI / 2.25,
+  minPitch: -Math.PI / 2.25,
   moveSpeed: 8.5,
   sprintMultiplier: 1.75,
 };

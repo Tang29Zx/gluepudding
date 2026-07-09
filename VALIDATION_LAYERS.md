@@ -326,13 +326,55 @@ Layer 5A 模型接入切片：
 
 - [Layer 5 debug.md](validation/layer-5/debug.md)
 
+## Layer 5.5：视觉渲染基线层
+
+目标：在继续接入实验室、五子棋和占卜交互前，先把大世界的基础光照、屏幕材质和低成本高画质感统一到可持续的视觉基线。
+
+进入本层前必须满足：
+
+- Layer 5 已通过。
+- 占卜屋模型摆放已经验收，不能在本层重新调整模型坐标。
+- 世界内移动、准星、实验室模块表面和五子棋模块表面仍可用。
+
+需要其他同学或外部系统准备：
+
+- 不需要后端、WebRTC、RDK、IoT 或五子棋真实能力。
+- 不需要新增模型资源或后处理依赖。
+- 如建模同学后续提供烘焙贴图、HDRI 或压缩模型，可进入 Layer 13 或后续美术专项再接入。
+
+本层最小验证目标：
+
+- 3D renderer 使用 sRGB 输出、ACES tone mapping 和软阴影配置。
+- 世界光照从高环境光改为低环境光、暖色主光和柔和天光。
+- 主光阴影范围覆盖出生点、占卜屋、实验室和五子棋附近，阴影不出现大面积闪烁。
+- 占卜屋三块内容屏从白色基础面片改为带轻微发光的深色屏幕材质。
+- 实验室和五子棋常驻模块面板具有屏幕质感，按钮和文字仍然可读。
+- 占卜屋内部有低强度暖光、紫色辅助光和星座侧弱冷光。
+- 不新增 Bloom、SSAO、WebGPU 或真实 path tracing。
+- 不实现占卜、实验室或五子棋业务交互。
+
+通过标准：
+
+- `npm run assets:fortune:check`、`npm run build` 和 `npm run assets:check` 通过。
+- 首页能进入 3D 世界，不进入 2D fallback。
+- 桌面端和移动端截图没有黑屏、过曝、明显文字重叠或 HUD / 触屏按钮遮挡主要内容。
+
+验证截图：
+
+- 桌面端视觉渲染基线：![Layer 5.5 桌面端视觉渲染基线](validation/layer-5-5/visual-desktop.png)
+- 移动端视觉渲染基线：![Layer 5.5 移动端视觉渲染基线](validation/layer-5-5/visual-mobile.png)
+
+调试记录：
+
+- [Layer 5.5 debug.md](validation/layer-5-5/debug.md)
+
 ## Layer 6：实验室模拟层
 
 目标：证明实验室能承载实时能力的前端壳，不依赖真实设备。
 
 进入本层前必须满足：
 
-- Layer 5 已通过。
+- Layer 5.5 已通过。
 - 占卜屋模型摆放验收已完成；占卜屋业务交互尚未要求可用。
 - 实验室模块常驻在世界表面并可用准星操作。
 
@@ -357,6 +399,14 @@ Layer 5A 模型接入切片：
 
 - 不接真实 WebRTC、RDK、IoT 服务时，实验室仍然能完整演示。
 - 用户能理解大屏、模型台、门禁台分别代表什么能力。
+
+用户实机确认：
+
+- 2026-07-09：用户确认 Layer 6 实验室模拟层验收通过。
+
+调试记录：
+
+- [Layer 6 debug.md](validation/layer-6/debug.md)
 
 ## Layer 7：世界内五子棋模拟层
 
@@ -405,15 +455,14 @@ Layer 5A 模型接入切片：
 - 后端同学需要提供 `POST /api/fortune/zodiac`。
 - 后端同学需要提供 `POST /api/fortune/tarot`。
 - 后端同学需要提供 `POST /api/fortune/iching`。
-- 后端返回结构需要匹配 `fortuneTypes.ts`。
+- 后端返回结构需要匹配占卜类型定义；当前前端文件为 `app/nav-world/src/modules/divination/types.ts`。
 
 本层最小验证目标：
 
 - 创建占卜屋真实场景区域交互。
 - 星座台、塔罗桌和周易桌可以被准星或移动端替代方式命中。
 - 准星命中某张塔罗牌后左键点击，该牌被选中并高亮。
-- `single` 模式能选 1 张牌。
-- `three_card` 模式能选 3 张牌。
+- 本次 PR 先验收 `three_card` 三张牌流程；`single` 模式作为后续增强，不作为本次合并阻塞项。
 - 选牌结果在真实接口不可用时来自模拟数据。
 - 结果能显示到 Layer 5 预留的世界内内容屏或等价世界内承载面。
 - 星座和周易至少有基础面板和模拟结果。
@@ -428,8 +477,9 @@ Layer 5A 模型接入切片：
 通过标准：
 
 - 真实接口可用时显示真实结果。
-- 真实接口关闭时，占卜屋仍然能用模拟数据完成星座、塔罗和周易演示。
+- 真实接口关闭时，占卜屋仍然能用模拟数据完成星座、三张塔罗、周易六爻和抽签演示。
 - 占卜屋点击、选中、高亮、卡牌翻面、输入和结果展示均在世界内完成，不整页跳转。
+- 本次 PR 的用户可见画面由用户手测确认；Codex 合并侧至少完成类型检查、资源检查和构建验证。
 
 ## Layer 9：真实 WebRTC 层
 
@@ -561,6 +611,49 @@ Layer 5A 模型接入切片：
 
 - 用户能在世界内完成至少一局基础对弈流程。
 - 五子棋模块异常不会影响占卜屋和实验室。
+
+验收状态：
+
+- 2026-07-09：用户实机确认 Layer 12 验收通过。
+
+模型资产预览截图：
+
+- 原生五子棋 GLB 模型桌面端预览：![Layer 12 原生五子棋 GLB 模型桌面端预览](validation/layer-12/gomoku-models-desktop.png)
+- 原生五子棋 GLB 模型移动端预览：![Layer 12 原生五子棋 GLB 模型移动端预览](validation/layer-12/gomoku-models-mobile.png)
+
+交互外壳验证截图：
+
+- 桌面端 `G` 展开 / 移动、`H` 收回提示：![Layer 12 桌面端五子棋 G/H 交互外壳](validation/layer-12/gomoku-hotkeys-desktop.png)
+- 移动端 `G` 展开 / 移动、`H` 收回提示：![Layer 12 移动端五子棋 G/H 交互外壳](validation/layer-12/gomoku-hotkeys-mobile.png)
+
+真实对弈验证截图：
+
+- 桌面端世界内人机对弈：![Layer 12 桌面端世界内五子棋真实对弈](validation/layer-12/gomoku-real-game-desktop.png)
+- 移动端世界内人机对弈：![Layer 12 移动端世界内五子棋真实对弈](validation/layer-12/gomoku-real-game-mobile.png)
+
+尺寸调整验证截图：
+
+- 桌面端缩小后的棋盘和棋子：![Layer 12 桌面端五子棋缩小后验证](validation/layer-12/gomoku-resized-desktop.png)
+- 移动端缩小后的棋盘和棋子：![Layer 12 移动端五子棋缩小后验证](validation/layer-12/gomoku-resized-mobile.png)
+
+控制屏文字修复截图：
+
+- 桌面端控制屏文字近景：![Layer 12 桌面端五子棋控制屏文字修复](validation/layer-12/gomoku-control-text-focused-desktop.png)
+- 移动端控制屏文字近景：![Layer 12 移动端五子棋控制屏文字修复](validation/layer-12/gomoku-control-text-mobile.png)
+
+棋子贴地验证截图：
+
+- 桌面端远景棋子贴地：![Layer 12 桌面端五子棋棋子贴地验证](validation/layer-12/gomoku-stone-grounded-far-desktop.png)
+- 移动端棋子贴地：![Layer 12 移动端五子棋棋子贴地验证](validation/layer-12/gomoku-stone-grounded-mobile.png)
+
+真实逻辑验证：
+
+- 2026-07-09：采用逻辑抽离路线，移植 `resources/gomoku-ai-academy-submission/iphone/ai_worker.js` 的 25x25 AI / 威胁判断 / 搜索解释能力到 Vite TypeScript Worker。
+- 2026-07-09：世界内原生 3D 五子棋支持玩家执黑、AI 执白、默认宗师难度、左键交叉点落子、AI 自动回应、胜负检测、五连线高亮、悔棋、重开、AI 强度切换和收回棋盘。
+- 2026-07-09：`G` 展开 / 移动、`H` 收回均保留当前棋局；只有“重开”清空棋局。
+- 2026-07-09：棋盘整体进一步缩小到约 `2.603m x 2.603m`，格距 `0.096m`；棋子直径缩小到约 `0.075m`，避免棋子大于格距造成遮挡。
+- 2026-07-09：控制屏在缩小后的尺寸下改用短标签、小字号和紧凑布局，避免文字贴边、错位或被底部空白条遮挡。
+- 2026-07-09：棋子摆放高度改为棋盘格线面，不再使用棋盘边框 / 可踩平台高度，减少远距离观察时的悬浮感和视差偏移。
 
 ## Layer 13：性能和移动端层
 

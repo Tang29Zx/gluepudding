@@ -97,7 +97,7 @@ export const interactionTargets: readonly InteractionTarget[] = [
     aimPosition: [gomokuBoardX, gomokuBoardY + 1.05, gomokuBoardZ],
     proximityRadius: 9.5,
     raycastRadius: 3.8,
-    enabled: true,
+    enabled: false,
     accentColor: "#ffd977",
     areaPrompt: "靠近五子棋区，按 E 聚焦五子棋常驻模块表面。",
     objectPrompt: "准星对准五子棋棋盘，左键聚焦常驻模块表面。",
@@ -317,7 +317,7 @@ export function InteractionSystem({
 
   return (
     <group>
-      {interactionTargets.map((target) => {
+      {interactionTargets.filter((target) => target.enabled).map((target) => {
         const isAimed = aimedTargetIdRef.current === target.id;
         const isNearest = nearestTargetIdRef.current === target.id;
         const isSelected = selectedTargetId === target.id;

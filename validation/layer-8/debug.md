@@ -38,3 +38,25 @@
 截图：不需要截图。
 
 剩余风险：交接文档是开发建议和边界说明，不等同于 Layer 8 实现。协作者实际实现时仍需补充资源复制脚本、类型定义、交互组件、mock 数据、视觉验证截图和构建验证。
+
+## 2026-07-09 / PR #1 fortune 合并冲突解决
+
+日期：2026-07-09
+
+版本 / Layer：Layer 8 占卜屋交互与真实占卜接口层，PR #1 `fortune -> main`
+
+现象：`fortune` 分支已开 PR 合入 `main`，GitHub 显示不可直接合并。本地合并 `origin/main` 时，`app/frontend/index.html` 和 `app/nav-world/src/modules/divination/FortuneAssetStage.tsx` 出现内容冲突；同时 PR 中存在多批旧 Vite hash 构建产物。
+
+原因判断：`fortune` 基于 Layer 5 后的旧提交开发，占卜屋交互与 `main` 后续 Layer 5.5 视觉基线、Layer 6、Layer 12 五子棋并行修改。`FortuneAssetStage.tsx` 同时被视觉基线和占卜交互改动；`app/frontend/index.html` 同时引用不同构建 hash。
+
+解决方案：以 `main` 的视觉基线和世界能力为底，保留占卜屋深色内容屏、局部氛围灯和 Layer 12 五子棋改动；合入 `fortune` 的 `ZodiacWheel`、`TarotTable`、`IchingDesk` 和 `IchingHexagram`。移除坐标调试辅助，不渲染 `FortuneCoordinateGuide`。保留周易抽签玩法；本次塔罗只验收 `three_card` 三张牌流程，`single` 模式和 78 张完整牌组作为后续增强。修复周易六爻展示顺序为 `result.lines.slice().reverse()`。删除 `fortune` 旧构建遗留且最终不引用的 hash JS，重新构建生成当前入口资源。
+
+涉及文件：`app/nav-world/src/modules/divination/FortuneAssetStage.tsx`、`app/nav-world/src/modules/divination/IchingHexagram.tsx`、`app/frontend/index.html`、`TODO.md`、`Tech-Spec.md`、`VALIDATION_LAYERS.md`、`MEMORY.md`。
+
+验证结果：`npm install` 通过；`npm run assets:fortune:check` 通过；`npm run assets:gomoku:check` 通过；`npm run assets:gomoku:validate` 通过；`npm run build` 通过，仍有既有 `WorldExperience` chunk 超 500KB 警告；`npm run assets:check` 通过。
+
+画面变化：是，占卜屋新增星座、三张塔罗、周易六爻和抽签交互；本次不由 Codex 自动截图。
+
+截图：用户明确本次画面由用户手测；Codex 未生成桌面端 / 移动端截图。
+
+剩余风险：未做自动化视觉截图；塔罗 `single` 模式和 78 张完整牌组未作为本次验收范围；周易提问阶段仍使用受控 DOM 输入层，实机交互体验以用户手测确认。

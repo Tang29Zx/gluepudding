@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, type MutableRefObject } from "react";
 import {
   InteractionSystem,
   type InteractionTargetId,
@@ -8,6 +8,11 @@ import {
   WorldTerrainErrorBoundary,
 } from "./IslandTerrain";
 import { FortuneAssetStage } from "../modules/divination/FortuneAssetStage";
+import { GomokuWorldBoard } from "../modules/gomoku/GomokuWorldBoard";
+import type {
+  GomokuAimTarget,
+  GomokuPlacement,
+} from "../modules/gomoku/gomokuWorldTypes";
 import { WorldModulePanels } from "../modules/WorldModulePanels";
 import type { AimedWorldModuleControl } from "../modules/types";
 import type {
@@ -38,23 +43,6 @@ function LaboratoryBlock() {
       <mesh position={[-4.2, 1.15, 3.86]}>
         <boxGeometry args={[1.35, 2.3, 0.1]} />
         <meshStandardMaterial color="#31546c" roughness={0.62} />
-      </mesh>
-    </group>
-  );
-}
-
-function GomokuArea() {
-  const [x, y, z] = landmarkPositions.gomokuBoard;
-
-  return (
-    <group position={[x, y, z]}>
-      <mesh receiveShadow position={[0, 0.08, 0]}>
-        <boxGeometry args={[10, 0.16, 10]} />
-        <meshStandardMaterial color={worldColors.gomoku} roughness={0.8} />
-      </mesh>
-      <mesh receiveShadow position={[0, 0.2, 0]}>
-        <boxGeometry args={[7.2, 0.12, 7.2]} />
-        <meshStandardMaterial color="#fff3bd" roughness={0.82} />
       </mesh>
     </group>
   );
@@ -99,7 +87,6 @@ function ReferenceLandmarks() {
   return (
     <group>
       <LaboratoryBlock />
-      <GomokuArea />
       <SpawnScaleMarker />
     </group>
   );
@@ -107,16 +94,22 @@ function ReferenceLandmarks() {
 
 interface WorldSceneProps {
   aimedModuleControl: AimedWorldModuleControl | null;
+  aimedGomokuTarget: GomokuAimTarget | null;
+  gomokuPlacement: GomokuPlacement | null;
   moduleStatuses: Record<WorldModuleId, WorldModuleStatus>;
+  placementTerrainSamplerRef: MutableRefObject<TerrainSampler | null>;
   player: PlayerControllerState;
   selectedTargetId: InteractionTargetId | null;
   shouldLoadFortuneInterior: boolean;
   shouldLoadFortuneShell: boolean;
   onActivateArea: (targetId: InteractionTargetId) => void;
+  onAimedGomokuTargetChange: (target: GomokuAimTarget | null) => void;
   onAimedTargetChange: (targetId: InteractionTargetId | null) => void;
   onAimedModuleControlChange: (
     control: AimedWorldModuleControl | null,
   ) => void;
+  onGomokuHudMessageChange: (message: string | null) => void;
+  onGomokuPlacementChange: (placement: GomokuPlacement | null) => void;
   onModuleStatusChange: (
     moduleId: WorldModuleId,
     status: WorldModuleStatus,
@@ -128,16 +121,22 @@ interface WorldSceneProps {
 }
 
 export function WorldScene({
+  aimedGomokuTarget,
   aimedModuleControl,
+  gomokuPlacement,
   moduleStatuses,
   onActivateArea,
+  onAimedGomokuTargetChange,
   onAimedModuleControlChange,
   onAimedTargetChange,
+  onGomokuHudMessageChange,
+  onGomokuPlacementChange,
   onModuleStatusChange,
   onNearestTargetChange,
   onSelectObject,
   onTerrainReadyChange,
   onTerrainSamplerChange,
+  placementTerrainSamplerRef,
   player,
   selectedTargetId,
   shouldLoadFortuneInterior,
@@ -147,13 +146,22 @@ export function WorldScene({
     <>
       <color attach="background" args={[worldColors.sky]} />
       <fog attach="fog" args={[worldColors.sky, 70, 150]} />
-      <ambientLight intensity={0.76} />
-      <hemisphereLight args={["#f8fdff", "#72a685", 0.92]} />
+      <ambientLight intensity={0.28} />
+      <hemisphereLight args={["#f5fbff", "#5e876d", 0.64]} />
       <directionalLight
         castShadow
-        intensity={2.6}
-        position={[5.5, 8.2, 4.6]}
-        shadow-mapSize={[1024, 1024]}
+        color="#fff0d8"
+        intensity={3.1}
+        position={[-8.5, 14, 7.2]}
+        shadow-bias={-0.00015}
+        shadow-camera-bottom={-48}
+        shadow-camera-far={90}
+        shadow-camera-left={-48}
+        shadow-camera-near={0.5}
+        shadow-camera-right={48}
+        shadow-camera-top={48}
+        shadow-mapSize={[2048, 2048]}
+        shadow-normalBias={0.04}
       />
 
       <WorldTerrainErrorBoundary
@@ -176,9 +184,19 @@ export function WorldScene({
         shouldLoadInterior={shouldLoadFortuneInterior}
         shouldLoadShell={shouldLoadFortuneShell}
       />
+      <Suspense fallback={null}>
+        <GomokuWorldBoard
+          onAimedTargetChange={onAimedGomokuTargetChange}
+          onHudMessageChange={onGomokuHudMessageChange}
+          onPlacementChange={onGomokuPlacementChange}
+          placement={gomokuPlacement}
+          placementTerrainSamplerRef={placementTerrainSamplerRef}
+          player={player}
+        />
+      </Suspense>
       <InteractionSystem
         isPanelOpen={false}
-        isWorldControlAimed={Boolean(aimedModuleControl)}
+        isWorldControlAimed={Boolean(aimedModuleControl || aimedGomokuTarget)}
         onActivateArea={onActivateArea}
         onAimedTargetChange={onAimedTargetChange}
         onNearestTargetChange={onNearestTargetChange}

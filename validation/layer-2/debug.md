@@ -142,3 +142,39 @@
 截图：无，未改变应用画面。
 
 剩余风险：无。
+
+## 2026-07-09 / Layer 2 视角俯仰范围
+
+现象：用户希望视角上下限再提高和拉低一点，方便在世界内看更高和更低的位置。
+
+原因判断：当前 `playerControls.maxPitch/minPitch` 为 `±Math.PI / 2.8`，约 `±64°`，第一人称低头查看地面棋盘或抬头观察高处时范围偏保守。
+
+解决方案：将俯仰范围放宽到 `±Math.PI / 2.25`，约 `±80°`；保留距离垂直方向的余量，避免相机翻转。
+
+涉及文件：`app/nav-world/src/world/sceneConfig.ts`、`validation/layer-12/debug.md`
+
+验证结果：`npx tsc --noEmit` 通过；`npm run assets:check` 通过；`npm run build` 通过，仍有既有 `WorldExperience` chunk 超 500KB 警告；预览服务已重启到 `http://localhost:4174/` 和 `http://10.99.239.94:4174/`。
+
+画面变化：是，玩家可抬头 / 低头的视角范围变大。
+
+截图：本轮未新增截图；用户正在实机测试。
+
+剩余风险：过大的俯仰范围可能让极限角度下的移动方向感更强烈，最终手感以用户实机反馈为准。
+
+## 2026-07-09 / Layer 2 相机高度平滑
+
+现象：用户反馈站到上下有高度差的东西时，视角会突然往上或往下，体感难受。
+
+原因判断：玩家脚下高度来自 terrain / overlay 采样，`CameraRig` 之前每帧直接把相机高度设为 `player.position.y + eyeHeight`。当脚下从地形切到低矮平台，或者从平台切回地形时，相机高度会随采样结果瞬间改变。
+
+解决方案：在 `CameraRig` 中维护平滑后的相机 `Y` 值，使用垂直阻尼跟随目标眼高，并通过最大上升 / 下降速度限制小高度差的瞬移；大幅高度变化保留 snap，避免传送或异常采样后相机长时间追赶。
+
+涉及文件：`app/nav-world/src/world/CameraRig.tsx`、`app/nav-world/src/world/sceneConfig.ts`、`validation/layer-12/debug.md`、`MEMORY.md`
+
+验证结果：`npx tsc --noEmit` 通过；`npm run assets:check` 通过；`npm run build` 通过，仍有既有 `WorldExperience` chunk 超 500KB 警告。
+
+画面变化：是，第一人称视角的高度变化从瞬时切换改为平滑跟随。
+
+截图：本轮未新增截图；用户前面已明确这类实机视觉 / 手感调整由用户测试，Codex 使用类型检查、资源检查和构建作为替代验证。
+
+剩余风险：相机高度平滑会轻微改变跳跃和落地时的视觉跟随感，最终阻尼和最大速度仍以用户实机舒适度为准。

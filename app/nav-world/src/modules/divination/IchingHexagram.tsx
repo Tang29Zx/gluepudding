@@ -67,7 +67,7 @@ function initRound(round: number): RoundState {
       y: COIN_BASE_Y,
       z: YAO_Z,
       rx: 0, ry: 0, rz: 0,
-      opacity: 1,
+      done: false,
     })),
     yao: null,
     done: false,
@@ -193,11 +193,12 @@ function drawResult(ctx: CanvasRenderingContext2D, result: IchingResult) {
 
   // lines display
   const lineY = h * 0.78;
+  const displayLines = result.lines.slice().reverse();
   ctx.fillStyle = "#5d4db6";
   ctx.font = `500 ${Math.round(h * 0.022)}px sans-serif`;
-  ctx.fillText("六爻（从下往上）", w / 2, lineY);
-  for (let li = 0; li < 6; li++) {
-    const l = result.lines[li];
+  ctx.fillText("六爻（从上往下）", w / 2, lineY);
+  for (let li = 0; li < displayLines.length; li++) {
+    const l = displayLines[li];
     const isYin = !isYang(l.value);
     const chgLine = l.isChanging;
     ctx.fillStyle = chgLine ? "#c62828" : "#1a1436";
