@@ -17,6 +17,7 @@ import {
 } from "./fortuneModelAssets";
 import { ZodiacWheel } from "./ZodiacWheel";
 import { TarotTable } from "./TarotTable";
+import { IchingDesk } from "./IchingDesk";
 
 interface FortuneAssetStageProps {
   shouldLoadInterior: boolean;
@@ -35,13 +36,7 @@ interface FortuneAssetBoundaryState {
 
 const tentDoorFacingSpawnYaw = -2.47;
 const coordinateTicks = [-8, -6, -4, -2, 2, 4, 6, 8] as const;
-const blankScreenDefinitions = [
-  {
-    id: "iching",
-    position: [7.45, 2.0, 0],
-    rotation: [0, -Math.PI / 2, 0],
-  },
-] as const;
+const blankScreenDefinitions: readonly { id: string; position: [number, number, number]; rotation: [number, number, number] }[] = [];
 
 class FortuneAssetBoundary extends Component<
   FortuneAssetBoundaryProps,
@@ -290,11 +285,14 @@ function ShellModels() {
 }
 
 function InteriorModels() {
+  const excludeIds = new Set(["iching-lot-cylinder"]);
   return (
     <>
-      {fortuneModelAssets.interiorAssets.map((asset) => (
-        <FortuneModel asset={asset} key={asset.id} />
-      ))}
+      {fortuneModelAssets.interiorAssets
+        .filter((a) => !excludeIds.has(a.id))
+        .map((asset) => (
+          <FortuneModel asset={asset} key={asset.id} />
+        ))}
     </>
   );
 }
@@ -329,6 +327,7 @@ export function FortuneAssetStage({
             <BlankContentScreens />
             <ZodiacWheel />
             <TarotTable />
+            <IchingDesk />
           </Suspense>
         </FortuneAssetBoundary>
       ) : null}
