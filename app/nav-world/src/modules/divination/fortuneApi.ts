@@ -21,6 +21,7 @@ import type {
 } from './types';
 import { ZODIAC_SIGN_NAMES } from './types';
 import zodiacTextsData from './data/zodiac_texts.json';
+import tarotCardsData from './data/tarot_cards.json';
 import { getSignFromBirthday } from './business/zodiacLogic';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false'; // 默认 mock 模式
@@ -89,42 +90,33 @@ function buildMockZodiacResult(sign: string, signName: string): ZodiacResult {
   };
 }
 
-const mockTarotResult: TarotResult = {
-  spread: 'three_card',
-  deck: 'major',
-  deckSize: 22,
-  selectedIndexes: [0, 7, 19],
-  cards: [
-    {
-      index: 0,
-      name: '愚者',
-      nameEn: 'The Fool',
-      isUpright: true,
-      keywords: ['新的开始', '自由', '冒险精神', '无限可能'],
-      meaning: '一个全新的开始正在召唤你。勇敢地迈出第一步，不要被未知束缚。',
-      position: 'past',
-    },
-    {
-      index: 7,
-      name: '战车',
-      nameEn: 'The Chariot',
-      isUpright: true,
-      keywords: ['胜利', '决心', '自我控制', '前进'],
-      meaning: '凭借坚强的意志和决心，你将克服一切障碍。',
-      position: 'present',
-    },
-    {
-      index: 19,
-      name: '太阳',
-      nameEn: 'The Sun',
-      isUpright: true,
-      keywords: ['快乐', '成功', '活力', '光明'],
-      meaning: '这是充满阳光和喜悦的美好时光。一切都在向好的方向发展。',
-      position: 'future',
-    },
-  ],
-  summary: '牌阵显示：过去由愚者主导，现在处在战车的影响下，未来将走向太阳。总体而言，这是一个积极向上的牌阵。',
-};
+function buildMockTarotResult(selectedIndexes: number[], spread: string): TarotResult {
+  const shuffled = [...selectedIndexes].sort(() => Math.random() - 0.5);
+  const positions: TarotCardResult['position'][] =
+    spread === 'three_card' ? ['past', 'present', 'future'] : ['single'];
+  const cards: TarotCardResult[] = shuffled.slice(0, positions.length).map((idx, i) => {
+    const card = tarotCardsData.find((c) => c.id === idx) || tarotCardsData[0];
+    const isUpright = Math.random() > 0.4;
+    const meaning = isUpright ? card.upright : card.reversed;
+    return {
+      index: card.id,
+      name: card.name,
+      nameEn: card.nameEn,
+      isUpright,
+      keywords: meaning.keywords,
+      meaning: meaning.meaning,
+      position: positions[i],
+    };
+  });
+  return {
+    spread: spread as TarotResult['spread'],
+    deck: 'major',
+    deckSize: 22,
+    selectedIndexes: cards.map((c) => c.index),
+    cards,
+    summary: cards.map((c) => `${c.position === 'past' ? '过去' : c.position === 'present' ? '现在' : c.position === 'future' ? '未来' : ''}由${c.isUpright ? '' : '逆位'}"${c.name}"主导`).join('，') + '。',
+  };
+}
 
 const mockIchingResult: IchingResult = {
   lines: [
@@ -226,12 +218,8 @@ export async function getTarotReading(params: TarotRequest): Promise<ApiResponse
       return { module: 'tarot', success: false, error: `invalid spread: ${params.spread}` };
     }
 
-    const result = { ...mockTarotResult };
-    result.spread = params.spread;
-    if (params.spread === 'single') {
-      result.selectedIndexes = [result.selectedIndexes[0]];
-      result.cards = [result.cards[0]];
-    }
+    const indexes = params.selectedIndexes || [];
+    const result = buildMockTarotResult(indexes, params.spread);
     return { module: 'tarot', success: true, data: result };
   }
 
