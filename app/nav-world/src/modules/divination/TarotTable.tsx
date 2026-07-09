@@ -3,7 +3,7 @@
 // 流程：点击水晶球 → 输入问题 → 22张牌弧形选牌(上浮) → 翻面(牌面图片)
 // ============================================================
 
-import { useTexture } from "@react-three/drei";
+import { useGLTF, useTexture } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -11,6 +11,7 @@ import {
   DoubleSide,
   Group,
   Mesh,
+  MeshStandardMaterial,
   Raycaster,
   Texture,
   Vector2,
@@ -29,6 +30,7 @@ const screenCenter = new Vector2(0, 0);
 // ---- crystal ball ----
 const CRYSTAL_POS: [number, number, number] = [0, 1.42, 3.72];
 const CRYSTAL_RAYCAST_R = 0.42;
+const CRYSTAL_URL = "./models/fortune/tarot_crystal_ball.glb";
 
 // ---- content screen ----
 const SCREEN_POS: [number, number, number] = [0, 2.0, 5.85];
@@ -418,16 +420,6 @@ function showQuestionOverlay(onConfirm: (q: string) => void, onCancel: () => voi
   });
 }
 
-// ---- crystal ball glow ----
-function CrystalGlow({ isHovered }: { isHovered: boolean }) {
-  return (
-    <mesh position={CRYSTAL_POS}>
-      <sphereGeometry args={[isHovered ? 0.44 : 0.38, 24, 16]} />
-      <meshStandardMaterial color={isHovered ? "#c9a84c" : "#7c6fd3"} emissive={isHovered ? "#ffd977" : "#5d4db6"} emissiveIntensity={isHovered ? 0.6 : 0.2} roughness={0.3} transparent opacity={isHovered ? 0.55 : 0.25} depthWrite={false} />
-    </mesh>
-  );
-}
-
 // ---- revealed card face loader ----
 function CardFaceTexture({ index, onLoad }: { index: number; onLoad: (tex: Texture) => void }) {
   const texture = useTexture(cardFaceUrl(index));
@@ -545,11 +537,31 @@ export function TarotTable() {
   const [hoveredPageBtn, setHoveredPageBtn] = useState(false);
 
   const crystalMeshRef = useRef<Mesh | null>(null);
+  const crystalModelRef = useRef<Mesh[]>([]);
   const cardMeshMap = useRef<Map<number, Mesh>>(new Map());
   const raycasterRef = useRef(new Raycaster());
   const hoveredCrystalRef = useRef(false);
   const hoveredCardRef = useRef<number | null>(null);
   const flipDelayRef = useRef(0);
+  // load crystal ball model for surface highlight
+  const crystalGltf = useGLTF(CRYSTAL_URL);
+  const crystalScene = useMemo(() => {
+    const s = crystalGltf.scene.clone(true);
+    crystalModelRef.current = [];
+    s.traverse((c) => { if ((c as Mesh).isMesh) crystalModelRef.current.push(c as Mesh); });
+    return s;
+  }, [crystalGltf.scene]);
+
+  // crystal ball surface glow on hover
+  useEffect(() => {
+    const emissive = hoveredCrystal ? "#ffd977" : "#7c6fd3";
+    const intensity = hoveredCrystal ? 0.6 : 0.15;
+    crystalModelRef.current.forEach((m) => {
+      const mat = m.material as MeshStandardMaterial;
+      if (mat.emissive) mat.emissive.set(emissive);
+      if (mat.emissiveIntensity !== undefined) mat.emissiveIntensity = intensity;
+    });
+  }, [hoveredCrystal]);
   const candleMeshRef = useRef<Mesh | null>(null);
   const hoveredCandleRef = useRef(false);
   const FLIP_DELAY_MS = 900;
@@ -772,7 +784,7 @@ export function TarotTable() {
     <group>
       {/* crystal — idle and reveal */}
       {(phase === "idle" || phase === "reveal") && <>
-        <CrystalGlow isHovered={hoveredCrystal} />
+        <primitive object={crystalScene} position={CRYSTAL_POS} scale={0.62} />
         <mesh ref={crystalMeshRef} position={CRYSTAL_POS}>
           <sphereGeometry args={[CRYSTAL_RAYCAST_R, 8, 6]} />
           <meshBasicMaterial color="#fff" opacity={0} transparent />
@@ -827,22 +839,14 @@ export function TarotTable() {
         </mesh>
       )}
 
-      {/* candle page flip — always visible, left candle at [-1.18, 1.35, 4.18] */}
-      <mesh
-        ref={candleMeshRef}
-        position={[-1.18, 1.35, 4.18]}
-      >
-        <sphereGeometry args={[hoveredPageBtn ? 0.42 : 0.32, 16, 12]} />
-        <meshStandardMaterial
-          color={hoveredPageBtn ? "#ffd977" : "#5d4db6"}
-          emissive={hoveredPageBtn ? "#ffd977" : "#5d4db6"}
-          emissiveIntensity={hoveredPageBtn ? 0.65 : phase === "reveal" ? 0.25 : 0.12}
-          roughness={0.3}
-          transparent
-          opacity={hoveredPageBtn ? 0.55 : phase === "reveal" ? 0.25 : 0.12}
-          depthWrite={false}
-        />
+      {/* candle page flip — hover glow instead of sphere */}
+      <mesh ref={candleMeshRef} position={[-1.18, 1.35, 4.18]}>
+        <sphereGeometry args={[0.32, 8, 6]} />
+        <meshBasicMaterial color="#fff" opacity={0} transparent />
       </mesh>
+      {hoveredPageBtn && (
+        <pointLight position={[-1.18, 1.55, 4.18]} color="#ffd977" intensity={1.2} distance={1.5} />
+      )}
     </group>
   );
 }
