@@ -82,3 +82,25 @@
 截图：用户实机验证，本轮 Codex 不生成截图。
 
 剩余风险：如果真实内容屏自身位置仍需微调，以用户实机反馈继续调整。
+
+## 2026-07-09 / PR #4 Fortune fix 合并验证
+
+日期：2026-07-09
+
+版本 / Layer：Layer 8 占卜屋交互与真实占卜接口层，PR #4 `fortuine-fix -> main`
+
+现象：`fortune fix` 分支把背景音乐从 wav 切换为 mp3，并调整塔罗、周易模型交互和 mock 结果生成。本地合并到包含 `game` 修复的 `main` 时没有代码冲突；检查音频引用时发现脚步声和摇签声路径也被改为 mp3，但仓库没有对应小音效文件。
+
+原因判断：PR 只提交了三首 BGM 的 mp3 文件，没有提交 `footstep.mp3` 和 `shake_cylinder.mp3`。旧版本引用的 wav 小音效同样不存在，因此如果不处理，会在运行时继续产生缺失音效请求。
+
+解决方案：保留 BGM mp3 切换；新增 `playOptionalAudio`，对缺失小音效做会话级不可用缓存。脚步声和摇签声后续补齐文件后可自动播放；未补齐时不阻断世界运行，也不会持续重复请求同一个缺失文件。清理构建目录中的旧 wav 音频产物，只保留 mp3 输出。
+
+涉及文件：`app/nav-world/public/audio/`、`app/nav-world/src/audio/playOptionalAudio.ts`、`app/nav-world/src/world/WorldExperience.tsx`、`app/nav-world/src/modules/divination/IchingDesk.tsx`、`app/frontend/audio/`、`validation/layer-8/debug.md`。
+
+验证结果：`npm run build` 和 `npm run assets:check` 通过；仍有既有 `WorldExperience` chunk 超 500KB 警告。
+
+画面变化：是，占卜屋部分模型和交互反馈有调整；本轮未新增截图。
+
+截图：未新增截图；本次以合并验证、类型检查和构建检查为主，视觉细节留给用户实机确认。
+
+剩余风险：未补真实 `footstep.mp3` 和 `shake_cylinder.mp3` 小音效；未做占卜屋完整浏览器流程截图。

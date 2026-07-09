@@ -65,6 +65,7 @@
 - 2026-07-09：PR #1 `fortune -> main` 合并冲突解决口径：Layer 8 本次合并保留星座轮盘、三张塔罗、周易六爻和周易抽签；`single` 塔罗模式和 78 张完整牌组不作为本次合并阻塞项，留作后续增强。占卜类型文件当前为 `app/nav-world/src/modules/divination/types.ts`。本次画面由用户手测，Codex 侧以资源检查、类型检查和构建验证兜底。
 - 2026-07-09：Layer 8 真实占卜内容屏接入后，不再渲染 Layer 5.5 的 `BlankContentScreens` 旧空白屏；星座、塔罗、周易内容屏由各自交互组件负责，避免两层屏幕在同一坐标重叠。
 - 2026-07-09：PR #3 `game -> main` 合入后审计发现静态游戏页原先从 `unpkg.com` 加载 Three.js；已改为从 `app/nav-world/public/vendor/three/` 加载项目锁定版本，并随 vendor 文件保留 Three.js MIT license。后续静态 iframe 游戏页不要直接依赖外部 CDN 脚本，优先使用本仓库静态 vendor 或迁入 Vite 模块。
+- 2026-07-09：PR #4 `fortuine-fix -> main` 将三首 BGM 从 wav 改为 mp3；仓库仍没有 `footstep.mp3` 和 `shake_cylinder.mp3` 小音效，运行时代码通过 `playOptionalAudio` 对缺失音效做会话级不可用缓存，避免持续 404。后续若需要脚步 / 摇签音效，应补齐对应 mp3 文件。
 
 ## /new handoff
 

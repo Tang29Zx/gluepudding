@@ -187,7 +187,7 @@ function ShellModels() {
 }
 
 function InteriorModels() {
-  const excludeIds = new Set(["iching-lot-cylinder", "iching-coin"]);
+  const excludeIds = new Set(["iching-lot-cylinder", "iching-coin", "iching-bamboo-slips", "iching-yang-line", "tarot-crystal-ball"]);
   return (
     <>
       {fortuneModelAssets.interiorAssets

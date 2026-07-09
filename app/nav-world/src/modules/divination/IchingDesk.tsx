@@ -6,7 +6,8 @@
 import { useGLTF } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Group, Mesh, Raycaster, Vector2 } from "three";
+import { Group, Mesh, MeshStandardMaterial, Raycaster, Vector2 } from "three";
+import { playOptionalAudio } from "../../audio/playOptionalAudio";
 
 // ---- draw lots data ----
 interface LotResult {
@@ -45,6 +46,7 @@ const screenCenter = new Vector2(0, 0);
 // from fortuneModelAssets: positionOnIchingTable(0, 1.14, 0) → [6, 1.14, 0]
 const CYLINDER_POS: [number, number, number] = [6, 1.14, 0];
 const CYLINDER_URL = "./models/fortune/iching_lot_cylinder.glb";
+const BAMBOO_URL = "./models/fortune/iching_bamboo_slips.glb";
 const FLOAT_Y = 0.5;
 const BOUNCE_Y = 0.12;
 const SHAKE_SPEED = 22;
@@ -54,7 +56,6 @@ export function IchingDesk() {
   const camera = useThree((state) => state.camera);
   const domElement = useThree((state) => state.gl.domElement);
   const raycasterRef = useRef(new Raycaster());
-  const rayMeshRef = useRef<Mesh>(null!);
   const shakeGroupRef = useRef<Group>(null!);
   const timeRef = useRef(0);
   const hoveredRef = useRef(false);
@@ -85,25 +86,56 @@ export function IchingDesk() {
   // shake sound effect
   useEffect(() => {
     if (isShaking) {
-      const sfx = new Audio("/audio/shake_cylinder.wav");
-      sfx.volume = 0.4;
-      sfx.play().catch(() => {});
+      playOptionalAudio("/audio/shake_cylinder.mp3", 0.4);
     }
   }, [isShaking]);
 
   // load the actual lot cylinder model
   const gltf = useGLTF(CYLINDER_URL);
   const modelScene = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
+  // load bamboo slips
+  const bambooGltf = useGLTF(BAMBOO_URL);
+  const bambooScene = useMemo(() => bambooGltf.scene.clone(true), [bambooGltf.scene]);
+  // bamboo slips — standing inside the cylinder
+  const bambooLayout = useMemo(() => [
+    { pos: [0.03, 0.4, 0.02], rotZ: 0.1, s: 1.1 },
+    { pos: [-0.04, 0.42, -0.01], rotZ: 0.5, s: 1.0 },
+    { pos: [0.01, 0.38, -0.04], rotZ: 0.9, s: 1.15 },
+    { pos: [-0.02, 0.41, 0.04], rotZ: 1.3, s: 1.05 },
+    { pos: [0.05, 0.39, 0.0], rotZ: 1.7, s: 1.1 },
+    { pos: [-0.03, 0.43, -0.03], rotZ: 2.1, s: 0.95 },
+    { pos: [0.0, 0.40, 0.03], rotZ: 2.5, s: 1.12 },
+  ], []);
+  // collect all meshes for surface highlight
+  const cylinderMeshes = useRef<Mesh[]>([]);
+  useMemo(() => {
+    cylinderMeshes.current = [];
+    modelScene.traverse((child) => {
+      if ((child as Mesh).isMesh) cylinderMeshes.current.push(child as Mesh);
+    });
+  }, [modelScene]);
 
-  // raycasting
+  // raycasting — use first mesh of the model itself
   useFrame(() => {
     raycasterRef.current.setFromCamera(screenCenter, camera);
-    const hits = rayMeshRef.current
-      ? raycasterRef.current.intersectObject(rayMeshRef.current, false)
+    const target = cylinderMeshes.current.length > 0 ? cylinderMeshes.current : null;
+    const hits = target
+      ? raycasterRef.current.intersectObjects(target, false)
       : [];
     const h = hits.length > 0;
     if (hoveredRef.current !== h) { hoveredRef.current = h; setIsHovered(h); }
   });
+
+  // surface highlight on hover/shake
+  useEffect(() => {
+    const emissive = isShaking ? "#ffd977" : isHovered ? "#c9a84c" : "#5d4db6";
+    const intensity = isShaking ? 0.7 : isHovered ? 0.5 : 0.15;
+    cylinderMeshes.current.forEach((m) => {
+      const mat = m.material as MeshStandardMaterial;
+      if (mat.emissive) mat.emissive.set(emissive);
+      if (mat.emissiveIntensity !== undefined) mat.emissiveIntensity = intensity;
+    });
+  }, [isHovered, isShaking]);
 
   // shake + float animation
   useFrame((_, delta) => {
@@ -153,20 +185,16 @@ export function IchingDesk() {
     <group ref={shakeGroupRef} position={CYLINDER_POS}>
       {/* real lot cylinder model */}
       <primitive object={modelScene} scale={0.68} />
-
-      {/* raycast target (invisible overlay) */}
-      <mesh ref={rayMeshRef}>
-        <cylinderGeometry args={[0.14, 0.14, 0.75, 20]} />
-        <meshStandardMaterial
-          color={isShaking ? "#ffd977" : isHovered ? "#c9a84c" : "#5d4db6"}
-          emissive={isShaking ? "#ffd977" : isHovered ? "#c9a84c" : "#5d4db6"}
-          emissiveIntensity={isShaking ? 0.55 : isHovered ? 0.5 : 0.18}
-          roughness={0.3}
-          transparent
-          opacity={isShaking ? 0.4 : isHovered ? 0.4 : 0.18}
-          depthWrite={false}
+      {/* bamboo slips — standing upright inside the cylinder */}
+      {bambooLayout.map((b, i) => (
+        <primitive
+          key={i}
+          object={bambooScene.clone(true)}
+          position={b.pos as [number, number, number]}
+          rotation={[-Math.PI / 2, 0, b.rotZ]}
+          scale={b.s}
         />
-      </mesh>
+      ))}
     </group>
   );
 }

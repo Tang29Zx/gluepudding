@@ -302,8 +302,8 @@ export function IchingHexagram() {
   const [revealPage, setRevealPage] = useState<"cards" | "ai_loading" | "ai_result">("cards");
   const [aiText, setAiText] = useState("");
 
-  const meshRef = useRef<Mesh>(null!);
   const hoveredRef = useRef(false);
+  const coinRayRef = useRef<Mesh>(null!);
   const tableMeshRef = useRef<Mesh>(null!);
   const hoveredTableRef = useRef(false);
   const raycasterRef = useRef(new Raycaster());
@@ -349,7 +349,7 @@ export function IchingHexagram() {
     return () => { cancelled = true; };
   }, [revealPage, result, question]);
 
-  // raycasting
+  // raycasting — coin hover in idle, table click in result
   useFrame(() => {
     raycasterRef.current.setFromCamera(screenCenter, camera);
     if (phase === "result") {
@@ -358,13 +358,11 @@ export function IchingHexagram() {
       if (hoveredTableRef.current !== h) { hoveredTableRef.current = h; }
       return;
     }
-    if (phase !== "idle") {
-      if (hoveredRef.current) { hoveredRef.current = false; setHovered(false); }
-      return;
+    if (phase === "idle") {
+      const hits = coinRayRef.current ? raycasterRef.current.intersectObject(coinRayRef.current, false) : [];
+      const h = hits.length > 0;
+      if (hoveredRef.current !== h) { hoveredRef.current = h; setHovered(h); }
     }
-    const hits = meshRef.current ? raycasterRef.current.intersectObject(meshRef.current, false) : [];
-    const h = hits.length > 0;
-    if (hoveredRef.current !== h) { hoveredRef.current = h; setHovered(h); }
   });
 
   // casting animation
@@ -468,21 +466,19 @@ export function IchingHexagram() {
 
   return (
     <group>
-      {/* trigger (visible coin hint) */}
+      {/* trigger — coin model with raycast overlay + hover glow */}
       {phase === "idle" && (
-        <>
-          <mesh ref={meshRef} position={TRIGGER_POS}>
-            <sphereGeometry args={[hovered ? 0.38 : 0.3, 16, 12]} />
-            <meshStandardMaterial
-              color={hovered ? "#c9a84c" : "#5d4db6"}
-              emissive={hovered ? "#c9a84c" : "#5d4db6"}
-              emissiveIntensity={hovered ? 0.55 : 0.2}
-              roughness={0.3}
-              transparent opacity={hovered ? 0.45 : 0.18}
-              depthWrite={false}
-            />
+        <group position={TRIGGER_POS}>
+          <primitive object={coinModel.clone(true)} scale={0.68} />
+          {/* invisible raycast target matching coin shape */}
+          <mesh ref={coinRayRef}>
+            <cylinderGeometry args={[0.1, 0.1, 0.18, 12]} />
+            <meshBasicMaterial visible={false} depthWrite={false} />
           </mesh>
-        </>
+          {hovered && (
+            <pointLight color="#c9a84c" intensity={1.5} distance={2} />
+          )}
+        </group>
       )}
 
       {/* 3 coins per round, showing all completed rounds */}
@@ -518,13 +514,14 @@ export function IchingHexagram() {
 
       {/* table click area for page flip (result phase) */}
       {phase === "result" && (
-        <mesh ref={tableMeshRef} position={[6, 1.05, 0]}>
-          <boxGeometry args={[1.8, 0.5, 1.5]} />
+        <mesh ref={tableMeshRef} position={[6, 1.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[1.6, 1.2]} />
           <meshBasicMaterial
             color={hoveredTableRef.current ? "#c9a84c" : "#5d4db6"}
             transparent
-            opacity={hoveredTableRef.current ? 0.3 : 0.1}
+            opacity={hoveredTableRef.current ? 0.25 : 0.06}
             depthWrite={false}
+            side={DoubleSide}
           />
         </mesh>
       )}
