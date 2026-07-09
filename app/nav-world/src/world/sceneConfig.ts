@@ -29,8 +29,8 @@ export const playerControls = {
   jumpGroundDetachSeconds: 0.14,
   jumpVelocity: 8.8,
   lookSensitivity: 0.0022,
-  maxPitch: Math.PI / 2.8,
-  minPitch: -Math.PI / 2.8,
+  maxPitch: Math.PI / 2.25,
+  minPitch: -Math.PI / 2.25,
   moveSpeed: 8.5,
   sprintMultiplier: 1.75,
 };

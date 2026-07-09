@@ -88,7 +88,9 @@ export const worldModuleDefinitions = {
   },
 } satisfies Record<WorldModuleId, WorldModuleDefinition>;
 
-export const worldModuleDefinitionList = Object.values(worldModuleDefinitions);
+export const worldModuleDefinitionList = Object.values(worldModuleDefinitions).filter(
+  (definition) => definition.id !== "gomoku",
+);
 
 export function createDefaultWorldModuleStatuses(): Record<
   WorldModuleId,

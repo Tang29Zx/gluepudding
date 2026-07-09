@@ -604,6 +604,16 @@ Layer 5A 模型接入切片：
 - 用户能在世界内完成至少一局基础对弈流程。
 - 五子棋模块异常不会影响占卜屋和实验室。
 
+模型资产预览截图：
+
+- 原生五子棋 GLB 模型桌面端预览：![Layer 12 原生五子棋 GLB 模型桌面端预览](validation/layer-12/gomoku-models-desktop.png)
+- 原生五子棋 GLB 模型移动端预览：![Layer 12 原生五子棋 GLB 模型移动端预览](validation/layer-12/gomoku-models-mobile.png)
+
+交互外壳验证截图：
+
+- 桌面端 `G` 展开 / 移动、`H` 收回提示：![Layer 12 桌面端五子棋 G/H 交互外壳](validation/layer-12/gomoku-hotkeys-desktop.png)
+- 移动端 `G` 展开 / 移动、`H` 收回提示：![Layer 12 移动端五子棋 G/H 交互外壳](validation/layer-12/gomoku-hotkeys-mobile.png)
+
 ## Layer 13：性能和移动端层
 
 目标：让大世界可持续使用，而不是只能在高性能桌面演示。

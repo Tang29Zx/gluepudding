@@ -49,6 +49,25 @@ test("loads the 3D world canvas", async ({ page }) => {
   expect(failures).toEqual([]);
 });
 
+test("places and retracts the world gomoku board with hotkeys", async ({ page }) => {
+  const failures = collectPageFailures(page);
+
+  await page.goto("/");
+  await expect(page.locator(".startup-screen")).toHaveCount(0);
+  await expect(page.locator(".world-canvas canvas")).toBeVisible();
+
+  await page.keyboard.press("KeyG");
+  await expect(page.locator(".world-interaction-bar")).toContainText("棋盘已展开");
+
+  await page.keyboard.press("KeyG");
+  await expect(page.locator(".world-interaction-bar")).toContainText("棋盘已移动");
+
+  await page.keyboard.press("KeyH");
+  await expect(page.locator(".world-interaction-bar")).toContainText("棋盘已收回");
+
+  expect(failures).toEqual([]);
+});
+
 test("shows the 2D fallback when forced", async ({ page }) => {
   const failures = collectPageFailures(page);
 

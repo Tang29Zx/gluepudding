@@ -53,6 +53,10 @@
 - 2026-07-08：`app/nav-world` 使用项目级 `.npmrc` 固定 npm 源为 `https://registry.npmmirror.com/`，`package-lock.json` 的 `resolved` tarball 也同步为 `registry.npmmirror.com`，方便国内网络环境执行 `npm install` / `npm ci`。协作者若觉得 `npm install` 像卡死，可用 `npm install --loglevel=http` 查看下载/缓存命中进度。
 - 2026-07-08：用户明确当前 Codex 截图验证难度和成本过高，模型摆位微调的截图由用户实机验证即可；Codex 不再为这类小步视觉调整强行生成桌面/移动截图。后续仍需运行可用的构建、资源检查或类型检查，并在对应 Layer 的 `debug.md` 记录“截图由用户实机验证”。
 - 2026-07-08：新增 Layer 5.5 作为 235 视觉渲染基线层，范围只包括光照基线、屏幕材质和低成本“光追感”；当前不新增后处理依赖，不接真实 path tracing，不迁移 WebGPU，也不调整 Layer 5 已验收的占卜屋模型坐标。实现口径是 sRGB + ACES tone mapping、PCF soft shadow、低环境光 + 暖色主光 + 柔和天光、占卜屋深色发光内容屏、占卜屋局部氛围灯、实验室 / 五子棋模块面板屏幕质感，并移除室内临时坐标辅助。
+- 2026-07-09：`resources/gomoku-ai-academy-submission.zip` 已解压到 `resources/gomoku-ai-academy-submission/`；压缩包内 Windows 反斜杠路径已归一化为 Linux 目录结构。目录包含 Python 五子棋 AI / 规则代码、Android APK 包装、iPhone / PWA 静态资源、QA 证据和报告；仍属于 `resources/` 本地参考输入，不进 Git。后续 Layer 7 / Layer 12 复用前需要先做代码安全、许可证和集成边界评估。
+- 2026-07-09：`resources/gomoku-ai-academy-submission/` 复用评估结论：Layer 6 实验室模拟层不复用此包，因为它没有 WebRTC、RDK 模型、门禁或设备状态能力。Layer 12 可复用其五子棋能力，但不建议整包搬入主工程；优先抽 `iphone/ai_worker.js` 的 25x25 Worker AI 协议、棋盘状态机、胜负判断、`COURSE_PUZZLES` 和必要 canvas/R3F 渲染思路。Python 规则层当前 `BOARD_SIZE = 45`，PWA/Worker 为 25，不能直接混用。该包未发现明确 LICENSE / attribution 文件，进入主仓或上线前需要补许可证和素材来源确认。
+- 2026-07-09：Layer 12 原生五子棋资产已新增到 `app/nav-world/public/models/gomoku/`：`gomoku_board.glb`、`black_stone.glb`、`white_stone.glb`。模型由 `app/nav-world/scripts/generate-gomoku-models.mjs` 生成，棋盘为 25x25，当前棋盘约 3.253m x 3.253m x 0.116m、格距 0.12m，棋子约 0.16m 直径、0.054m 高；GLB `extras` 记录格距、棋盘顶面和用途。`@gltf-transform/cli` 已作为 `app/nav-world` 开发依赖，用于 `assets:gomoku:validate`。Blender 未安装，本次低面数资产采用脚本生成，便于后续改尺寸和重复生成。
+- 2026-07-09：Layer 12 世界内五子棋交互外壳采用稳定热键约定：`G` 只负责在准星指向地面展开棋盘或移动已展开棋盘，`H` 负责收回棋盘；控制屏上的“收回棋盘”按钮同样真实收回，其余控制屏按钮暂为占位反馈。不要再用“准星对准棋盘时按 G 收回”的方案，因为自动化和实机场景容易受射线命中帧状态影响。
 
 ## /new handoff
 

@@ -142,3 +142,21 @@
 截图：无，未改变应用画面。
 
 剩余风险：无。
+
+## 2026-07-09 / Layer 2 视角俯仰范围
+
+现象：用户希望视角上下限再提高和拉低一点，方便在世界内看更高和更低的位置。
+
+原因判断：当前 `playerControls.maxPitch/minPitch` 为 `±Math.PI / 2.8`，约 `±64°`，第一人称低头查看地面棋盘或抬头观察高处时范围偏保守。
+
+解决方案：将俯仰范围放宽到 `±Math.PI / 2.25`，约 `±80°`；保留距离垂直方向的余量，避免相机翻转。
+
+涉及文件：`app/nav-world/src/world/sceneConfig.ts`、`validation/layer-12/debug.md`
+
+验证结果：`npx tsc --noEmit` 通过；`npm run assets:check` 通过；`npm run build` 通过，仍有既有 `WorldExperience` chunk 超 500KB 警告；预览服务已重启到 `http://localhost:4174/` 和 `http://10.99.239.94:4174/`。
+
+画面变化：是，玩家可抬头 / 低头的视角范围变大。
+
+截图：本轮未新增截图；用户正在实机测试。
+
+剩余风险：过大的俯仰范围可能让极限角度下的移动方向感更强烈，最终手感以用户实机反馈为准。
