@@ -2,7 +2,8 @@
 // 占卜屋 API 适配层
 // 来源：resources/feature_implementation/src/adapters/fortuneApi.ts
 // 支持 mock 模式和真实 API 模式切换
-// 通过 VITE_USE_MOCK 和 VITE_FORTUNE_API_BASE_URL 控制
+// 基础占卜通过 VITE_USE_MOCK 和 VITE_FORTUNE_API_BASE_URL 控制
+// AI 解读通过 VITE_FORTUNE_AI_API 独立启用，避免基础 mock 被关闭
 // ============================================================
 
 import type {
@@ -25,6 +26,7 @@ import tarotCardsData from './data/tarot_cards.json';
 import { getSignFromBirthday } from './business/zodiacLogic';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false'; // 默认 mock 模式
+const USE_AI_API = import.meta.env.VITE_FORTUNE_AI_API === 'true';
 const API_BASE = import.meta.env.VITE_FORTUNE_API_BASE_URL || '';
 
 // Type for the zodiac texts JSON structure
@@ -244,7 +246,7 @@ export async function getIchingReading(params: IchingRequest): Promise<ApiRespon
 export async function getIchingAiReading(
   params: AiIchInterpretRequest
 ): Promise<ApiResponse<AiInterpretResult>> {
-  if (USE_MOCK) {
+  if (!USE_AI_API) {
     await new Promise((r) => setTimeout(r, 2000));
     return {
       module: 'iching',
@@ -275,7 +277,7 @@ export async function getIchingAiReading(
 export async function getTarotAiReading(
   params: AiTarotRequest
 ): Promise<ApiResponse<AiInterpretResult>> {
-  if (USE_MOCK) {
+  if (!USE_AI_API) {
     await new Promise((r) => setTimeout(r, 2000));
     const cardList = params.cards.map(
       (c) => `${c.name}（${c.isUpright ? '正位' : '逆位'}）`

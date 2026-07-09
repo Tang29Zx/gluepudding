@@ -543,3 +543,113 @@
 截图：无，本次由用户在本地实机确认。
 
 剩余风险：如果实机觉得对比度偏低，应优先微调文字色和标题条深度，不要恢复大面积纯白底或透明背板。
+
+## 2026-07-09 / DeepSeek V4 Flash AI 解读接入
+
+日期：2026-07-09
+
+版本 / Layer：Layer 8 占卜屋交互与真实占卜接口层
+
+现象：用户要求把占卜屋背后的塔罗 / 周易 AI 解读接到 DeepSeek OpenAI-compatible 接口，base URL 使用 `https://api.deepseek.com/v1`，模型名为 `deepseek-v4-flash`；同时要求 key 不暴露到浏览器代码里。
+
+原因判断：当前 `fortuneApi.ts` 的 AI 解读和基础占卜共用全局 `USE_MOCK` 判断。如果直接设置 `VITE_USE_MOCK=false`，星座、基础塔罗抽牌和周易起卦也会请求仓库里尚未实现的真实后端，导致现有玩法回退。因此 AI 解读需要独立开关和同源服务端代理。
+
+解决方案：在 `vite.config.ts` 增加本地 dev / preview middleware，提供 `GET /api/fortune/health`、`POST /api/fortune/tarot/ai`、`POST /api/fortune/iching/ai`，由服务端读取 `DEEPSEEK_API_KEY` 并调用 `chat/completions`。`fortuneApi.ts` 新增 `VITE_FORTUNE_AI_API` 独立开关，只有 AI 解读走真实代理；基础占卜继续保持现有 mock / 本地逻辑。塔罗和周易 AI 请求失败或返回 `success:false` 时，大屏切到 AI 结果页显示友好失败文案，避免卡在 loading。新增 `.env.example` 记录变量名，不记录真实 key。
+
+涉及文件：`app/nav-world/vite.config.ts`、`app/nav-world/src/modules/divination/fortuneApi.ts`、`app/nav-world/src/modules/divination/TarotTable.tsx`、`app/nav-world/src/modules/divination/IchingHexagram.tsx`、`app/nav-world/.env.example`、`MEMORY.md`、`validation/layer-8/debug.md`。
+
+验证结果：按用户此前要求不跑测试 / 构建；本轮只运行 `git diff --check`。
+
+画面变化：是。塔罗和周易 AI 解读成功时会显示真实模型返回内容；失败时显示友好失败文案，不再返回模拟解读或无限 loading。
+
+截图：无，本次以接口接入为主，实机流程由用户手测。
+
+剩余风险：当前代理只覆盖本地 Vite dev / preview；生产部署仍需要提供同样的 `/api/fortune/tarot/ai` 和 `/api/fortune/iching/ai` 同源服务端能力。用户已在聊天中暴露过 key，建议后续在 DeepSeek 后台轮换。
+
+## 2026-07-09 / AI 解读大屏溢出和文字重叠修复
+
+日期：2026-07-09
+
+版本 / Layer：Layer 8 占卜屋交互与真实占卜接口层
+
+现象：用户实机反馈周易 AI 深度解读太长，大屏塞不下；部分文字重复、覆盖在一起。
+
+原因判断：问题分两层。源头上 DeepSeek prompt 要求 4 到 6 段，`max_tokens` 为 900，容易生成长篇 Markdown 标题和分节内容。显示上 `drawAiResult` 使用 `(li * 3 + i / maxChars)` 估算纵坐标，默认每段最多 3 行；当某段很长时，后续段落会压到前一段尚未绘完的行上，视觉上像文字重复。
+
+解决方案：把塔罗和周易 AI prompt 都改成大屏短版，要求 3 段以内、禁止 Markdown / 标题 / 编号 / 加粗；周易限制为约 220 到 320 个中文字，不逐条展开每一爻。代理按模块设置较小 `max_tokens`。新增共用 `drawFittedScreenText()`：先清理 Markdown，再用 `measureText` 按真实像素宽度换行，使用全局行游标逐行绘制，超过卡片高度时截断并显示“解读过长，已精简显示。”。塔罗和周易 AI 结果页都切到该绘制逻辑。
+
+涉及文件：`app/nav-world/vite.config.ts`、`app/nav-world/src/modules/divination/screenInput.ts`、`app/nav-world/src/modules/divination/TarotTable.tsx`、`app/nav-world/src/modules/divination/IchingHexagram.tsx`、`MEMORY.md`、`validation/layer-8/debug.md`。
+
+验证结果：按用户此前要求不跑测试 / 构建；本轮只运行 `git diff --check`。
+
+画面变化：是。周易和塔罗 AI 解读页应显示更短的文本；长文本不再互相重叠，超出时会截断。
+
+截图：无，本次由用户实机复验。
+
+剩余风险：模型仍可能偶尔不完全遵守字数；前端截断兜底会保证不重叠，但如果希望完整长文阅读，后续需要做翻页或滚动页。
+
+## 2026-07-09 / AI 解读长度上调
+
+日期：2026-07-09
+
+版本 / Layer：Layer 8 占卜屋交互与真实占卜接口层
+
+现象：用户实机反馈修复溢出后，周易 AI 解读略短，希望在当前基础上再多约三分之二。
+
+原因判断：上一轮为避免溢出，把周易限制到约 `220~320` 字，塔罗限制到约 `260~360` 字；在 `7.2m x 4.5m` 大屏上安全但留白较多。
+
+解决方案：保持 Markdown 清理、像素换行和截断兜底不变，只上调模型输出长度：周易改为约 `360~530` 中文字、最多 4 段；塔罗同步改为约 `430~600` 中文字、最多 4 段。对应调高各模块 `max_tokens`，但仍禁止标题 / 编号 / 加粗，周易仍不逐条展开每一爻。
+
+涉及文件：`app/nav-world/vite.config.ts`、`MEMORY.md`、`validation/layer-8/debug.md`。
+
+验证结果：按用户此前要求不跑测试 / 构建；本轮只运行 `git diff --check`。
+
+画面变化：是。重新触发 AI 解读后，文字应比上一版多约三分之二，但仍不重叠。
+
+截图：无，本次由用户实机复验。
+
+剩余风险：模型字数仍可能波动；前端截断兜底会防止溢出重叠。
+
+## 2026-07-09 / 占卜屋大屏二次降采样
+
+日期：2026-07-09
+
+版本 / Layer：Layer 8 占卜屋交互与真实占卜接口层
+
+现象：用户反馈占卜屋仍有点卡，希望把大屏分辨率再压低一点。
+
+原因判断：星座、塔罗、周易三块大屏会同时创建 canvas 贴图；`1536x960` 比旧版清晰，但三张贴图仍有约 442 万像素，进入占卜屋和 AI 结果刷新时会带来 GPU 上传压力。
+
+解决方案：三块占卜内容屏统一从 `1536x960` 降到 `1280x800`，保持 16:10 比例、`LinearFilter`、`SRGBColorSpace` 和 `toneMapped={false}` 不变。该档位比 `1536x960` 再少约 31% 像素量，同时仍高于早期 `768x480` / `1024x640` 清晰度。
+
+涉及文件：`app/nav-world/src/modules/divination/ZodiacWheel.tsx`、`app/nav-world/src/modules/divination/TarotTable.tsx`、`app/nav-world/src/modules/divination/IchingHexagram.tsx`、`MEMORY.md`、`validation/layer-8/debug.md`。
+
+验证结果：按用户此前要求不跑测试 / 构建；本轮只运行 `git diff --check`。
+
+画面变化：轻微。大屏文字会比 `1536x960` 略软，但占卜屋贴图初始化和刷新压力应降低。
+
+截图：无，本次由用户实机复验。
+
+剩余风险：如果实机仍卡，下一步不建议继续明显降分辨率，应改成区域懒加载或只激活当前对准的占卜组件。
+
+## 2026-07-09 / 占卜屋大屏二次降采样回退
+
+日期：2026-07-09
+
+版本 / Layer：Layer 8 占卜屋交互与真实占卜接口层
+
+现象：用户实机反馈将三块占卜大屏降到 `1280x800` 后，第一人称视角出现抽搐。
+
+原因判断：该问题由用户实机直接观察到，优先按最近一次视觉 / 性能改动回退处理；不继续在当前基础上排查其他输入或相机逻辑，避免扩大变量。
+
+解决方案：只回退本轮二次降采样：星座、塔罗、周易三块 canvas 大屏恢复到 `1536x960`。保留此前 DeepSeek AI 接入、AI 文案长度调整、Markdown 清理、像素换行和截断兜底。
+
+涉及文件：`app/nav-world/src/modules/divination/ZodiacWheel.tsx`、`app/nav-world/src/modules/divination/TarotTable.tsx`、`app/nav-world/src/modules/divination/IchingHexagram.tsx`、`MEMORY.md`、`validation/layer-8/debug.md`。
+
+验证结果：按用户此前要求不跑测试 / 构建；本轮只运行 `git diff --check`。
+
+画面变化：是。三块占卜大屏恢复到 `1536x960`，应取消 `1280x800` 版本引入的实机视角抽搐。
+
+截图：无，本次由用户实机复验。
+
+剩余风险：如果恢复分辨率后仍有卡顿或抽搐，下一步应改做区域懒加载或排查相机 / Pointer Lock 输入帧，而不是继续降低屏幕分辨率。

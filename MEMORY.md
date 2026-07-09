@@ -92,8 +92,10 @@
 - 2026-07-09：周易掷钱动画采用预生成的六轮三枚铜钱结果，每枚铜钱记录起点 / 终点 / 抛物线 / 翻滚 / 最终朝向；动画逐帧通过 Object3D ref 写回 position / rotation / scale。不要只在 `useFrame` 中改普通 ref 里的数字却不更新 Three 对象，否则 React 不重渲染时画面不会真正连续运动。为降低卡顿，投掷时一次只飞一枚铜钱，前面落下的铜钱保持平贴桌面；落地玄光只用小型 ring，材质 `depthWrite=false`，不要做动态点光或大面积透明面片。
 - 2026-07-09：周易铜钱 GLB 是沿 Y 轴厚度的扁圆柱，最终平贴桌面时只能用 `rx=0/Math.PI` 控制正反面、用 `ry` 做桌面内随机旋转；不要给最终姿态设置随机 `rz`，绕 Z 轴会把铜钱从桌面翘起，表现为斜插进桌面。
 - 2026-07-09：周易结果页用于点击桌面切换 AI 解读的 table raycast 热区必须用 `visible={false}`、`depthWrite={false}`、`depthTest={false}` 隐藏；不要用低透明度平面假装隐形，否则会在桌面下方露出像纸片一样的矩形。
-- 2026-07-09：占卜屋三块大屏是 canvas 贴图映射到 `7.2m x 4.5m` 3D 平面，文字清晰度主要取决于 canvas 像素密度。当前星座、塔罗、周易屏幕统一使用 `1536x960` canvas，并设置 `LinearFilter`、`SRGBColorSpace`、屏幕材质 `toneMapped={false}`；不要再回退到 `768x480`、`1024x640` 这类低分辨率，否则近距离斜看会糊。若进屋仍卡，优先做按区域懒加载，而不是继续盲目加贴图分辨率。
+- 2026-07-09：占卜屋三块大屏是 canvas 贴图映射到 `7.2m x 4.5m` 3D 平面，文字清晰度主要取决于 canvas 像素密度。当前星座、塔罗、周易屏幕统一使用 `1536x960` canvas，并设置 `LinearFilter`、`SRGBColorSpace`、屏幕材质 `toneMapped={false}`；不要再回退到 `768x480`、`1024x640` 这类低分辨率，否则近距离斜看会糊。若进屋仍卡，优先做按区域懒加载，而不是继续盲目加贴图分辨率。`1280x800` 降采样曾导致用户实机视角抽搐，已回退。
 - 2026-07-09：占卜屋三块大屏视觉改为偏暗暮紫底、深葡萄标题条、旧金细线和柔面板色，避免纯白办公屏破坏神秘气氛；屏幕仍是实色 canvas 贴图，不要用大面积透明玻璃/背板做氛围效果。
+- 2026-07-09：占卜屋塔罗 / 周易 AI 解读接入 DeepSeek OpenAI-compatible Chat Completions，模型名为 `deepseek-v4-flash`，base URL 为 `https://api.deepseek.com/v1`。前端只用 `VITE_FORTUNE_AI_API=true` 切换 AI 解读真实接口；基础星座、塔罗抽牌和周易起卦继续走现有本地 mock / 逻辑，不要为了 AI 解读打开全局 `VITE_USE_MOCK=false`。服务端 key 只允许放 ignored 的 `.env.local` 或部署环境变量 `DEEPSEEK_API_KEY`，不能写入前端源码、文档、截图或构建产物。
+- 2026-07-09：占卜屋 AI 解读显示在世界内 canvas 大屏，不适合长篇 Markdown。DeepSeek prompt 应限制塔罗 / 周易为短段落、禁止标题 / 编号 / 加粗符号；当前塔罗约 `430~600` 中文字，周易约 `360~530` 中文字。前端绘制必须先清理 Markdown，再用 `measureText` 按像素宽度逐行排版，并在超过卡片高度时截断显示“解读过长，已精简显示。”。不要再用固定 `li * 3` 行距或每 48 字切行，否则长段落会互相覆盖，看起来像文字重复。
 
 ## /new handoff
 

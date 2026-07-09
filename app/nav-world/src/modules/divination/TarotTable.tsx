@@ -26,6 +26,7 @@ import {
 import { consumeCanvasClick } from "./canvasEvents";
 import { getTarotAiReading, getTarotReading } from "./fortuneApi";
 import {
+  drawFittedScreenText,
   drawWrappedText,
   type FortuneQuestionControl,
 } from "./screenInput";
@@ -469,29 +470,26 @@ function drawAiResult(ctx: CanvasRenderingContext2D, text: string): void {
   // content card
   const pad = w * 0.06;
   const contentY = h * 0.12;
+  const contentH = h * 0.72;
   ctx.fillStyle = PANEL_ACTIVE;
   ctx.shadowColor = "rgba(80, 58, 122, 0.1)";
   ctx.shadowBlur = 6; ctx.shadowOffsetY = 1;
-  ctx.beginPath(); ctx.roundRect(pad, contentY, w - pad * 2, h * 0.72, 8); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(pad, contentY, w - pad * 2, contentH, 8); ctx.fill();
   ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
 
   ctx.fillStyle = TEXT;
   ctx.font = `${Math.round(h * 0.022)}px sans-serif`;
   ctx.textAlign = "left";
-  const maxChars = 48;
-  const lineH = h * 0.035;
-  const lines = text.split("\n").filter((l) => l.trim());
-
-  for (let li = 0; li < lines.length; li++) {
-    const line = lines[li];
-    for (let i = 0; i < line.length; i += maxChars) {
-      ctx.fillText(
-        line.slice(i, i + maxChars),
-        pad + w * 0.03,
-        contentY + h * 0.025 + (li * 3 + (i / maxChars)) * lineH,
-      );
-    }
-  }
+  drawFittedScreenText(ctx, text, {
+    x: pad + w * 0.03,
+    y: contentY + h * 0.055,
+    maxWidth: w - pad * 2 - w * 0.06,
+    maxHeight: contentH - h * 0.11,
+    lineHeight: h * 0.034,
+    overflowColor: MUTED,
+    overflowText: "解读过长，已精简显示。",
+    paragraphGap: h * 0.014,
+  });
 
   // no extra hint — page button handles navigation
 }
@@ -958,12 +956,19 @@ export function TarotTable() {
           deck: result.deck || "major",
           cards: result.cards,
         });
-        if (!cancelled && res.success && res.data) {
-          setAiText(res.data.interpretation);
+        if (!cancelled) {
+          setAiText(
+            res.success && res.data
+              ? res.data.interpretation
+              : (res.error || "AI 解读暂时不可用，请稍后再试。"),
+          );
           setRevealPage("ai_result");
         }
       } catch {
-        if (!cancelled) setRevealPage("cards");
+        if (!cancelled) {
+          setAiText("AI 解读暂时不可用，请稍后再试。");
+          setRevealPage("ai_result");
+        }
       }
     })();
     return () => { cancelled = true; };
