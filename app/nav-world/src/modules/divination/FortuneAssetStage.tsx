@@ -18,6 +18,7 @@ import {
 import { ZodiacWheel } from "./ZodiacWheel";
 import { TarotTable } from "./TarotTable";
 import { IchingDesk } from "./IchingDesk";
+import { IchingHexagram } from "./IchingHexagram";
 
 interface FortuneAssetStageProps {
   shouldLoadInterior: boolean;
@@ -285,7 +286,7 @@ function ShellModels() {
 }
 
 function InteriorModels() {
-  const excludeIds = new Set(["iching-lot-cylinder"]);
+  const excludeIds = new Set(["iching-lot-cylinder", "iching-coin"]);
   return (
     <>
       {fortuneModelAssets.interiorAssets
@@ -328,6 +329,7 @@ export function FortuneAssetStage({
             <ZodiacWheel />
             <TarotTable />
             <IchingDesk />
+            <IchingHexagram />
           </Suspense>
         </FortuneAssetBoundary>
       ) : null}
