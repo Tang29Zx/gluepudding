@@ -23,7 +23,7 @@
 
 版本 / Layer：Layer 8 占卜屋交互与真实占卜接口层
 
-现象：用户要求为协作者准备交接文档。用户将同时进行 Layer 6 与 Layer 12 开发，协作者将在新分支 `fortune` 制作 Layer 8，占卜屋交互包括塔罗、星座和周易，最后通过 PR 合并。
+现象：用户要求为协作者准备交接文档。用户将同时进行实验室和五子棋相关层开发，协作者将在新分支 `fortune` 制作 Layer 8，占卜屋交互包括塔罗、星座和周易，最后通过 PR 合并。
 
 原因判断：Layer 5 已验收为模型摆放层，Layer 8 才开始做点击、选中、解读、mock 和接口。并行开发时需要明确文件边界、资源策略和验收标准，避免协作者误改实验室、五子棋或重新摆放 Layer 5 模型。
 
@@ -47,7 +47,7 @@
 
 现象：`fortune` 分支已开 PR 合入 `main`，GitHub 显示不可直接合并。本地合并 `origin/main` 时，`app/frontend/index.html` 和 `app/nav-world/src/modules/divination/FortuneAssetStage.tsx` 出现内容冲突；同时 PR 中存在多批旧 Vite hash 构建产物。
 
-原因判断：`fortune` 基于 Layer 5 后的旧提交开发，占卜屋交互与 `main` 后续 Layer 5.5 视觉基线、Layer 6、Layer 12 五子棋并行修改。`FortuneAssetStage.tsx` 同时被视觉基线和占卜交互改动；`app/frontend/index.html` 同时引用不同构建 hash。
+原因判断：`fortune` 基于 Layer 5 后的旧提交开发，占卜屋交互与 `main` 后续 Layer 5.5 视觉基线、实验室层和五子棋层并行修改。`FortuneAssetStage.tsx` 同时被视觉基线和占卜交互改动；`app/frontend/index.html` 同时引用不同构建 hash。
 
 解决方案：以 `main` 的视觉基线和世界能力为底，保留占卜屋深色内容屏、局部氛围灯和 Layer 12 五子棋改动；合入 `fortune` 的 `ZodiacWheel`、`TarotTable`、`IchingDesk` 和 `IchingHexagram`。移除坐标调试辅助，不渲染 `FortuneCoordinateGuide`。保留周易抽签玩法；本次塔罗只验收 `three_card` 三张牌流程，`single` 模式和 78 张完整牌组作为后续增强。修复周易六爻展示顺序为 `result.lines.slice().reverse()`。删除 `fortune` 旧构建遗留且最终不引用的 hash JS，重新构建生成当前入口资源。
 
@@ -82,3 +82,25 @@
 截图：用户实机验证，本轮 Codex 不生成截图。
 
 剩余风险：如果真实内容屏自身位置仍需微调，以用户实机反馈继续调整。
+
+## 2026-07-09 / Layer 6 和 Layer 7 编号引用更正
+
+日期：2026-07-09
+
+版本 / Layer：Layer 8 占卜屋交互与真实占卜接口层
+
+现象：用户指出 Layer 6 和 Layer 7 此前写反；Layer 8 交接文档和历史调试记录里也引用了旧编号口径。
+
+原因判断：Layer 8 是并行协作层，交接文档曾用旧编号描述实验室和五子棋相关开发边界。编号更正后，继续保留旧描述会误导协作者。
+
+解决方案：更新 `validation/layer-8/fortune-handoff.md` 中的并行开发边界：Layer 6 为世界内五子棋模拟层，Layer 7 为实验室模拟层，Layer 12 为真实五子棋集成层；同时把本 debug 中泛化为“实验室层和五子棋层”，避免继续传播旧编号。
+
+涉及文件：`validation/layer-8/fortune-handoff.md`、`validation/layer-8/debug.md`。
+
+验证结果：文档更新完成；本次不修改运行时代码。
+
+画面变化：否。
+
+截图：无，本次只修正协作文档编号。
+
+剩余风险：Layer 8 历史实现和 PR 合并结果不受影响；只修正协作说明中的层级口径。
