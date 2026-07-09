@@ -8,9 +8,12 @@ import {
   type MutableRefObject,
 } from "react";
 import {
+  AdditiveBlending,
+  CanvasTexture,
   DoubleSide,
   Group,
   Mesh,
+  MeshBasicMaterial,
   Object3D,
   Raycaster,
   Vector2,
@@ -43,7 +46,6 @@ import {
   gomokuLocalToBoardPoint,
   GOMOKU_BLACK,
   GOMOKU_GRID_CELL_SPACING,
-  GOMOKU_WHITE,
   type GomokuGameState,
   type GomokuMove,
   type GomokuPoint,
@@ -80,6 +82,10 @@ const stoneSurfaceLift = 0.001;
 const controlButtonWidth = 1.08;
 const controlButtonDepth = 0.25;
 const controlContentWidth = 1.14;
+const boardVictoryGlowColor = "#f6d36f";
+const boardVictoryGlowPlaneSize = gomokuBoardConfig.boardHalfSize * 2 + 0.68;
+const boardVictoryGlowEdgeRatio =
+  gomokuBoardConfig.boardHalfSize / (boardVictoryGlowPlaneSize / 2);
 
 declare global {
   interface Window {
@@ -263,6 +269,111 @@ function WinLineMarker({ point }: { point: GomokuPoint }) {
     >
       <torusGeometry args={[GOMOKU_GRID_CELL_SPACING * 0.46, 0.008, 8, 24]} />
       <meshBasicMaterial color="#f6d36f" />
+    </mesh>
+  );
+}
+
+function setBasicMaterialOpacity(mesh: Mesh | null, opacity: number): void {
+  const material = mesh?.material;
+
+  if (material instanceof MeshBasicMaterial) {
+    material.opacity = opacity;
+  }
+}
+
+function createBoardVictoryGlowTexture(): CanvasTexture | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  canvas.width = size;
+  canvas.height = size;
+
+  if (!context) {
+    return null;
+  }
+
+  const imageData = context.createImageData(size, size);
+  const data = imageData.data;
+  const edgeWidth = 0.16;
+  const [red, green, blue] = [246, 211, 111];
+
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const normalizedX = Math.abs((x / (size - 1)) * 2 - 1);
+      const normalizedY = Math.abs((y / (size - 1)) * 2 - 1);
+      const distanceFromCenter = Math.max(normalizedX, normalizedY);
+      const distanceFromBoardEdge = Math.abs(
+        distanceFromCenter - boardVictoryGlowEdgeRatio,
+      );
+      const glow = Math.max(0, 1 - distanceFromBoardEdge / edgeWidth) ** 2;
+      const index = (y * size + x) * 4;
+
+      data[index] = red;
+      data[index + 1] = green;
+      data[index + 2] = blue;
+      data[index + 3] = Math.round(glow * 255);
+    }
+  }
+
+  context.putImageData(imageData, 0, 0);
+
+  return new CanvasTexture(canvas);
+}
+
+function BoardVictoryGlow() {
+  const meshRef = useRef<Mesh>(null);
+  const texture = useMemo(() => createBoardVictoryGlowTexture(), []);
+
+  useEffect(() => {
+    return () => {
+      texture?.dispose();
+    };
+  }, [texture]);
+
+  useFrame(({ clock }) => {
+    const pulse = (Math.sin(clock.elapsedTime * 3.2) + 1) / 2;
+    const scale = 1 + pulse * 0.025;
+    const mesh = meshRef.current;
+
+    if (mesh) {
+      mesh.scale.set(scale, scale, scale);
+      setBasicMaterialOpacity(mesh, 0.5 + pulse * 0.22);
+    }
+  });
+
+  if (!texture) {
+    return null;
+  }
+
+  return (
+    <mesh
+      position={[
+        0,
+        gomokuBoardPlaySurfaceHeight + stoneSurfaceLift + 0.055,
+        0,
+      ]}
+      ref={meshRef}
+      rotation={[-Math.PI / 2, 0, 0]}
+      userData={{ qa: "gomoku-victory-board-glow" }}
+    >
+      <planeGeometry
+        args={[boardVictoryGlowPlaneSize, boardVictoryGlowPlaneSize]}
+      />
+      <meshBasicMaterial
+        blending={AdditiveBlending}
+        color={boardVictoryGlowColor}
+        depthWrite={false}
+        map={texture}
+        opacity={0.62}
+        side={DoubleSide}
+        toneMapped={false}
+        transparent
+      />
     </mesh>
   );
 }
@@ -938,6 +1049,10 @@ export function GomokuWorldBoard({
         <WinLineMarker key={`${point.x}-${point.y}`} point={point} />
       ))}
 
+      {game.state.status === "terminal" && game.state.winner ? (
+        <BoardVictoryGlow />
+      ) : null}
+
       <mesh
         ref={(mesh) => registerTargetMesh(mesh, boardTarget)}
         position={[0, gomokuBoardSurfaceHeight + 0.02, 0]}
@@ -949,7 +1064,7 @@ export function GomokuWorldBoard({
             gomokuBoardConfig.boardHalfSize * 2,
           ]}
         />
-        <meshBasicMaterial transparent opacity={0} />
+        <meshBasicMaterial depthWrite={false} transparent opacity={0} />
       </mesh>
 
       <mesh
@@ -987,7 +1102,7 @@ export function GomokuWorldBoard({
             gomokuBoardConfig.screenDepth,
           ]}
         />
-        <meshBasicMaterial transparent opacity={0} />
+        <meshBasicMaterial depthWrite={false} transparent opacity={0} />
       </mesh>
 
       <mesh
