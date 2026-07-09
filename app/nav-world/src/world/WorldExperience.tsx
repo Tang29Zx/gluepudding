@@ -160,6 +160,8 @@ function WorldRuntime({
   const [shouldLoadFortuneInteriorByDistance, setShouldLoadFortuneInteriorByDistance] =
     useState(false);
   const shouldLoadFortuneInteriorByDistanceRef = useRef(false);
+  const footstepTimerRef = useRef(0);
+  const footstepPrevRef = useRef([0, 0]);
 
   useFrame(() => {
     const distance = Math.hypot(
@@ -175,6 +177,25 @@ function WorldRuntime({
       shouldLoadFortuneInteriorByDistanceRef.current = nextShouldLoadInterior;
       setShouldLoadFortuneInteriorByDistance(nextShouldLoadInterior);
     }
+
+    // footstep sound (outdoor only)
+    const prevX = footstepPrevRef.current[0];
+    const prevZ = footstepPrevRef.current[1];
+    const dx = player.position.current.x - prevX;
+    const dz = player.position.current.z - prevZ;
+    const moved = Math.sqrt(dx * dx + dz * dz);
+    footstepPrevRef.current[0] = player.position.current.x;
+    footstepPrevRef.current[1] = player.position.current.z;
+
+    if (!shouldLoadFortuneInteriorByDistanceRef.current && moved > 0.02) {
+      const now = performance.now();
+      if (now - footstepTimerRef.current > 480) {
+        footstepTimerRef.current = now;
+        const sfx = new Audio("/audio/footstep.wav");
+        sfx.volume = 0.25;
+        sfx.play().catch(() => {});
+      }
+    }
   });
 
   const shouldLoadFortuneShell = true;
@@ -184,24 +205,95 @@ function WorldRuntime({
       selectedTargetId === "divination-house" ||
       shouldLoadFortuneInteriorByDistance;
 
+  // music only switches by proximity, not by selection/focus
+  const isNearFortuneForMusic = shouldLoadFortuneInteriorByDistance;
+
   // global background music: loading → world → fortune interior
+  // each track keeps its own playback position; switching just pauses/resumes
+  const musicRef = useRef<Record<string, HTMLAudioElement | null>>({
+    loading: null,
+    world: null,
+    fortune: null,
+  });
+  const currentTrackRef = useRef<string | null>(null);
+
   useEffect(() => {
-    const audio = new Audio();
-    audio.loop = true;
-    audio.volume = 0.3;
+    // lazy init all three tracks
+    const tracks: Record<string, string> = {
+      loading: "/audio/loading_bgm.wav",
+      world: "/audio/world_bgm.wav",
+      fortune: "/audio/fortune_bgm.wav",
+    };
+    for (const [key, src] of Object.entries(tracks)) {
+      if (!musicRef.current[key]) {
+        const a = new Audio(src);
+        a.loop = true;
+        a.volume = 0.3;
+        a.preload = "auto";
+        musicRef.current[key] = a;
+      }
+    }
 
-    let src = "/audio/world_bgm.wav";
-    if (isLoading) src = "/audio/loading_bgm.wav";
-    else if (shouldLoadFortuneInterior) src = "/audio/fortune_bgm.wav";
+    const target = isLoading ? "loading" : isNearFortuneForMusic ? "fortune" : "world";
 
-    audio.src = src;
-    audio.play().catch(() => {});
+    // pause previous track, resume (or start) target
+    for (const [key, a] of Object.entries(musicRef.current)) {
+      if (!a) continue;
+      if (key === target) {
+        if (a.readyState < HTMLMediaElement.HAVE_ENOUGH_DATA) {
+          a.load();
+          a.addEventListener("canplaythrough", () => a.play().catch(() => {}), { once: true });
+        } else if (a.paused) {
+          a.play().catch(() => {});
+        }
+      } else {
+        a.pause();
+      }
+    }
+    currentTrackRef.current = target;
+
+    // retry on first user interaction (bypass autoplay policy)
+    const retry = () => {
+      const cur = musicRef.current[currentTrackRef.current!];
+      if (!cur || !cur.paused) return;
+      // wait for enough data if still loading
+      if (cur.readyState < HTMLMediaElement.HAVE_ENOUGH_DATA) {
+        cur.addEventListener("canplaythrough", () => cur.play().catch(() => {}), { once: true });
+      } else {
+        cur.play().catch(() => {});
+      }
+    };
+    const events = ["click", "keydown", "touchstart"] as const;
+    events.forEach((e) => document.addEventListener(e, retry, { once: true }));
 
     return () => {
-      audio.pause();
-      audio.src = "";
+      events.forEach((e) => document.removeEventListener(e, retry));
+      for (const a of Object.values(musicRef.current)) {
+        if (a) { a.pause(); a.src = ""; }
+      }
     };
-  }, [isLoading, shouldLoadFortuneInterior]);
+  }, []); // mount only — switching handled by next effect
+
+  // switch track on state change (without recreating Audio instances)
+  useEffect(() => {
+    const target = isLoading ? "loading" : isNearFortuneForMusic ? "fortune" : "world";
+    if (currentTrackRef.current === target) return;
+
+    for (const [key, a] of Object.entries(musicRef.current)) {
+      if (!a) continue;
+      if (key === target) {
+        if (a.readyState < HTMLMediaElement.HAVE_ENOUGH_DATA) {
+          a.load();
+          a.addEventListener("canplaythrough", () => a.play().catch(() => {}), { once: true });
+        } else {
+          a.play().catch(() => {});
+        }
+      } else {
+        a.pause();
+      }
+    }
+    currentTrackRef.current = target;
+  }, [isLoading, isNearFortuneForMusic]);
 
   return (
     <>

@@ -82,6 +82,15 @@ export function IchingDesk() {
   const [isShaking, setIsShaking] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
+  // shake sound effect
+  useEffect(() => {
+    if (isShaking) {
+      const sfx = new Audio("/audio/shake_cylinder.wav");
+      sfx.volume = 0.4;
+      sfx.play().catch(() => {});
+    }
+  }, [isShaking]);
+
   // load the actual lot cylinder model
   const gltf = useGLTF(CYLINDER_URL);
   const modelScene = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
