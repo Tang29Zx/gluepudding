@@ -141,7 +141,12 @@ function makeCastingPlan(): CoinState[][] {
 }
 
 function yaoFromCoins(states: CoinState[]): YaoValue {
-  return states.reduce((total, coin) => total + coin.result, 0) as YaoValue;
+  const total = states.reduce<number>(
+    (currentTotal, coin) => currentTotal + coin.result,
+    0,
+  );
+
+  return total as YaoValue;
 }
 
 function updateCoinState(state: CoinState, roundTime: number): void {

@@ -470,6 +470,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
   const [forcedFortuneAssetMode] =
     useState<ForcedFortuneAssetMode>(getForcedFortuneAssetMode);
   const [isGameOpen, setIsGameOpen] = useState(false);
+  const worldCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const aimedTarget = getInteractionTargetById(aimedTargetId);
   const focusedModule = focusedModuleId
@@ -623,6 +624,27 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
     setFocusedModuleId(getWorldModuleIdByTargetId(targetId));
     setSelectedTargetId(targetId);
   }, []);
+
+  const restoreWorldPointerLock = useCallback(() => {
+    const canvas = worldCanvasRef.current;
+
+    if (!canvas || document.pointerLockElement === canvas) {
+      return;
+    }
+
+    try {
+      void Promise.resolve(canvas.requestPointerLock()).catch(() => {
+        console.warn("Pointer lock unavailable; 3D world remains active.");
+      });
+    } catch {
+      console.warn("Pointer lock unavailable; 3D world remains active.");
+    }
+  }, []);
+
+  const closeGameOverlay = useCallback(() => {
+    restoreWorldPointerLock();
+    setIsGameOpen(false);
+  }, [restoreWorldPointerLock]);
 
   const activateAimedModuleControl = useCallback(() => {
     if (!aimedModuleControl) {
@@ -807,6 +829,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
         dpr={[1, 1.75]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
         onCreated={({ gl }) => {
+          worldCanvasRef.current = gl.domElement;
           gl.outputColorSpace = SRGBColorSpace;
           gl.toneMapping = ACESFilmicToneMapping;
           gl.toneMappingExposure = 0.96;
@@ -951,7 +974,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
         </button>
       </div>
     </main>
-    {isGameOpen && <GameOverlay onClose={() => setIsGameOpen(false)} />}
+    {isGameOpen && <GameOverlay onClose={closeGameOverlay} />}
     </>
   );
 }

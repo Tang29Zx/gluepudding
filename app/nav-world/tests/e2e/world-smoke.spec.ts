@@ -53,6 +53,60 @@ function collectPageFailures(page: Page): string[] {
   return failures;
 }
 
+test("loads the perspective shadow game iframe page", async ({ page }) => {
+  const failures = collectPageFailures(page);
+  const loadedGameModels = new Set<string>();
+  const readyMessage = page.waitForEvent("console", (message) =>
+    message.text().includes("视角塑影师 ready"),
+  );
+
+  page.on("response", (response) => {
+    const url = response.url();
+    const modelName = url.match(/\/models\/game\/([^/?#]+\.glb)(?:[?#].*)?$/)?.[1];
+
+    if (modelName && response.status() === 200) {
+      loadedGameModels.add(modelName);
+    }
+  });
+
+  await page.goto("/game/shadow-game.html");
+  await readyMessage;
+
+  const canvas = page.locator("#c");
+  await expect(canvas).toBeVisible();
+  await expect
+    .poll(() =>
+      canvas.evaluate((element) => ({
+        height: element.clientHeight,
+        width: element.clientWidth,
+      })),
+    )
+    .toMatchObject({
+      height: expect.any(Number),
+      width: expect.any(Number),
+    });
+
+  const canvasSize = await canvas.evaluate((element) => ({
+    height: element.clientHeight,
+    width: element.clientWidth,
+  }));
+
+  expect(canvasSize.width).toBeGreaterThan(300);
+  expect(canvasSize.height).toBeGreaterThan(150);
+
+  await expect
+    .poll(() =>
+      [
+        "environment_ground.glb",
+        "environment_screen.glb",
+        "environment_pillar.glb",
+      ].every((modelName) => loadedGameModels.has(modelName)),
+    )
+    .toBe(true);
+
+  expect(failures).toEqual([]);
+});
+
 test("loads the 3D world canvas", async ({ page }) => {
   const failures = collectPageFailures(page);
 

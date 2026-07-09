@@ -11,12 +11,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:
 #ui{position:fixed;top:0;left:0;pointer-events:none;width:100%;height:100%;z-index:10}
 #level-info{position:absolute;top:20px;left:20px;color:#fff;font-size:18px;background:rgba(0,0,0,0.6);padding:8px 16px;border-radius:8px}
 #level-info span{color:#ffaa44;font-weight:bold}
-#btn-reset{position:absolute;top:20px;right:180px;pointer-events:auto;background:rgba(0,0,0,0.6);color:#fff;border:1px solid #666;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px}
-#btn-reset:hover{background:rgba(50,50,70,0.8)}
-#btn-hint{position:absolute;top:20px;right:100px;pointer-events:auto;background:rgba(0,0,0,0.6);color:#ffaa44;border:1px solid #ffaa44;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px}
-#btn-hint:hover{background:rgba(60,40,20,0.8)}
-#btn-camera{position:absolute;top:20px;right:20px;pointer-events:auto;background:rgba(0,0,0,0.6);color:#fff;border:1px solid #666;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px}
-#btn-camera:hover{background:rgba(50,50,70,0.8)}
+#top-controls{position:absolute;top:20px;right:20px;display:flex;gap:10px;align-items:center;pointer-events:auto}
+#top-controls button{background:rgba(0,0,0,0.6);color:#fff;border:1px solid #666;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:14px;line-height:1;white-space:nowrap}
+#top-controls button:hover{background:rgba(50,50,70,0.8)}
+#top-controls #btn-hint{color:#ffaa44;border-color:#ffaa44}
+#top-controls #btn-hint:hover{background:rgba(60,40,20,0.8)}
 #hint-banner{position:absolute;top:70px;left:50%;transform:translateX(-50%);color:#ffaa44;font-size:16px;background:rgba(40,20,0,0.9);border:1px solid #ff8866;padding:8px 20px;border-radius:8px;display:none;pointer-events:none;animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 #hint{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);color:#aaa;font-size:14px;text-align:center;transition:opacity 0.5s}
@@ -30,17 +29,24 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:
 #match-label{color:#aaa;font-size:11px}
 #match-fill{height:100%;background:#4f4;border-radius:3px;transition:width 0.3s;width:0%}
 #target-overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;opacity:0.12}
+@media (max-width:620px){
+  #top-controls{top:62px;left:20px;right:auto;flex-wrap:wrap;max-width:calc(100% - 40px)}
+  #top-controls button{padding:8px 12px;font-size:13px}
+  #hint-banner{top:118px}
+}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="ui">
   <div id="level-info">关卡 <span id="lvl-num">1</span> / 10</div>
-  <button id="btn-reset">🔄 重置</button>
-  <button id="btn-hint">💡 提示</button>
-  <button id="btn-camera">📷 复位视角</button>
+  <div id="top-controls" aria-label="游戏控制">
+    <button id="btn-reset">🔄 重置</button>
+    <button id="btn-hint">💡 提示</button>
+    <button id="btn-camera">📷 复位视角</button>
+  </div>
   <div id="hint-banner">💡 提示已展示答案 — 请按重置后自己操作完成</div>
-  <div id="hint">🖱 左键拖拽(水平) &nbsp;|&nbsp; Shift+左键拖拽(上下) &nbsp;|&nbsp; 右键旋转视角 &nbsp;|&nbsp; 滚轮缩放 &nbsp;|&nbsp; R键重置</div>
+  <div id="hint">🖱 左键拖拽物体 &nbsp;|&nbsp; Alt+左键旋转视角 &nbsp;|&nbsp; 滚轮缩放 &nbsp;|&nbsp; R键重置</div>
   <div id="match-bar"><div id="match-fill"></div></div>
   <div id="victory">
     <h2>✨ 完美拼接！</h2>
@@ -87,7 +93,7 @@ camera.position.set(6, 4, 8);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 1, 0);
 controls.enableDamping = true; controls.dampingFactor = 0.08;
-controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null };
 controls.minDistance = 3; controls.maxDistance = 15;
 controls.maxPolarAngle = Math.PI * 0.7;
 controls.update();
@@ -336,6 +342,7 @@ function getIntersections(event) {
 
 canvas.addEventListener('pointerdown', (event) => {
   if (event.button !== 0) return;
+  if (event.altKey) return;
   if (hintAnimating) return;
 
   const intersects = getIntersections(event);
@@ -368,8 +375,18 @@ canvas.addEventListener('pointerdown', (event) => {
 });
 
 let shiftDown = false;
+function resetCameraGesture() {
+  controls.mouseButtons.LEFT = null;
+}
+canvas.addEventListener('pointerdown', (event) => {
+  controls.mouseButtons.LEFT =
+    event.button === 0 && event.altKey ? THREE.MOUSE.ROTATE : null;
+}, true);
+canvas.addEventListener('contextmenu', (event) => event.preventDefault());
 window.addEventListener('keydown', (e) => { if (e.key === 'Shift') shiftDown = true; });
 window.addEventListener('keyup', (e) => { if (e.key === 'Shift') shiftDown = false; });
+window.addEventListener('keyup', (e) => { if (e.key === 'Alt') resetCameraGesture(); });
+window.addEventListener('blur', () => { shiftDown = false; resetCameraGesture(); });
 
 window.addEventListener('pointermove', (event) => {
   if (isDragging && dragTarget) {
@@ -383,7 +400,7 @@ window.addEventListener('pointermove', (event) => {
       dragTarget.position.y = THREE.MathUtils.clamp(dragTarget.position.y + deltaY, 0.72, 3.5);
       prevMouseY = event.clientY;
     } else {
-      // Normal: horizontal movement on fixed-height plane
+      // Normal drag: horizontal movement on fixed-height plane
       const pt = new THREE.Vector3();
       if (raycaster.ray.intersectPlane(dragPlane, pt)) {
         const newPos = pt.clone().sub(dragOffset);
@@ -426,6 +443,7 @@ window.addEventListener('pointermove', (event) => {
 window.addEventListener('pointerup', () => {
   isDragging = false;
   dragTarget = null;
+  resetCameraGesture();
   canvas.style.cursor = 'default';
   checkMatch();
 });
