@@ -16,6 +16,7 @@ import {
   type FortuneModelAsset,
 } from "./fortuneModelAssets";
 import { ZodiacWheel } from "./ZodiacWheel";
+import { TarotTable } from "./TarotTable";
 
 interface FortuneAssetStageProps {
   shouldLoadInterior: boolean;
@@ -35,11 +36,6 @@ interface FortuneAssetBoundaryState {
 const tentDoorFacingSpawnYaw = -2.47;
 const coordinateTicks = [-8, -6, -4, -2, 2, 4, 6, 8] as const;
 const blankScreenDefinitions = [
-  {
-    id: "tarot",
-    position: [0, 2.0, 5.85],
-    rotation: [0, Math.PI, 0],
-  },
   {
     id: "iching",
     position: [7.45, 2.0, 0],
@@ -332,6 +328,7 @@ export function FortuneAssetStage({
             <InteriorModels />
             <BlankContentScreens />
             <ZodiacWheel />
+            <TarotTable />
           </Suspense>
         </FortuneAssetBoundary>
       ) : null}
