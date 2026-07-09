@@ -268,56 +268,89 @@ function CardFaceTexture({ index, onLoad }: { index: number; onLoad: (tex: Textu
   return null;
 }
 
+// ---- reveal center layout ----
+const REVEAL_CENTER_Y = 2.1;
+const REVEAL_CENTER_Z = 4;
+const REVEAL_GAP = 0.65;
+
+function revealTargetPos(selectedIndex: number, totalSelected: number[]): [number, number, number] {
+  const order = totalSelected.indexOf(selectedIndex);
+  return [(order - 1) * REVEAL_GAP, REVEAL_CENTER_Y, REVEAL_CENTER_Z];
+}
+
 // ---- single arc card ----
 function ArcCard({
   index, isHovered, isSelected, flipProgress, cardFaceTexture, cardPlaneRef,
+  phase, selectedIndexes,
 }: {
   index: number; isHovered: boolean; isSelected: boolean; flipProgress: number;
   cardFaceTexture: Texture | null;
   cardPlaneRef: (mesh: Mesh | null) => void;
+  phase: string;
+  selectedIndexes: number[];
 }) {
   const pos = cardPosition(index);
   const yaw = cardYaw(pos);
   const groupRef = useRef<Group>(null!);
-  const targetYRef = useRef(pos[1]);
-  const currentYRef = useRef(pos[1]);
+  const currentPosRef = useRef([pos[0], pos[1], pos[2]]);
+  const currentYawRef = useRef(yaw);
   const cardBackTex = useMemo(() => new CanvasTexture(createCardBackCanvas()), []);
 
-  targetYRef.current = isSelected && flipProgress === 0 ? pos[1] + FLOAT_Y : pos[1];
+  const isReveal = phase === "reveal";
+  const target = isReveal && isSelected
+    ? revealTargetPos(index, selectedIndexes)
+    : [pos[0], isSelected ? pos[1] + FLOAT_Y : pos[1], pos[2]];
+  const targetYaw = isReveal && isSelected ? 0 : yaw;
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
-    const tgt = targetYRef.current;
-    const cur = currentYRef.current;
-    const next = cur + (tgt - cur) * Math.min(delta * 10, 1);
-    currentYRef.current = next;
-    groupRef.current.position.setY(next);
+    const t = delta * 6;
+    const c = currentPosRef.current;
+    const p = groupRef.current.position;
+    p.set(
+      c[0] + (target[0] - c[0]) * Math.min(t, 1),
+      c[1] + (target[1] - c[1]) * Math.min(t, 1),
+      c[2] + (target[2] - c[2]) * Math.min(t, 1),
+    );
+    currentPosRef.current = [p.x, p.y, p.z];
+
+    const cy = currentYawRef.current;
+    const ny = cy + (targetYaw - cy) * Math.min(t, 1);
+    groupRef.current.rotation.y = ny;
+    currentYawRef.current = ny;
   });
 
   const scaleX = Math.cos(flipProgress * Math.PI);
   const showFace = flipProgress > 0.5;
+  const showHoverUI = !isReveal;
 
   return (
     <group ref={groupRef} position={[pos[0], pos[1], pos[2]]} rotation={[0, yaw, 0]}>
-      {isSelected && flipProgress === 0 && (
+      {isSelected && !isReveal && (
         <mesh position={[0, 0, 0.01]}>
           <planeGeometry args={[CARD_W + 0.06, CARD_H + 0.06]} />
           <meshBasicMaterial color="#c9a84c" side={DoubleSide} transparent opacity={0.5} depthWrite={false} />
         </mesh>
       )}
 
-      {/* card plane — also used as raycast target */}
-      <mesh ref={cardPlaneRef} scale-x={scaleX}>
+      {/* card plane */}
+      <mesh ref={cardPlaneRef} scale-x={isReveal ? scaleX : 1}>
         <planeGeometry args={[CARD_W, CARD_H]} />
         <meshBasicMaterial
           map={showFace ? (cardFaceTexture ?? cardBackTex) : cardBackTex}
           side={DoubleSide}
           transparent
-          opacity={isHovered && flipProgress === 0 ? 1 : 0.9}
+          opacity={isHovered && showHoverUI ? 1 : 0.9}
         />
       </mesh>
 
-      {isHovered && !isSelected && flipProgress === 0 && (
+      {isHovered && !isSelected && showHoverUI && (
+        <mesh position={[0, 0, 0.006]}>
+          <planeGeometry args={[CARD_W + 0.04, CARD_H + 0.04]} />
+          <meshBasicMaterial color="#ffd977" side={DoubleSide} transparent opacity={0.4} depthWrite={false} />
+        </mesh>
+      )}
+      {isHovered && isReveal && flipProgress >= 1 && (
         <mesh position={[0, 0, 0.006]}>
           <planeGeometry args={[CARD_W + 0.04, CARD_H + 0.04]} />
           <meshBasicMaterial color="#ffd977" side={DoubleSide} transparent opacity={0.4} depthWrite={false} />
@@ -346,6 +379,8 @@ export function TarotTable() {
   const raycasterRef = useRef(new Raycaster());
   const hoveredCrystalRef = useRef(false);
   const hoveredCardRef = useRef<number | null>(null);
+  const flipDelayRef = useRef(0);
+  const FLIP_DELAY_MS = 900;
   const flipStartRef = useRef(0);
 
   const { canvas: offCanvas, texture: screenTex } = useMemo(() => createScreenCanvas(), []);
@@ -363,9 +398,23 @@ export function TarotTable() {
     screenTex.needsUpdate = true;
   }, [phase, selectedIndexes, result, offCanvas, screenTex]);
 
-  // flip animation
+  // reset flip on enter reveal
+  useEffect(() => {
+    if (phase === "reveal") setFlipProgress(0);
+  }, [phase]);
+
+  // flip animation — delayed to let cards settle
   useFrame((_, delta) => {
-    if (phase !== "reveal") return;
+    if (phase !== "reveal") {
+      flipDelayRef.current = 0;
+      return;
+    }
+    const now = performance.now();
+    if (flipDelayRef.current === 0) {
+      flipDelayRef.current = now + FLIP_DELAY_MS;
+      return;
+    }
+    if (now < flipDelayRef.current) return;
     setFlipProgress((prev) => {
       const next = prev + delta / FLIP_DURATION;
       return next >= 1 ? 1 : next;
@@ -380,6 +429,25 @@ export function TarotTable() {
       const h = hits.length > 0;
       if (hoveredCrystalRef.current !== h) { hoveredCrystalRef.current = h; setHoveredCrystal(h); }
       if (hoveredCardRef.current !== null) { hoveredCardRef.current = null; setHoveredCardIdx(null); }
+      return;
+    }
+    if (phase === "reveal") {
+      // check both crystal and cards
+      const crystalHits = crystalMeshRef.current ? raycasterRef.current.intersectObject(crystalMeshRef.current, false) : [];
+      const cards = Array.from(cardMeshMap.current.entries());
+      const cardHits = raycasterRef.current.intersectObjects(cards.map(([, m]) => m), false);
+      if (cardHits.length > 0) {
+        const found = cards.find(([, m]) => m === (cardHits[0].object as Mesh));
+        const idx = found ? found[0] : null;
+        if (hoveredCardRef.current !== idx) { hoveredCardRef.current = idx; setHoveredCardIdx(idx); }
+        if (hoveredCrystalRef.current) { hoveredCrystalRef.current = false; setHoveredCrystal(false); }
+      } else if (crystalHits.length > 0) {
+        if (!hoveredCrystalRef.current) { hoveredCrystalRef.current = true; setHoveredCrystal(true); }
+        if (hoveredCardRef.current !== null) { hoveredCardRef.current = null; setHoveredCardIdx(null); }
+      } else {
+        if (hoveredCrystalRef.current) { hoveredCrystalRef.current = false; setHoveredCrystal(false); }
+        if (hoveredCardRef.current !== null) { hoveredCardRef.current = null; setHoveredCardIdx(null); }
+      }
       return;
     }
     if (phase === "select") {
@@ -406,6 +474,25 @@ export function TarotTable() {
         (q) => { setQuestion(q); setSelectedIndexes([]); setHoveredCrystal(false); setPhase("select"); setTimeout(() => domElement.requestPointerLock?.(), 150); },
         () => { setPhase("idle"); setHoveredCrystal(false); setTimeout(() => domElement.requestPointerLock?.(), 150); },
       );
+      return;
+    }
+    if (phase === "reveal" && hoveredCardRef.current !== null) {
+      event.preventDefault(); event.stopPropagation();
+      setPhase("idle");
+      setSelectedIndexes([]);
+      setFlipProgress(0);
+      setHoveredCrystal(false);
+      setHoveredCardIdx(null);
+      return;
+    }
+    if (phase === "reveal" && hoveredCrystalRef.current) {
+      event.preventDefault(); event.stopPropagation();
+      setPhase("idle");
+      setSelectedIndexes([]);
+      setResult(null);
+      setFlipProgress(0);
+      setCardFaceTextures(new Map());
+      setHoveredCrystal(false);
       return;
     }
     if (phase === "select" && hoveredCardRef.current !== null) {
@@ -448,8 +535,8 @@ export function TarotTable() {
 
   return (
     <group>
-      {/* crystal */}
-      {phase === "idle" && <>
+      {/* crystal — idle and reveal */}
+      {(phase === "idle" || phase === "reveal") && <>
         <CrystalGlow isHovered={hoveredCrystal} />
         <mesh ref={crystalMeshRef} position={CRYSTAL_POS}>
           <sphereGeometry args={[CRYSTAL_RAYCAST_R, 8, 6]} />
@@ -459,6 +546,9 @@ export function TarotTable() {
 
       {/* card arc */}
       {(phase === "select" || phase === "reveal") && Array.from({ length: CARD_COUNT }, (_, i) => {
+        // in reveal phase, only keep selected cards
+        if (phase === "reveal" && !selectedIndexes.includes(i)) return null;
+
         const isHovered = hoveredCardIdx === i;
         const isSelected = selectedIndexes.includes(i);
         const isRevealedCard = phase === "reveal" && isSelected;
@@ -469,8 +559,9 @@ export function TarotTable() {
               flipProgress={isRevealedCard ? flipProgress : 0}
               cardFaceTexture={cardFaceTextures.get(i) ?? null}
               cardPlaneRef={(m) => registerCard(i, m)}
+              phase={phase}
+              selectedIndexes={selectedIndexes}
             />
-            {/* load face texture if this card was selected */}
             {isRevealedCard && !cardFaceTextures.has(i) && (
               <CardFaceTexture index={i} onLoad={(tex) => handleFaceTextureLoad(i, tex)} />
             )}
