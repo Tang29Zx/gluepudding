@@ -104,3 +104,14 @@
 画面变化：是，旧 Gomoku 面板、小球、靠近环和黄色占位地板不再渲染。
 截图：本轮未新增截图；用户正在实机测试。
 剩余风险：旧 `gomoku` 模块定义暂保留在注册表中以减少类型边界改动，但不会渲染到当前世界；后续若彻底删除 Layer 4 旧五子棋模块契约，需要同步收敛 `WorldModuleId` 和相关注册表类型。
+
+日期：2026-07-09
+版本 / Layer：Layer 12 Gomoku 可踩面高度过渡
+现象：用户反馈人在上下有高度的东西时会突然往上 / 往下，尤其在棋盘和水平控制屏这类可踩 overlay 上影响舒适度。
+原因判断：Gomoku overlay 原先只在棋盘矩形和控制屏矩形内返回固定平台高度；进入、离开边缘或经过棋盘与控制屏之间的可见缝隙时，脚下高度可能在平台高度和真实地形高度之间突然切换。相机此前又直接跟随玩家高度，因此体感为突然上 / 下。
+解决方案：将棋盘、控制屏和中间可见缝隙按一个组合可踩 footprint 参与地形采样；在组合 footprint 外围增加约 `0.46m` 的高度过渡带，基于真实地形高度平滑抬升到平台高度；同时在 Layer 2 的 `CameraRig` 中增加相机高度平滑跟随，降低剩余小高度差带来的不适。
+涉及文件：`app/nav-world/src/modules/gomoku/gomokuWorldTypes.ts`、`app/nav-world/src/world/WorldExperience.tsx`、`app/nav-world/src/world/CameraRig.tsx`、`app/nav-world/src/world/sceneConfig.ts`、`validation/layer-2/debug.md`、`MEMORY.md`
+验证结果：`npx tsc --noEmit` 通过；`npm run assets:check` 通过；`npm run build` 通过，仍有既有 `WorldExperience` chunk 超 500KB 警告。
+画面变化：是，玩家走上 / 走下棋盘控制屏区域时的高度过渡行为改变；棋盘和控制屏之间的缝隙不再让玩家高度掉回地形。
+截图：本轮未新增截图；用户前面已明确这类实机视觉 / 手感调整由用户测试，Codex 使用类型检查、资源检查和构建作为替代验证。
+剩余风险：未做自动化路径行走截图或帧级高度曲线验证；边缘过渡距离和相机阻尼仍需用户实机确认手感。

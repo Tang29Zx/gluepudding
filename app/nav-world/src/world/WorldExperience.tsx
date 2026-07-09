@@ -133,9 +133,11 @@ function WorldRuntime({
 
     return {
       sampleGround(x, z) {
+        const terrainSample = placementTerrainSampler.sampleGround(x, z);
+
         return (
-          sampleGomokuSurface(gomokuPlacement, x, z) ??
-          placementTerrainSampler.sampleGround(x, z)
+          sampleGomokuSurface(gomokuPlacement, x, z, terrainSample) ??
+          terrainSample
         );
       },
     };

@@ -57,6 +57,7 @@
 - 2026-07-09：`resources/gomoku-ai-academy-submission/` 复用评估结论：Layer 6 实验室模拟层不复用此包，因为它没有 WebRTC、RDK 模型、门禁或设备状态能力。Layer 12 可复用其五子棋能力，但不建议整包搬入主工程；优先抽 `iphone/ai_worker.js` 的 25x25 Worker AI 协议、棋盘状态机、胜负判断、`COURSE_PUZZLES` 和必要 canvas/R3F 渲染思路。Python 规则层当前 `BOARD_SIZE = 45`，PWA/Worker 为 25，不能直接混用。该包未发现明确 LICENSE / attribution 文件，进入主仓或上线前需要补许可证和素材来源确认。
 - 2026-07-09：Layer 12 原生五子棋资产已新增到 `app/nav-world/public/models/gomoku/`：`gomoku_board.glb`、`black_stone.glb`、`white_stone.glb`。模型由 `app/nav-world/scripts/generate-gomoku-models.mjs` 生成，棋盘为 25x25，当前棋盘约 3.253m x 3.253m x 0.116m、格距 0.12m，棋子约 0.16m 直径、0.054m 高；GLB `extras` 记录格距、棋盘顶面和用途。`@gltf-transform/cli` 已作为 `app/nav-world` 开发依赖，用于 `assets:gomoku:validate`。Blender 未安装，本次低面数资产采用脚本生成，便于后续改尺寸和重复生成。
 - 2026-07-09：Layer 12 世界内五子棋交互外壳采用稳定热键约定：`G` 只负责在准星指向地面展开棋盘或移动已展开棋盘，`H` 负责收回棋盘；控制屏上的“收回棋盘”按钮同样真实收回，其余控制屏按钮暂为占位反馈。不要再用“准星对准棋盘时按 G 收回”的方案，因为自动化和实机场景容易受射线命中帧状态影响。
+- 2026-07-09：玩家踩上棋盘、控制屏等低矮可踩物体时，第一人称相机高度不再直接瞬移到脚下目标高度；`CameraRig` 使用垂直阻尼和最大升降速度平滑跟随，大幅高度变化才 snap。Gomoku 棋盘和控制屏在地形采样层按一个组合可踩 footprint 处理，包含中间可见缝隙，并在外围增加约 `0.46m` 的高度过渡带，避免边缘和缝隙造成突然上下跳。
 
 ## /new handoff
 

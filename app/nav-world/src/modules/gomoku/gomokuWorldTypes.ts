@@ -34,6 +34,7 @@ export const gomokuBoardConfig = {
   screenGap: 0.22,
   screenThickness: 0.08,
   screenWidth: 1.72,
+  walkableEdgeBlend: 0.46,
 } as const;
 
 export const gomokuScreenCenterX =
@@ -47,6 +48,53 @@ export const gomokuBoardSurfaceHeight =
 export const gomokuScreenSurfaceHeight = gomokuBoardSurfaceHeight;
 
 const gomokuSurfaceNormal = new Vector3(0, 1, 0);
+
+const gomokuWalkableBounds = {
+  maxX: gomokuScreenCenterX + gomokuBoardConfig.screenWidth / 2,
+  maxZ: Math.max(
+    gomokuBoardConfig.boardHalfSize,
+    gomokuBoardConfig.screenDepth / 2,
+  ),
+  minX: -gomokuBoardConfig.boardHalfSize,
+  minZ: -Math.max(
+    gomokuBoardConfig.boardHalfSize,
+    gomokuBoardConfig.screenDepth / 2,
+  ),
+} as const;
+
+function clamp01(value: number): number {
+  return Math.min(1, Math.max(0, value));
+}
+
+function smoothstep(value: number): number {
+  const clamped = clamp01(value);
+
+  return clamped * clamped * (3 - 2 * clamped);
+}
+
+function getDistanceOutsideWalkableBounds(localX: number, localZ: number): number {
+  const distanceX = Math.max(
+    gomokuWalkableBounds.minX - localX,
+    0,
+    localX - gomokuWalkableBounds.maxX,
+  );
+  const distanceZ = Math.max(
+    gomokuWalkableBounds.minZ - localZ,
+    0,
+    localZ - gomokuWalkableBounds.maxZ,
+  );
+
+  return Math.hypot(distanceX, distanceZ);
+}
+
+function isInsideWalkableBounds(localX: number, localZ: number): boolean {
+  return (
+    localX >= gomokuWalkableBounds.minX &&
+    localX <= gomokuWalkableBounds.maxX &&
+    localZ >= gomokuWalkableBounds.minZ &&
+    localZ <= gomokuWalkableBounds.maxZ
+  );
+}
 
 export function worldToGomokuLocal(
   placement: GomokuPlacement,
@@ -109,24 +157,37 @@ export function sampleGomokuSurface(
   placement: GomokuPlacement | null,
   x: number,
   z: number,
+  baseGround?: TerrainSample | null,
 ): TerrainSample | null {
   if (!placement) {
     return null;
   }
 
-  if (isPointOnGomokuScreen(placement, x, z)) {
+  const local = worldToGomokuLocal(placement, x, z);
+  const surfaceY = placement.center[1] + gomokuBoardSurfaceHeight;
+
+  if (isInsideWalkableBounds(local.x, local.z)) {
     return {
       normal: gomokuSurfaceNormal,
-      y: placement.center[1] + gomokuScreenSurfaceHeight,
+      y: surfaceY,
     };
   }
 
-  if (isPointOnGomokuBoard(placement, x, z)) {
-    return {
-      normal: gomokuSurfaceNormal,
-      y: placement.center[1] + gomokuBoardSurfaceHeight,
-    };
+  if (!baseGround || baseGround.y >= surfaceY) {
+    return null;
   }
 
-  return null;
+  const distanceOutside = getDistanceOutsideWalkableBounds(local.x, local.z);
+
+  if (distanceOutside > gomokuBoardConfig.walkableEdgeBlend) {
+    return null;
+  }
+
+  const blend =
+    1 - smoothstep(distanceOutside / gomokuBoardConfig.walkableEdgeBlend);
+
+  return {
+    normal: gomokuSurfaceNormal,
+    y: baseGround.y + (surfaceY - baseGround.y) * blend,
+  };
 }
