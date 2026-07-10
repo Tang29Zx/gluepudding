@@ -48,13 +48,23 @@ export const worldScale = {
 };
 
 export const worldTerrain = {
-  modelUrl: staticAssetUrl("./models/world/island.glb"),
+  modelUrl: staticAssetUrl("./models/world/ground.glb"),
   position: [-14.4, -10, 3.5] satisfies Vector3Tuple,
   scale: 6,
   walkableMeshNames: ["Icosphere"] as const,
   raycastStartY: 80,
   raycastDistance: 180,
   minWalkableNormalY: 0.72,
+};
+
+export const worldScenery = {
+  decorModelUrl: staticAssetUrl("./models/world/central-decor.glb"),
+  sakuraLowModelUrl: staticAssetUrl("./models/world/sakura-tree-low.glb"),
+  sakuraMidModelUrl: staticAssetUrl("./models/world/sakura-tree-mid.glb"),
+  sakuraHighModelUrl: staticAssetUrl("./models/world/sakura-tree-high.glb"),
+  sakuraWorldCenter: [-10.9, 18.7, -36.7] satisfies Vector3Tuple,
+  midLoadRadius: 68,
+  highLoadRadius: 45,
 };
 
 export const landmarkPositions = {

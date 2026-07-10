@@ -89,7 +89,9 @@ npm run preview -- --host 127.0.0.1 --port 4174
 说明：
 
 - `npm run dev`：启动开发服务器。
-- `npm run assets:world:prepare`：从 `resources/float-island-low-ploy.zip` 解出 `source/island.glb` 到 `app/nav-world/public/models/world/island.glb`，只在本地重新生成源模型时需要。
+- `npm run assets:world:prepare`：从 `resources/float-island-low-ploy.zip` 解出 `source/island.glb`，生成地面、中央装饰和樱花树低 / 中 / 高 LOD 五个 Meshopt GLB；只在本地重新生成世界模型时需要。
+- `npm run assets:streaming:prepare`：重新准备世界、占卜屋和实验室模型，再统一执行流式资源压缩；需要本地 `resources/` 输入。
+- `npm run assets:audio:optimize`：只将高于 160kbps 的三首 BGM 降到 128kbps，已优化文件不会重复转码。
 - `npm run build`：类型检查、构建并清理未跟踪旧资源。
 - `npm run assets:check`：只检查构建资源清理状态，不修改文件。
 - `npm run preview`：预览构建结果。
@@ -129,12 +131,15 @@ npm run preview -- --host 127.0.0.1 --port 4174
 
 `.gitignore` 已经忽略整个 `resources/`。
 
-Layer 4.5 还会生成运行时模型文件：
+Layer 4.5 的世界资源准备流程会在 `app/nav-world/public/models/world/` 生成五个运行时模型：
 
-- `app/nav-world/public/models/world/island.glb`
-- `app/frontend/models/world/island.glb`
+- `ground.glb`
+- `central-decor.glb`
+- `sakura-tree-low.glb`
+- `sakura-tree-mid.glb`
+- `sakura-tree-high.glb`
 
-其中 `app/nav-world/public/models/world/island.glb` 是运行时源模型，暂不由 Git LFS 追踪；`app/frontend/models/world/island.glb` 是构建输出，继续被 `.gitignore` 忽略，不要提交。
+这些运行时源模型暂不由 Git LFS 追踪；构建时会复制到 `app/frontend/models/world/`，该构建输出继续被 `.gitignore` 忽略，不要提交。旧的整岛 `island.glb` 已退出运行时和构建产物。
 
 ## 协作者适合做的工作
 
@@ -180,7 +185,7 @@ npm run assets:check
 Layer 4 / 4.5 已确认的方向：
 
 - 模块表面常驻贴在 3D 世界物体上。
-- 世界基础地形使用 `app/nav-world/public/models/world/island.glb`；`resources/float-island-low-ploy.zip` 只在需要重新生成源模型时使用，`.glb` 暂不使用 Git LFS 追踪。
+- 世界基础地形、中央装饰和樱花树 LOD 使用 `app/nav-world/public/models/world/` 下的五个拆分 GLB；`resources/float-island-low-ploy.zip` 只在需要重新生成这些源模型时使用，`.glb` 暂不使用 Git LFS 追踪。
 - 玩家贴地使用 GLB 主岛体 `Icosphere` 的最高朝上命中面，不做树木、房屋墙体或装饰物碰撞。
 - 占卜屋、实验室、五子棋不通过整页跳转打开。
 - 主交互保持在 Canvas 内。

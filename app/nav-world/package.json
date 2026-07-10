@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "assets:world:prepare": "node scripts/prepare-world-assets.mjs",
+    "assets:world:validate": "gltf-transform validate public/models/world/ground.glb && gltf-transform validate public/models/world/central-decor.glb && gltf-transform validate public/models/world/sakura-tree-low.glb && gltf-transform validate public/models/world/sakura-tree-mid.glb && gltf-transform validate public/models/world/sakura-tree-high.glb",
+    "assets:streaming:prepare": "npm run assets:world:prepare && npm run assets:fortune:prepare && npm run assets:laboratory:generate && npm run assets:streaming:optimize",
+    "assets:streaming:optimize": "node scripts/optimize-streaming-assets.mjs",
+    "assets:audio:optimize": "node scripts/optimize-audio-assets.mjs",
     "assets:fortune:prepare": "node scripts/prepare-fortune-assets.mjs",
     "assets:fortune:check": "node scripts/prepare-fortune-assets.mjs --check",
     "assets:gomoku:generate": "node scripts/generate-gomoku-models.mjs",
@@ -30,10 +34,14 @@
   },
   "devDependencies": {
     "@gltf-transform/cli": "^4.4.1",
+    "@gltf-transform/core": "^4.4.1",
+    "@gltf-transform/extensions": "^4.4.1",
+    "@gltf-transform/functions": "^4.4.1",
     "@playwright/test": "^1.61.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "meshoptimizer": "~1.0.1",
     "typescript": "^6.0.3",
     "vite": "^8.1.3"
   }

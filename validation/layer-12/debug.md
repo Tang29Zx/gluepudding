@@ -159,3 +159,17 @@
 画面变化：是，棋子贴近棋盘格线面，降低悬浮感和远景视差。
 截图：`validation/layer-12/gomoku-stone-grounded-far-desktop.png`、`validation/layer-12/gomoku-stone-grounded-mobile.png`
 剩余风险：Layer 12 已按用户实机确认验收；玩家对战、训练、复盘、PWA 嵌入、后端 API 和持久化仍不属于本层范围。
+
+## 2026-07-10 / 五子棋模型按 G 加载
+
+现象：五子棋棋盘在未按 `G` 前不存在于世界中，但旧组件在页面启动时已经执行三个 `useGLTF`，使棋盘和黑白棋子进入全量首屏下载清单。
+
+解决方案：新增不依赖 GLB 的 `GomokuBoardActivation`，在棋盘未展开时只监听 `G` 并计算摆放位置；产生 placement 后才挂载原 `GomokuWorldBoard`，由其下载棋盘和黑白棋子。加载期间保留“棋盘正在展开”HUD，模型完成后出现真实棋盘。
+
+涉及文件：`app/nav-world/src/modules/gomoku/GomokuWorldBoard.tsx`、`app/nav-world/src/world/WorldScene.tsx`、`app/nav-world/src/assets/worldAssetManifest.ts`。
+
+验证结果：TypeScript 和生产构建通过；未运行 Playwright。
+
+画面变化：未按 `G` 时无棋盘；首次按 `G` 后可能出现短暂加载提示，再显示棋盘。已展开后的移动、收回和棋局状态仍由原组件处理。
+
+剩余风险：首次按 `G` 的加载过渡需要用户实机确认；三个模型合计很小，预计只产生短暂停顿。

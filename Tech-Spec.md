@@ -45,6 +45,16 @@ POST /api/fortune/admin/iching/ai
 - AI 服务由 `gluepudding-fortune-ai.service` 管理；运行数据位于 `/var/lib/gluepudding-fortune-ai/`，secret 位于独立 EnvironmentFile。
 - `vite preview` 仅用于本地和 CI，生产切换成功后删除 PM2 中的 `gluepudding` preview 进程。
 
+## 可见资源优先与场景流式加载
+
+- “首次加载完成”的定义是：玩家位于出生点 `[0, 1.15, 40]`，在不移动的情况下正常 360° 转头和上下观察，所有肉眼可见内容均已完成下载、GLTF / 纹理解码和首次挂载；进入世界后不得出现可见建筑、地形或材质突然补上。
+- 首次关键资源包括：可行走地面与碰撞、中央装饰、樱花树远景 LOD、占卜屋帐篷与魔法阵、地面传送台、天空实验室远景外壳 / 玻璃地板 / 传送台，以及代码生成的游戏入口、模块面板和版权备案屏。
+- 首次不阻塞资源包括：占卜屋室内、塔罗牌面、天空实验室近景细节与 WebRTC、未展开的五子棋、未进入的游戏内容和所有背景音乐。
+- Island 输入按加载生命周期拆为 `ground.glb`、`central-decor.glb`、`sakura-tree-low.glb`、`sakura-tree-mid.glb` 和 `sakura-tree-high.glb`。`ground.glb` 保留 `Icosphere` / `Plane` 节点名和地形采样契约；树木低 / 中 LOD 必须首次可见，高 LOD 靠近后在低模仍显示时后台加载。
+- 首次资源并行下载但限制并发，显示文件内字节进度；关键资源最多重试 3 次，失败后进入明确错误 / 重试状态，不建立无限重试。非关键资源失败不得阻塞可移动世界。
+- 大型几何统一使用 `EXT_meshopt_compression`。Teleporter 的内嵌 PNG 当前转换为内嵌 WebP，将模型从约 5.75MB 降到约 3.37MB；KTX2 仍需补充本地 `toktx` 编码器和 Basis transcoder 后再切换，不得依赖外部 CDN 解码器。
+- 首次阻塞资源目标为约 6～8 MiB；在约 4 Mbps 链路下目标为十几秒进入可移动状态。最终以出生点实机 360° 无可见 pop-in 为硬验收，不以文件数单独判断。
+
 ## Layer 4：模块外壳层
 
 目标：让占卜屋、实验室、五子棋都能作为常驻 3D 模块表面贴在世界物体上，不发生整页跳转，也不让鼠标焦点离开 Canvas。
@@ -103,9 +113,9 @@ gomoku-board     -> gomoku
 
 ### 接入边界
 
-- 大场景源模型位于 `app/nav-world/public/models/world/island.glb`，体积约 86MB；当前暂不使用 Git LFS 追踪 `.glb`，也可通过 `npm run assets:world:prepare` 从本地 `resources/float-island-low-ploy.zip` 重新生成。
-- 构建后模型会复制到 `app/frontend/models/world/island.glb`；该构建输出继续被 `.gitignore` 忽略，不提交普通 Git。
-- GLB 使用 `scale = 6`、`position = [-14.4, -10, 3.5]`，作为世界基础地形；旧圆形地板和网格只作为 GLB 加载中或加载失败兜底。
+- 大场景运行时不再使用整岛 `island.glb`。`npm run assets:world:prepare` 从本地约 86.47MB 输入生成 `ground.glb`、`central-decor.glb` 和樱花树低 / 中 / 高 LOD；运行时源文件位于 `app/nav-world/public/models/world/`，当前暂不使用 Git LFS。
+- 构建后五个世界分片复制到 `app/frontend/models/world/`；构建输出继续被 `.gitignore` 忽略，不提交普通 Git。
+- 五个 GLB 统一使用 `scale = 6`、`position = [-14.4, -10, 3.5]`。`ground.glb` 是基础地形；旧圆形地板和网格只作为加载中或加载失败兜底。
 - 玩家贴地对 GLB 主岛体 `Icosphere` 做射线采样，并选择最高的朝上可走命中；树木、房屋墙体和装饰物第一版不参与碰撞。
 - 无地形命中或坡度过陡时阻止水平移动，避免玩家走出浮岛。
 - 出生点、占卜屋、实验室和五子棋区域已重排到浮岛空地，模块表面和交互命中点跟随新锚点。
@@ -129,9 +139,11 @@ gomoku-board     -> gomoku
 
 ### 加载策略
 
-- 正常首屏不 preload 占卜屋模型。
-- 玩家靠近占卜屋中心时加载帐篷外壳。
-- 玩家更靠近、聚焦 `divination` 模块、选中占卜屋，或使用验证参数 `?fortuneAssets=interior` 时加载室内轻量道具。
+- 帐篷和魔法阵属于出生点可见外壳，随首次关键资源加载；室内模型不进入首屏阻塞清单。
+- 首次关键场景完成后立即启动后台串行队列：先下载并解析占卜屋室内，再下载并解析樱花中模，最后下载并解析樱花高模；不再等待玩家靠近。该队列不阻止玩家移动。
+- 右上角只在模型尚未就绪时显示字节/解析进度。进入门口迷雾后，必须同时满足室内资源下载完成以及 Three.js 解码挂载完成，才允许雾气散开；下载失败保持遮挡并自动重试。
+- 延迟模型不得直接依赖 Three.js LoadingManager 的文件计数作为 HUD；樱花树中/高 LOD、占卜屋室内和五子棋使用具名下载任务，按响应字节显示大小、百分比和速度。任务从 fetch 开始持续到 Suspense 子树提交，避免文件切换或下载完成、解析未完成时提示消失。
+- 樱花中模和高模虽然提前下载，但显示仍使用距离 LOD：68m 内切到中模、45m 内切到高模，远处继续渲染低模，避免提前下载导致远距离也常驻高模、增加 GPU 压力。
 - 验证参数 `?fortuneAssets=shell` 和 `?fortuneAssets=interior` 只用于截图和网络验证，不作为真实业务入口。
 
 ### 当前摆位

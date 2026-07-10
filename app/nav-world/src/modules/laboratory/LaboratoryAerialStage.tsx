@@ -1,5 +1,6 @@
 import { Text, useGLTF } from "@react-three/drei";
-import { useMemo } from "react";
+import { useFrame } from "@react-three/fiber";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DoubleSide, Group, Mesh } from "three";
 import {
   landmarkPositions,
@@ -10,6 +11,7 @@ import { staticAssetUrl } from "../../assets/staticAssetUrl";
 import type {
   LaboratoryAccessSnapshot,
 } from "../../adapters/laboratoryAuth";
+import type { PlayerControllerState } from "../../world/PlayerController";
 import {
   LaboratoryLoginScreen,
   type AimedLaboratoryLoginControl,
@@ -45,6 +47,8 @@ interface LaboratoryAerialStageProps {
   ) => void;
   onLoginInputActiveChange: (isActive: boolean) => void;
   onLoginScreenClose: () => void;
+  onReadyChange: (isReady: boolean) => void;
+  player: PlayerControllerState;
   onLoginSubmit: (
     username: string,
     password: string,
@@ -152,8 +156,10 @@ function TeleporterModel({
 }
 
 function SkyLaboratoryScreen({
+  isStreamActive,
   laboratoryAccess,
 }: {
+  isStreamActive: boolean;
   laboratoryAccess: LaboratoryAccessSnapshot;
 }) {
   const [screenWidth, screenHeight] = skyLaboratoryScreenSize;
@@ -222,6 +228,7 @@ function SkyLaboratoryScreen({
       <LaboratoryWebRtcScreen
         authorizationKey={authorizationKey}
         height={skyLaboratoryVideoHeight}
+        isActive={isStreamActive}
         isAuthorized={laboratoryAccess.status === "ready"}
         position={[0, skyLaboratoryVideoY, 0.063]}
         width={skyLaboratoryVideoWidth}
@@ -329,8 +336,10 @@ function LaboratoryCoordinateGuide() {
 }
 
 function AerialLaboratoryBeacon({
+  isStreamActive,
   laboratoryAccess,
 }: {
+  isStreamActive: boolean;
   laboratoryAccess: LaboratoryAccessSnapshot;
 }) {
   const [x, y, z] = landmarkPositions.laboratory;
@@ -360,7 +369,10 @@ function AerialLaboratoryBeacon({
           0,
         ]}
       />
-      <SkyLaboratoryScreen laboratoryAccess={laboratoryAccess} />
+      <SkyLaboratoryScreen
+        isStreamActive={isStreamActive}
+        laboratoryAccess={laboratoryAccess}
+      />
       <LaboratoryCoordinateGuide />
     </group>
   );
@@ -373,7 +385,7 @@ function GroundTeleporter({
   onLoginInputActiveChange,
   onLoginScreenClose,
   onLoginSubmit,
-}: LaboratoryAerialStageProps) {
+}: Omit<LaboratoryAerialStageProps, "onReadyChange" | "player">) {
   const [x, y, z] = landmarkPositions.laboratoryGroundTeleporter;
 
   return (
@@ -412,7 +424,32 @@ export function LaboratoryAerialStage({
   onLoginInputActiveChange,
   onLoginScreenClose,
   onLoginSubmit,
+  onReadyChange,
+  player,
 }: LaboratoryAerialStageProps) {
+  const [isStreamActive, setIsStreamActive] = useState(false);
+  const isStreamActiveRef = useRef(false);
+
+  useLayoutEffect(() => {
+    onReadyChange(true);
+
+    return () => {
+      onReadyChange(false);
+    };
+  }, [onReadyChange]);
+
+  useFrame(() => {
+    const dx = player.position.current.x - landmarkPositions.laboratory[0];
+    const dy = player.position.current.y - landmarkPositions.laboratory[1];
+    const dz = player.position.current.z - landmarkPositions.laboratory[2];
+    const nextIsActive = Math.hypot(dx, dz) <= 26 && Math.abs(dy) <= 14;
+
+    if (isStreamActiveRef.current !== nextIsActive) {
+      isStreamActiveRef.current = nextIsActive;
+      setIsStreamActive(nextIsActive);
+    }
+  });
+
   return (
     <>
       <GroundTeleporter
@@ -423,7 +460,10 @@ export function LaboratoryAerialStage({
         onLoginScreenClose={onLoginScreenClose}
         onLoginSubmit={onLoginSubmit}
       />
-      <AerialLaboratoryBeacon laboratoryAccess={laboratoryAccess} />
+      <AerialLaboratoryBeacon
+        isStreamActive={isStreamActive}
+        laboratoryAccess={laboratoryAccess}
+      />
     </>
   );
 }

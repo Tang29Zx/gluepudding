@@ -41,6 +41,7 @@ interface FortuneAssetStageProps {
   isPlayerInsideFortuneRoom: boolean;
   mistPhase: FortuneRoomState;
   onInteriorReadyChange: (isReady: boolean) => void;
+  onShellReadyChange: (isReady: boolean) => void;
   shouldLoadInterior: boolean;
   shouldLoadShell: boolean;
 }
@@ -306,6 +307,10 @@ function InteriorReadyMarker({
 }) {
   useEffect(() => {
     onInteriorReadyChange(true);
+
+    return () => {
+      onInteriorReadyChange(false);
+    };
   }, [onInteriorReadyChange]);
 
   return null;
@@ -428,10 +433,26 @@ function ShellModels() {
   return (
     <>
       {fortuneModelAssets.shellAssets.map((asset) => (
-        <OptionalFortuneModel asset={asset} key={asset.id} />
+        <FortuneModel asset={asset} key={asset.id} />
       ))}
     </>
   );
+}
+
+function FortuneShellReadyMarker({
+  onReadyChange,
+}: {
+  onReadyChange: (isReady: boolean) => void;
+}) {
+  useEffect(() => {
+    onReadyChange(true);
+
+    return () => {
+      onReadyChange(false);
+    };
+  }, [onReadyChange]);
+
+  return null;
 }
 
 function InteriorModels() {
@@ -481,6 +502,7 @@ export function FortuneAssetStage({
   isPlayerInsideFortuneRoom,
   mistPhase,
   onInteriorReadyChange,
+  onShellReadyChange,
   shouldLoadInterior,
   shouldLoadShell,
 }: FortuneAssetStageProps) {
@@ -488,10 +510,16 @@ export function FortuneAssetStage({
   const stagePosition = getFortuneStagePosition();
 
   useEffect(() => {
-    if (!shouldLoadInterior || !isInteriorVisible) {
+    if (!shouldLoadInterior) {
       onInteriorReadyChange(false);
     }
-  }, [isInteriorVisible, onInteriorReadyChange, shouldLoadInterior]);
+  }, [onInteriorReadyChange, shouldLoadInterior]);
+
+  useEffect(() => {
+    if (!shouldLoadShell) {
+      onShellReadyChange(false);
+    }
+  }, [onShellReadyChange, shouldLoadShell]);
 
   if (!shouldLoadShell) {
     return null;
@@ -504,6 +532,7 @@ export function FortuneAssetStage({
       <FortuneAssetBoundary fallback={<ShellFallback />} label="Fortune shell">
         <Suspense fallback={null}>
           <ShellModels />
+          <FortuneShellReadyMarker onReadyChange={onShellReadyChange} />
         </Suspense>
       </FortuneAssetBoundary>
       <FortuneDoorMist
@@ -521,34 +550,28 @@ export function FortuneAssetStage({
           }
           label="Fortune interior"
         >
-          {isInteriorVisible ? (
-            <InteriorReadyMarker
-              onInteriorReadyChange={onInteriorReadyChange}
-            />
-          ) : null}
           <Suspense fallback={isInteriorVisible ? <InteriorFallback /> : null}>
             <group visible={isInteriorVisible}>
               <InteriorModels />
+              <OptionalFortuneFeature label="Fortune zodiac wheel">
+                <ZodiacWheel />
+              </OptionalFortuneFeature>
+              <OptionalFortuneFeature label="Fortune tarot table">
+                <TarotTable />
+              </OptionalFortuneFeature>
+              <OptionalFortuneFeature label="Fortune iching desk">
+                <IchingDesk onLotResult={setIchingLotResult} />
+              </OptionalFortuneFeature>
+              <OptionalFortuneFeature label="Fortune iching hexagram">
+                <IchingHexagram
+                  lotResult={ichingLotResult}
+                  onLotResultClear={() => setIchingLotResult(null)}
+                />
+              </OptionalFortuneFeature>
             </group>
-            {isInteriorVisible ? (
-              <>
-                <OptionalFortuneFeature label="Fortune zodiac wheel">
-                  <ZodiacWheel />
-                </OptionalFortuneFeature>
-                <OptionalFortuneFeature label="Fortune tarot table">
-                  <TarotTable />
-                </OptionalFortuneFeature>
-                <OptionalFortuneFeature label="Fortune iching desk">
-                  <IchingDesk onLotResult={setIchingLotResult} />
-                </OptionalFortuneFeature>
-                <OptionalFortuneFeature label="Fortune iching hexagram">
-                  <IchingHexagram
-                    lotResult={ichingLotResult}
-                    onLotResultClear={() => setIchingLotResult(null)}
-                  />
-                </OptionalFortuneFeature>
-              </>
-            ) : null}
+            <InteriorReadyMarker
+              onInteriorReadyChange={onInteriorReadyChange}
+            />
           </Suspense>
         </FortuneAssetBoundary>
       ) : null}

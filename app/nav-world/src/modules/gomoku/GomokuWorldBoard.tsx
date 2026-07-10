@@ -622,6 +622,80 @@ function GomokuControlButton({
   );
 }
 
+export function GomokuBoardActivation({
+  onHudMessageChange,
+  onPlacementChange,
+  placementTerrainSamplerRef,
+  player,
+}: Pick<
+  GomokuWorldBoardProps,
+  | "onHudMessageChange"
+  | "onPlacementChange"
+  | "placementTerrainSamplerRef"
+  | "player"
+>) {
+  const camera = useThree((state) => state.camera);
+
+  const openBoardFromView = useCallback(() => {
+    const sampler = placementTerrainSamplerRef.current;
+    camera.getWorldDirection(placementDirection);
+    const target = getCandidateGroundPoint({
+      cameraDirection: placementDirection,
+      cameraPosition: camera.position,
+      player,
+      sampler,
+    });
+    const nextPlacement =
+      findPlacementNearTarget({
+        sampler,
+        target,
+        yaw: player.yaw.current,
+      }) ??
+      findPlacementNearTarget({
+        sampler,
+        target: getPlayerGroundPoint({ player, sampler }),
+        yaw: player.yaw.current,
+      });
+
+    if (!nextPlacement) {
+      onHudMessageChange("这里放不下棋盘，附近也没有找到合适空地。");
+      return;
+    }
+
+    onPlacementChange(nextPlacement);
+    onHudMessageChange("棋盘正在展开。加载完成后即可落子。");
+  }, [
+    camera,
+    onHudMessageChange,
+    onPlacementChange,
+    placementTerrainSamplerRef,
+    player,
+  ]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.repeat ||
+        event.code !== "KeyG" ||
+        isEditableElement(document.activeElement)
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      openBoardFromView();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [openBoardFromView]);
+
+  return null;
+}
+
 export function GomokuWorldBoard({
   onAimedTargetChange,
   onHudMessageChange,

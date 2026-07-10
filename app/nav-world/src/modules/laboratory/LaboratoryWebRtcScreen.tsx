@@ -19,6 +19,7 @@ import type { Vector3Tuple } from "../../world/sceneConfig";
 interface LaboratoryWebRtcScreenProps {
   authorizationKey: string;
   height: number;
+  isActive: boolean;
   isAuthorized: boolean;
   position: Vector3Tuple;
   width: number;
@@ -81,6 +82,7 @@ function createVideoTexture(video: HTMLVideoElement): VideoTexture {
 export function LaboratoryWebRtcScreen({
   authorizationKey,
   height,
+  isActive,
   isAuthorized,
   position,
   width,
@@ -99,6 +101,17 @@ export function LaboratoryWebRtcScreen({
   });
 
   useEffect(() => {
+    if (!isActive) {
+      setSnapshot({
+        message: "进入天空实验室后连接",
+        source: "none",
+        status: "idle",
+        stream: null,
+      });
+      setVideoTexture(null);
+      return undefined;
+    }
+
     if (!isAuthorized) {
       setSnapshot({
         message: "没有查看权限",
@@ -247,7 +260,7 @@ export function LaboratoryWebRtcScreen({
       video.srcObject = null;
       disposeTexture(false);
     };
-  }, [authorizationKey, config, isAuthorized]);
+  }, [authorizationKey, config, isActive, isAuthorized]);
 
   const statusLabel = getStatusLabel(snapshot);
   const statusColor = statusColors[snapshot.status];

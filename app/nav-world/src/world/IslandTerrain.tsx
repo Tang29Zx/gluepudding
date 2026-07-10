@@ -179,7 +179,7 @@ export function IslandTerrain({
     const walkableMeshes = findWalkableMeshes(root);
 
     if (walkableMeshes.length === 0) {
-      console.warn("Walkable terrain mesh was not found in island.glb.");
+      console.warn("Walkable terrain mesh was not found in the ground model.");
       onTerrainSamplerChange(null);
       onTerrainReadyChange(true);
       return undefined;

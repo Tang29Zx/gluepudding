@@ -389,3 +389,41 @@
 画面变化：否。本地无 auth 后端时，实验室权限文案会更明确提示使用测试屏。
 截图：无，本次为本地预览和自动化测试稳定性修复。
 剩余风险：真实生产 auth 仍依赖部署代理；本地联调真实 auth 时必须显式开启 `VITE_LAB_AUTH_LOCAL_FETCH=true`。
+
+## 2026-07-10 / 恢复生产版权声明和备案小屏
+
+日期：2026-07-10
+
+版本 / Layer：Layer 7 实验室模拟层 / 全站法务信息
+
+现象：用户反馈生产环境中的版权声明和备案信息消失；Fallback 页仍有备案链接，3D 世界内原有“版权与备案”小屏源码也仍存在，但线上不可见。
+
+原因判断：`WorldExperience.shouldShowLaboratoryDebugScreen()` 仍沿用旧调试屏规则，只在 localhost、127.0.0.1、::1 或 `VITE_LAB_AUTH_DEBUG=true` 时显示。该屏后来已改为正式模型授权与备案信息，但生产可见性条件没有同步更新；静态部署未启用调试开关后因此被隐藏。
+
+解决方案：保留原小屏坐标、朝向、版权文案和备案号，只把显示条件改为始终返回 true，并注释说明这是生产必需内容，不得再按 debug 环境隐藏。
+
+涉及文件：`app/nav-world/src/world/WorldExperience.tsx`、`MEMORY.md`、`validation/layer-7/debug.md`。
+
+部署结果：执行一次不含 Playwright 的 Vite 生产构建，并原子切换到 `releases/20260710060047-2505fd4-legal`。
+
+验证结果：按用户此前要求未运行 Playwright；生产构建完成，生成的新 `WorldExperience` chunk 包含版权与备案小屏逻辑。
+
+画面变化：是。出生点附近重新常驻显示“版权与备案”小屏。
+
+截图：无，未运行 Playwright。
+
+剩余风险：3D Text 中的 URL 目前是授权说明文字，不是可点击 DOM 链接；2D Fallback 页继续提供可点击的 ICP 和公安备案链接。
+
+## 2026-07-10 / 实验室首屏外壳与 WebRTC 延迟连接
+
+现象：地面传送台和天空实验室在出生点转头 / 抬头可见，必须首屏完整出现；但真实 WebRTC 属于天空实验室内部能力，不应在出生点占用连接和重试资源。
+
+解决方案：Teleporter、Dome 和 Glass Floor 纳入 8 个首屏关键 GLB，并在三者实际挂载后才上报实验室可见资源 ready。Teleporter 使用 WebP + Meshopt，Dome / Floor 使用 Meshopt。`LaboratoryWebRtcScreen` 新增 `isActive`，只有玩家水平距离天空实验室不超过 26m 且高度差不超过 14m 时才建立 WHEP / mock 连接；其他位置显示“进入天空实验室后连接”。
+
+涉及文件：`app/nav-world/src/modules/laboratory/LaboratoryAerialStage.tsx`、`app/nav-world/src/modules/laboratory/LaboratoryWebRtcScreen.tsx`、`app/nav-world/src/world/WorldScene.tsx`、实验室三个 GLB。
+
+验证结果：TypeScript、生产构建和实验室 GLB validator 通过；未运行 Playwright。
+
+画面变化：出生点仍可看到地面传送台和天空实验室外壳；视频连接状态在未进入天空实验室时显示延迟连接提示。
+
+剩余风险：需要用户实机确认 WebP 贴图质量和天空实验室远景完整性；KTX2 尚未实施。

@@ -4,6 +4,7 @@ import {
   mkdirSync,
   openSync,
   renameSync,
+  rmSync,
   statSync,
   unlinkSync,
 } from "node:fs";
@@ -14,28 +15,53 @@ const scriptDir = fileURLToPath(new URL(".", import.meta.url));
 const navWorldDir = resolve(scriptDir, "..");
 const projectRoot = resolve(navWorldDir, "../..");
 const sourceZipPath = resolve(projectRoot, "resources/float-island-low-ploy.zip");
-const outputPath = resolve(navWorldDir, "public/models/world/island.glb");
-const tempOutputPath = `${outputPath}.tmp`;
+const outputDirectory = resolve(navWorldDir, "public/models/world");
+const legacyOutputPath = resolve(outputDirectory, "island.glb");
+const extractedOutputPath = resolve(outputDirectory, "island.source.tmp.glb");
+const tempOutputDirectory = resolve(outputDirectory, ".prepared.tmp");
+const builderPath = resolve(scriptDir, "build-world-streaming-assets.mjs");
+const outputFileNames = [
+  "ground.glb",
+  "central-decor.glb",
+  "sakura-tree-low.glb",
+  "sakura-tree-mid.glb",
+  "sakura-tree-high.glb",
+];
 
-mkdirSync(dirname(outputPath), { recursive: true });
+mkdirSync(dirname(extractedOutputPath), { recursive: true });
+rmSync(tempOutputDirectory, { force: true, recursive: true });
+mkdirSync(tempOutputDirectory, { recursive: true });
 
 let outputFd = null;
 
 try {
-  outputFd = openSync(tempOutputPath, "w");
+  outputFd = openSync(extractedOutputPath, "w");
   execFileSync("unzip", ["-p", sourceZipPath, "source/island.glb"], {
     cwd: projectRoot,
     stdio: ["ignore", outputFd, "inherit"],
   });
+
+  closeSync(outputFd);
+  outputFd = null;
+
+  execFileSync(
+    process.execPath,
+    [builderPath, extractedOutputPath, tempOutputDirectory],
+    {
+      cwd: projectRoot,
+      stdio: "inherit",
+    },
+  );
 } catch (error) {
+  rmSync(tempOutputDirectory, { force: true, recursive: true });
   try {
-    unlinkSync(tempOutputPath);
+    unlinkSync(extractedOutputPath);
   } catch {
     // Best effort cleanup for a partial extract.
   }
 
   console.error(
-    `Failed to extract source/island.glb from ${sourceZipPath}. Make sure resources/float-island-low-ploy.zip exists.`,
+    `Failed to prepare source/island.glb from ${sourceZipPath}. Make sure the source archive and optimizer dependencies exist.`,
   );
   throw error;
 } finally {
@@ -44,7 +70,15 @@ try {
   }
 }
 
-renameSync(tempOutputPath, outputPath);
-
-const { size } = statSync(outputPath);
-console.log(`Prepared ${outputPath} (${(size / 1024 / 1024).toFixed(2)} MB).`);
+unlinkSync(extractedOutputPath);
+for (const fileName of outputFileNames) {
+  const tempPath = resolve(tempOutputDirectory, fileName);
+  const outputPath = resolve(outputDirectory, fileName);
+  renameSync(tempPath, outputPath);
+  const { size } = statSync(outputPath);
+  console.log(
+    `Prepared ${outputPath} (${(size / 1024 / 1024).toFixed(2)} MB).`,
+  );
+}
+rmSync(legacyOutputPath, { force: true });
+rmSync(tempOutputDirectory, { force: true, recursive: true });

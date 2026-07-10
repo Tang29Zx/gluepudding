@@ -255,7 +255,7 @@
 通过标准：
 
 - `TODO.md` 和 `Tech-Spec.md` 已记录资源路径、接入顺序和不接入范围。
-- `app/nav-world/public/models/world/island.glb` 存在；当前暂不使用 Git LFS 追踪 `.glb`。`app/frontend/models/world/island.glb` 作为构建输出不进入 Git。
+- `app/nav-world/public/models/world/` 下存在地面、中央装饰和樱花树低 / 中 / 高 LOD 五个拆分 GLB；当前暂不使用 Git LFS 追踪 `.glb`。对应的 `app/frontend/models/world/` 构建输出不进入 Git，旧整岛 `island.glb` 不再生成。
 - `npm run build` 和 `npm run assets:check` 通过。
 - 桌面端和移动端截图显示玩家位于 GLB 浮岛上方草地，而不是旧圆形地板或下层平面。
 
@@ -269,6 +269,11 @@
 调试记录：
 
 - [Layer 4.5 debug.md](validation/layer-4-5/debug.md)
+
+资源优化记录：
+
+- 2026-07-10：浮岛模型删除局部 `Y=0` 以下 655 个隐藏三角面，并使用 Meshopt 压缩；文件从约 86.47MB 降至约 18.19MB。保留跨裁切面的岛边和 `Icosphere` 可行走节点；按用户要求不运行 Playwright，详见 Layer 4.5 debug。
+- 2026-07-10：整岛模型进一步拆为地面、中央装饰和樱花树三级 LOD；首次关键资源总计约 5.28MiB，只有地面、景物、占卜屋外壳和实验室外壳全部挂载后才允许移动。占卜屋室内、五子棋、WebRTC、游戏和音频改为区域 / 操作触发。未运行 Playwright，等待用户实机完成出生点 360° 无 pop-in 验收。
 
 ## Layer 5：占卜屋模型摆放验收层
 

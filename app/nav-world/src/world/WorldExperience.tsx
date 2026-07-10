@@ -14,6 +14,15 @@ import {
 } from "../adapters/laboratoryAuth";
 import { staticAssetUrl } from "../assets/staticAssetUrl";
 import {
+  preloadAssetGroup,
+  type StartupAssetProgress,
+} from "../assets/startupAssetPreloader";
+import { fortuneInteriorAssets } from "../assets/worldAssetManifest";
+import type {
+  ModelDownloadProgress,
+  ModelDownloadProgressHandler,
+} from "../assets/TrackedModelGate";
+import {
   FortuneAiAuthProvider,
   useFortuneAiAuth,
 } from "../auth/FortuneAiAuthContext";
@@ -55,6 +64,7 @@ import {
 import { usePlayerController } from "./PlayerController";
 import type { TerrainSampler } from "./terrainSampler";
 import { WorldScene } from "./WorldScene";
+import type { SakuraLevel } from "./IslandScenery";
 import {
   cameraConfig,
   landmarkPositions,
@@ -113,7 +123,9 @@ interface WorldRuntimeProps {
   onLaboratoryAccessRefresh: () => Promise<LaboratoryAccessSnapshot>;
   onLaboratoryTeleportDenied: () => void;
   onAimedTargetChange: (targetId: InteractionTargetId | null) => void;
+  onCriticalVisualReadyChange: (isReady: boolean) => void;
   onFortuneInteriorReadyChange: (isReady: boolean) => void;
+  onModelDownloadProgressChange: ModelDownloadProgressHandler;
   onFortuneMistOpacityChange: (opacity: number) => void;
   onFortuneRoomStateChange: (state: FortuneRoomState) => void;
   onModuleStatusChange: (
@@ -147,7 +159,9 @@ function WorldRuntime({
   onAimedLaboratoryLoginControlChange,
   onAimedModuleControlChange,
   onAimedTargetChange,
+  onCriticalVisualReadyChange,
   onFortuneInteriorReadyChange,
+  onModelDownloadProgressChange,
   onFortuneMistOpacityChange,
   onFortuneRoomStateChange,
   onGomokuHudMessageChange,
@@ -252,7 +266,13 @@ function WorldRuntime({
   const fortuneMistOpacityRef = useRef(0);
   const fortuneRoomStateRef = useRef<FortuneRoomState>("outside");
   const fortuneInteriorReadyRef = useRef(false);
+  const fortuneInteriorDownloadedRef = useRef(false);
   const isPlayerInsideFortuneRoomRef = useRef(false);
+  const [isFortuneInteriorDownloaded, setIsFortuneInteriorDownloaded] =
+    useState(false);
+  const [fortuneDownloadRetryKey, setFortuneDownloadRetryKey] = useState(0);
+  const [sakuraPreloadLevel, setSakuraPreloadLevel] =
+    useState<SakuraLevel>("low");
   const fortuneTransitionRef = useRef<{
     hasSwitchedVisibility: boolean;
     phase: "entering" | "exiting";
@@ -266,7 +286,7 @@ function WorldRuntime({
     isKeyboardInputCaptured:
       isFortuneAiLoginInputActive || isLaboratoryLoginInputActive,
     isLocomotionEnabled: !isFortuneRoomTransitionActive,
-    isMovementEnabled: true,
+    isMovementEnabled: !isLoading,
     onLaboratoryTeleportDenied,
     terrainSamplerRef,
   });
@@ -312,8 +332,41 @@ function WorldRuntime({
     (isReady: boolean) => {
       fortuneInteriorReadyRef.current = isReady;
       onFortuneInteriorReadyChange(isReady);
+
+      if (isReady) {
+        onModelDownloadProgressChange("sakura-mid", {
+          bytesLoaded: 0,
+          bytesPerSecond: 0,
+          bytesTotal: 0,
+          label: "准备下载樱花树中景模型",
+          percent: 0,
+          phase: "downloading",
+          priority: 20,
+        });
+        onModelDownloadProgressChange("fortune-interior", null);
+        setSakuraPreloadLevel((current) =>
+          current === "low" ? "mid" : current,
+        );
+      }
     },
-    [onFortuneInteriorReadyChange],
+    [onFortuneInteriorReadyChange, onModelDownloadProgressChange],
+  );
+  const handleSakuraDeferredLevelReady = useCallback(
+    (level: Exclude<SakuraLevel, "low">) => {
+      if (level === "mid") {
+        onModelDownloadProgressChange("sakura-high", {
+          bytesLoaded: 0,
+          bytesPerSecond: 0,
+          bytesTotal: 0,
+          label: "准备下载樱花树近景模型",
+          percent: 0,
+          phase: "downloading",
+          priority: 30,
+        });
+        setSakuraPreloadLevel("high");
+      }
+    },
+    [onModelDownloadProgressChange],
   );
   const movePlayerToFortuneLanding = useCallback(
     (phase: "entering" | "exiting") => {
@@ -350,8 +403,20 @@ function WorldRuntime({
       }
 
       player.clearMovement();
-      if (phase === "entering" && forcedFortuneAssetMode !== "interior") {
-        setFortuneInteriorReadyValue(false);
+      if (
+        phase === "entering" &&
+        !fortuneInteriorReadyRef.current &&
+        fortuneInteriorDownloadedRef.current
+      ) {
+        onModelDownloadProgressChange("fortune-interior", {
+          bytesLoaded: 0,
+          bytesPerSecond: 0,
+          bytesTotal: 0,
+          label: "正在解析占卜屋模型",
+          percent: 100,
+          phase: "parsing",
+          priority: 100,
+        });
       }
       fortuneTransitionRef.current = {
         hasSwitchedVisibility: false,
@@ -363,9 +428,8 @@ function WorldRuntime({
       setFortuneMistOpacityValue(1);
     },
     [
-      forcedFortuneAssetMode,
+      onModelDownloadProgressChange,
       player,
-      setFortuneInteriorReadyValue,
       setFortuneMistOpacityValue,
       setFortuneRoomStateValue,
     ],
@@ -472,18 +536,95 @@ function WorldRuntime({
     }
   });
 
+  const shouldRequestFortuneInterior = true;
   const shouldLoadFortuneInterior =
-    forcedFortuneAssetMode === "interior" ||
-      focusedModuleId === "divination" ||
-      selectedTargetId === "divination-house" ||
-      shouldLoadFortuneInteriorByDistance ||
-      isPlayerInsideFortuneRoom;
+    shouldRequestFortuneInterior && isFortuneInteriorDownloaded;
   const shouldLoadFortuneShell = true;
   const isFortuneRoomInteriorVisible =
     forcedFortuneAssetMode === "interior" || isPlayerInsideFortuneRoom;
 
   // music only switches by proximity, not by selection/focus
   const isNearFortuneForMusic = shouldLoadFortuneInteriorByDistance;
+
+  useEffect(() => {
+    if (
+      !shouldRequestFortuneInterior ||
+      fortuneInteriorDownloadedRef.current
+    ) {
+      return;
+    }
+
+    const controller = new AbortController();
+    let retryTimer = 0;
+
+    const reportDownloadProgress = (progress: StartupAssetProgress) => {
+      const percent =
+        progress.bytesTotal > 0
+          ? (progress.bytesLoaded / progress.bytesTotal) * 100
+          : (progress.completed / Math.max(1, progress.total)) * 100;
+
+      onModelDownloadProgressChange("fortune-interior", {
+        bytesLoaded: progress.bytesLoaded,
+        bytesPerSecond: progress.bytesPerSecond,
+        bytesTotal: progress.bytesTotal,
+        label: `优先下载占卜屋 · ${progress.currentLabel}`,
+        percent,
+        phase: "downloading",
+        priority: 100,
+      });
+    };
+
+    void preloadAssetGroup(
+      fortuneInteriorAssets,
+      reportDownloadProgress,
+      controller.signal,
+      { concurrency: 4, priority: "high" },
+    )
+      .then(() => {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        fortuneInteriorDownloadedRef.current = true;
+        setIsFortuneInteriorDownloaded(true);
+        onModelDownloadProgressChange("fortune-interior", {
+          bytesLoaded: 0,
+          bytesPerSecond: 0,
+          bytesTotal: 0,
+          label: "正在解析占卜屋模型",
+          percent: 100,
+          phase: "parsing",
+          priority: 100,
+        });
+      })
+      .catch(() => {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        onModelDownloadProgressChange("fortune-interior", {
+          bytesLoaded: 0,
+          bytesPerSecond: 0,
+          bytesTotal: 0,
+          label: "占卜屋下载失败，正在重试",
+          percent: 0,
+          phase: "error",
+          priority: 100,
+        });
+        retryTimer = window.setTimeout(() => {
+          setFortuneDownloadRetryKey((current) => current + 1);
+        }, 3_000);
+      });
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(retryTimer);
+    };
+  }, [
+    fortuneDownloadRetryKey,
+    onModelDownloadProgressChange,
+    shouldRequestFortuneInterior,
+  ]);
 
   // global background music: loading → world → fortune interior
   // each track keeps its own playback position; switching just pauses/resumes
@@ -610,12 +751,16 @@ function WorldRuntime({
         onLaboratoryLoginScreenClose={onLaboratoryLoginScreenClose}
         onLaboratoryLoginSubmit={onLaboratoryLoginSubmit}
         onAimedTargetChange={onAimedTargetChange}
+        onCriticalVisualReadyChange={onCriticalVisualReadyChange}
         onFortuneInteriorReadyChange={setFortuneInteriorReadyValue}
+        onModelDownloadProgressChange={onModelDownloadProgressChange}
+        onSakuraDeferredLevelReady={handleSakuraDeferredLevelReady}
         onModuleStatusChange={onModuleStatusChange}
         onNearestTargetChange={onNearestTargetChange}
         onSelectObject={onSelectObject}
         placementTerrainSamplerRef={placementTerrainSamplerRef}
         player={player}
+        sakuraPreloadLevel={sakuraPreloadLevel}
         selectedTargetId={selectedTargetId}
         shouldLoadFortuneInterior={shouldLoadFortuneInterior}
         shouldLoadFortuneShell={shouldLoadFortuneShell}
@@ -645,14 +790,33 @@ function getForcedFortuneAssetMode(): ForcedFortuneAssetMode {
 }
 
 function shouldShowLaboratoryDebugScreen(): boolean {
-  const hostname = window.location.hostname;
+  // This screen now carries required model attribution and filing details,
+  // rather than debug-only controls, so it must remain visible in production.
+  return true;
+}
 
-  return (
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "::1" ||
-    import.meta.env.VITE_LAB_AUTH_DEBUG === "true"
-  );
+function formatModelDownloadBytes(bytes: number): string {
+  if (bytes <= 0) {
+    return "";
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${Math.round(bytes / 1024)} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatModelDownloadSpeed(bytesPerSecond: number): string {
+  if (bytesPerSecond <= 0) {
+    return "测速中";
+  }
+
+  if (bytesPerSecond < 1024 * 1024) {
+    return `${Math.round(bytesPerSecond / 1024)} KB/s`;
+  }
+
+  return `${(bytesPerSecond / (1024 * 1024)).toFixed(1)} MB/s`;
 }
 
 function WorldExperienceContent({ onReady }: WorldExperienceProps) {
@@ -668,7 +832,11 @@ function WorldExperienceContent({ onReady }: WorldExperienceProps) {
   const [aimedModuleControl, setAimedModuleControl] =
     useState<AimedWorldModuleControl | null>(null);
   const [isCanvasReady, setIsCanvasReady] = useState(false);
+  const [isCriticalVisualReady, setIsCriticalVisualReady] = useState(false);
   const [isTerrainReady, setIsTerrainReady] = useState(false);
+  const [modelDownloads, setModelDownloads] = useState<
+    Record<string, ModelDownloadProgress>
+  >({});
   const [aimedTargetId, setAimedTargetId] =
     useState<InteractionTargetId | null>(null);
   const [focusedModuleId, setFocusedModuleId] =
@@ -708,6 +876,30 @@ function WorldExperienceContent({ onReady }: WorldExperienceProps) {
   const selectedTarget = getInteractionTargetById(selectedTargetId);
   const selectableTarget = aimedTarget ?? nearestTarget;
   const isLaboratoryDebugScreenVisible = shouldShowLaboratoryDebugScreen();
+  const visibleModelDownload = useMemo(
+    () =>
+      Object.values(modelDownloads).sort(
+        (left, right) => right.priority - left.priority,
+      )[0] ?? null,
+    [modelDownloads],
+  );
+  const handleModelDownloadProgressChange = useCallback<
+    ModelDownloadProgressHandler
+  >((taskId, progress) => {
+    setModelDownloads((current) => {
+      if (progress) {
+        return { ...current, [taskId]: progress };
+      }
+
+      if (!(taskId in current)) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next[taskId];
+      return next;
+    });
+  }, []);
 
   const refreshLaboratoryAccess = useCallback(async () => {
     const snapshot = await getLaboratoryAccess();
@@ -791,13 +983,19 @@ function WorldExperienceContent({ onReady }: WorldExperienceProps) {
     [],
   );
 
+  const handleCriticalVisualReadyChange = useCallback((isReady: boolean) => {
+    if (isReady) {
+      setIsCriticalVisualReady(true);
+    }
+  }, []);
+
   useEffect(() => {
-    if (!isCanvasReady || !isTerrainReady) {
+    if (!isCanvasReady || !isTerrainReady || !isCriticalVisualReady) {
       return;
     }
 
     onReady();
-  }, [isCanvasReady, isTerrainReady, onReady]);
+  }, [isCanvasReady, isCriticalVisualReady, isTerrainReady, onReady]);
 
   const changeModuleStatus = useCallback((
     moduleId: WorldModuleId,
@@ -1123,7 +1321,9 @@ function WorldExperienceContent({ onReady }: WorldExperienceProps) {
             forcedFortuneAssetMode={forcedFortuneAssetMode}
             gomokuPlacement={gomokuPlacement}
             isFortuneAiLoginInputActive={isFortuneAiLoginInputActive}
-            isLoading={!isCanvasReady || !isTerrainReady}
+            isLoading={
+              !isCanvasReady || !isTerrainReady || !isCriticalVisualReady
+            }
             isLaboratoryDebugScreenVisible={isLaboratoryDebugScreenVisible}
             isLaboratoryLoginInputActive={isLaboratoryLoginInputActive}
             isLaboratoryLoginScreenVisible={isLaboratoryLoginScreenVisible}
@@ -1148,9 +1348,11 @@ function WorldExperienceContent({ onReady }: WorldExperienceProps) {
             onLaboratoryAccessRefresh={refreshLaboratoryAccess}
             onLaboratoryTeleportDenied={showLaboratoryLoginScreen}
             onAimedTargetChange={setAimedTargetId}
+            onCriticalVisualReadyChange={handleCriticalVisualReadyChange}
             onFortuneInteriorReadyChange={ignoreFortuneInteriorReady}
             onFortuneMistOpacityChange={setFortuneMistOpacity}
             onFortuneRoomStateChange={setFortuneRoomState}
+            onModelDownloadProgressChange={handleModelDownloadProgressChange}
             onModuleStatusChange={changeModuleStatus}
             onNearestTargetChange={setNearestTargetId}
             onSelectObject={selectObject}
@@ -1160,18 +1362,44 @@ function WorldExperienceContent({ onReady }: WorldExperienceProps) {
         </Suspense>
       </Canvas>
 
-      <div className="world-hud" aria-label="3D 世界状态">
-        <div className="world-status">
-          <span>Layer 5.5</span>
-          <strong>
-            {aimedModuleControl
-              ? "Surface Control"
-              : focusedModule
-                ? "Module Focused"
-                : "World Active"}
-          </strong>
+      {visibleModelDownload ? (
+        <div className="world-hud" aria-label="模型下载状态" aria-live="polite">
+          <div className={`world-status is-${visibleModelDownload.phase}`}>
+            <div className="model-download-copy">
+              <strong>{visibleModelDownload.label}</strong>
+              <span>{Math.round(visibleModelDownload.percent)}%</span>
+            </div>
+            <div
+              aria-label={visibleModelDownload.label}
+              aria-valuemax={100}
+              aria-valuemin={0}
+              aria-valuenow={Math.round(visibleModelDownload.percent)}
+              className="model-download-progress"
+              role="progressbar"
+            >
+              <span
+                style={{
+                  width: `${Math.min(100, Math.max(0, visibleModelDownload.percent))}%`,
+                }}
+              />
+            </div>
+            <small>
+              {visibleModelDownload.bytesTotal > 0 ? (
+                <>
+                  {formatModelDownloadBytes(visibleModelDownload.bytesLoaded)} /{" "}
+                  {formatModelDownloadBytes(visibleModelDownload.bytesTotal)}
+                  {" · "}
+                </>
+              ) : null}
+              {visibleModelDownload.phase === "downloading"
+                ? formatModelDownloadSpeed(visibleModelDownload.bytesPerSecond)
+                : visibleModelDownload.phase === "parsing"
+                  ? "本地解析中"
+                  : "等待重试"}
+            </small>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div
         aria-label={

@@ -1,6 +1,8 @@
 import {
   Suspense,
   useCallback,
+  useEffect,
+  useState,
   type MutableRefObject,
 } from "react";
 import {
@@ -11,9 +13,18 @@ import {
   IslandTerrain,
   WorldTerrainErrorBoundary,
 } from "./IslandTerrain";
+import { IslandScenery, type SakuraLevel } from "./IslandScenery";
+import {
+  TrackedModelGate,
+  type ModelDownloadProgressHandler,
+} from "../assets/TrackedModelGate";
+import { gomokuAssets } from "../assets/worldAssetManifest";
 import { GamePortal } from "../modules/GamePortal";
 import { FortuneAssetStage } from "../modules/divination/FortuneAssetStage";
-import { GomokuWorldBoard } from "../modules/gomoku/GomokuWorldBoard";
+import {
+  GomokuBoardActivation,
+  GomokuWorldBoard,
+} from "../modules/gomoku/GomokuWorldBoard";
 import { LaboratoryAerialStage } from "../modules/laboratory/LaboratoryAerialStage";
 import {
   LaboratoryDebugAccessScreen,
@@ -77,6 +88,7 @@ interface WorldSceneProps {
   placementTerrainSamplerRef: MutableRefObject<TerrainSampler | null>;
   player: PlayerControllerState;
   selectedTargetId: InteractionTargetId | null;
+  sakuraPreloadLevel: SakuraLevel;
   shouldLoadFortuneInterior: boolean;
   shouldLoadFortuneShell: boolean;
   onActivateArea: (targetId: InteractionTargetId) => void;
@@ -91,7 +103,12 @@ interface WorldSceneProps {
   onAimedModuleControlChange: (
     control: AimedWorldModuleControl | null,
   ) => void;
+  onCriticalVisualReadyChange: (isReady: boolean) => void;
   onFortuneInteriorReadyChange: (isReady: boolean) => void;
+  onModelDownloadProgressChange: ModelDownloadProgressHandler;
+  onSakuraDeferredLevelReady: (
+    level: Exclude<SakuraLevel, "low">,
+  ) => void;
   onGomokuHudMessageChange: (message: string | null) => void;
   onGomokuPlacementChange: (placement: GomokuPlacement | null) => void;
   onLaboratoryLoginInputActiveChange: (isActive: boolean) => void;
@@ -130,7 +147,10 @@ export function WorldScene({
   onAimedLaboratoryLoginControlChange,
   onAimedModuleControlChange,
   onAimedTargetChange,
+  onCriticalVisualReadyChange,
   onFortuneInteriorReadyChange,
+  onModelDownloadProgressChange,
+  onSakuraDeferredLevelReady,
   onGomokuHudMessageChange,
   onGomokuPlacementChange,
   onLaboratoryLoginInputActiveChange,
@@ -143,10 +163,14 @@ export function WorldScene({
   onTerrainSamplerChange,
   placementTerrainSamplerRef,
   player,
+  sakuraPreloadLevel,
   selectedTargetId,
   shouldLoadFortuneInterior,
   shouldLoadFortuneShell,
 }: WorldSceneProps) {
+  const [isFortuneShellReady, setIsFortuneShellReady] = useState(false);
+  const [isLaboratoryReady, setIsLaboratoryReady] = useState(false);
+  const [isSceneryReady, setIsSceneryReady] = useState(false);
   const isOutsideWorldVisible = !isPlayerInsideFortuneRoom;
   const sceneBackground = isPlayerInsideFortuneRoom ? "#160f28" : worldColors.sky;
   const sceneFog: [string, number, number] = isPlayerInsideFortuneRoom
@@ -157,6 +181,17 @@ export function WorldScene({
     onTerrainSamplerChange(null);
     onTerrainReadyChange(false);
   }, [onTerrainReadyChange, onTerrainSamplerChange]);
+
+  useEffect(() => {
+    onCriticalVisualReadyChange(
+      isFortuneShellReady && isLaboratoryReady && isSceneryReady,
+    );
+  }, [
+    isFortuneShellReady,
+    isLaboratoryReady,
+    isSceneryReady,
+    onCriticalVisualReadyChange,
+  ]);
 
   return (
     <>
@@ -192,6 +227,14 @@ export function WorldScene({
             onTerrainReadyChange={onTerrainReadyChange}
             onTerrainSamplerChange={onTerrainSamplerChange}
           />
+          <IslandScenery
+            isVisible={isOutsideWorldVisible}
+            onDeferredLevelReady={onSakuraDeferredLevelReady}
+            onModelDownloadProgressChange={onModelDownloadProgressChange}
+            onReadyChange={setIsSceneryReady}
+            player={player}
+            requestedLevel={sakuraPreloadLevel}
+          />
         </Suspense>
       </WorldTerrainErrorBoundary>
 
@@ -209,6 +252,7 @@ export function WorldScene({
         isPlayerInsideFortuneRoom={isPlayerInsideFortuneRoom}
         mistPhase={fortuneRoomState}
         onInteriorReadyChange={onFortuneInteriorReadyChange}
+        onShellReadyChange={setIsFortuneShellReady}
         shouldLoadInterior={shouldLoadFortuneInterior}
         shouldLoadShell={shouldLoadFortuneShell}
       />
@@ -222,18 +266,36 @@ export function WorldScene({
               onLoginInputActiveChange={onLaboratoryLoginInputActiveChange}
               onLoginScreenClose={onLaboratoryLoginScreenClose}
               onLoginSubmit={onLaboratoryLoginSubmit}
-            />
-          </Suspense>
-          <Suspense fallback={null}>
-            <GomokuWorldBoard
-              onAimedTargetChange={onAimedGomokuTargetChange}
-              onHudMessageChange={onGomokuHudMessageChange}
-              onPlacementChange={onGomokuPlacementChange}
-              placement={gomokuPlacement}
-              placementTerrainSamplerRef={placementTerrainSamplerRef}
+              onReadyChange={setIsLaboratoryReady}
               player={player}
             />
           </Suspense>
+          {gomokuPlacement ? null : (
+            <GomokuBoardActivation
+              onHudMessageChange={onGomokuHudMessageChange}
+              onPlacementChange={onGomokuPlacementChange}
+              placementTerrainSamplerRef={placementTerrainSamplerRef}
+              player={player}
+            />
+          )}
+          {gomokuPlacement ? (
+            <TrackedModelGate
+              assets={gomokuAssets}
+              groupLabel="五子棋模型"
+              onProgressChange={onModelDownloadProgressChange}
+              priority={50}
+              taskId="gomoku"
+            >
+              <GomokuWorldBoard
+                onAimedTargetChange={onAimedGomokuTargetChange}
+                onHudMessageChange={onGomokuHudMessageChange}
+                onPlacementChange={onGomokuPlacementChange}
+                placement={gomokuPlacement}
+                placementTerrainSamplerRef={placementTerrainSamplerRef}
+                player={player}
+              />
+            </TrackedModelGate>
+          ) : null}
           <InteractionSystem
             isPanelOpen={false}
             isWorldControlAimed={Boolean(

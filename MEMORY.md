@@ -41,11 +41,17 @@
 - 2026-07-08：新增中文 `README.md` 作为协作者启动入口，记录主工程启动、build / preview、SSH 隧道预览、`resources/` 本地参考不进 Git、验证归档和 Layer 4 当前交互口径。
 - 2026-07-08：用户明确本项目面向中文用户；后续 README、技术文档、产品 UI 文案、验证记录和协作文档默认中文，代码标识、文件名、接口路径、命令、环境变量和第三方协议名保持英文。
 - 2026-07-08：`resources/float-island-low-ploy.zip` 内的 `source/island.glb` 已按用户要求删除浮岛上的动物节点；动物通过 `goat material` 定位，共移除 9 个动物 mesh，并用 `@gltf-transform/cli prune` 清理未引用资源。原始资源备份在 `resources/float-island-low-ploy.original.zip`，该目录仍不进 Git。
-- 2026-07-08：Layer 4.5 已把浮岛 GLB 接入为基础地形；源模型 `app/nav-world/public/models/world/island.glb` 约 86MB，可通过 `npm run assets:world:prepare` 从本地 `resources/float-island-low-ploy.zip` 重新生成；当前按用户要求暂不使用 Git LFS 追踪 `.glb`，`.gitattributes` 不保留 `.glb filter=lfs` 规则；构建输出 `app/frontend/models/world/island.glb` 继续被 `.gitignore` 忽略。玩家贴地采样 GLB 主岛体 `Icosphere`，选择最高的朝上可走命中面；第一版不做树木、墙体或装饰物碰撞。
-- 2026-07-08：Layer 4.5 接入 86MB GLB 后，App 启动超时窗口已调整：动态 `WorldExperience` chunk 下载等待 90 秒，3D 世界 ready 等待 180 秒。原因是 `onReady()` 现在要等 GLB 下载、解析和地形采样准备；SSH 转发或慢速浏览器下 15 秒会误切到 2D 兜底页。
+- 2026-07-08：Layer 4.5 已把浮岛 GLB 接入为基础地形；源模型 `app/nav-world/public/models/world/island.glb` 可通过 `npm run assets:world:prepare` 从本地 `resources/float-island-low-ploy.zip` 重新生成；当前按用户要求暂不使用 Git LFS 追踪 `.glb`，`.gitattributes` 不保留 `.glb filter=lfs` 规则；构建输出 `app/frontend/models/world/island.glb` 继续被 `.gitignore` 忽略。玩家贴地采样 GLB 主岛体 `Icosphere`，选择最高的朝上可走命中面；第一版不做树木、墙体或装饰物碰撞。
+- 2026-07-08：Layer 4.5 最初接入约 86MB GLB 后，App 启动超时窗口调整为动态 `WorldExperience` chunk 下载等待 90 秒、3D 世界 ready 等待 180 秒。2026-07-10 模型已压缩到约 18.19MB，但保留该保守超时，以兼容弱网下载、Meshopt 解码和地形采样准备。
 - 2026-07-08：常驻 3D 模块表面的文字容量有限，默认面板不适合放长状态说明；`WorldModulePanels` 已改用短状态文案和固定分区坐标，避免状态说明、按钮、能力列表和底部提示重合。后续真实业务内容变多时，应改为区域内近距离大屏或分步交互，不要继续往默认小面板塞长文。
 - 2026-07-08：README 面向普通协作者时不默认他们拥有项目服务器或 SSH 配置；协作者预览路径以本地 clone、本地 `npm run preview` 和 `127.0.0.1` 为准。
-- 2026-07-08：Layer 4.5 启动页已提示“首次加载需要下载 3D 模型，可能需要较长时间。”，用于解释 86MB GLB 首次下载和解析等待。
+- 2026-07-08：Layer 4.5 启动页已提示“首次加载需要下载 3D 模型，可能需要较长时间。”；模型后来虽从约 86MB 优化到约 18.19MB，首次下载和解码仍保留该提示。
+- 2026-07-10：浮岛资源准备流程会删除 `Icosphere` / `Plane` 中完全位于模型局部 `Y=0` 以下的隐藏三角面，同时保留跨越裁切面的边缘裙边；当前共删除 655 个隐藏三角面。随后只做去重、焊接、量化和 Meshopt 高等级传输压缩，不对樱花树做轮廓简化。`island.glb` 从约 86.47MB 降至约 18.19MB（减少约 79%），Drei `useGLTF` 默认提供 Meshopt 解码器。生产已切换到 `releases/20260710053259-2505fd4-island`；本次按用户要求未运行 Playwright。
+- 2026-07-10：出生点附近的“版权与备案”小屏是正式内容，不再是本地 debug 控件。它必须在生产环境常驻显示模型 CC 授权、沪ICP备2026022375号-1 和沪公网安备31011202022649号；不得再受 hostname 或 `VITE_LAB_AUTH_DEBUG` 控制。生产修复 release 为 `releases/20260710060047-2505fd4-legal`。
+- 2026-07-10：大世界启动改为“出生点肉眼可见资源优先”。首次只并发下载 8 个关键 GLB：地面、中央装饰、樱花树低模、占卜屋帐篷 / 魔法阵、实验室传送台 / 穹顶 / 玻璃地板，总计约 5.28MiB；文件下载、GLTF 解码和地面 / 景物 / 占卜屋外壳 / 实验室外壳实际挂载全部完成后才解除移动。加载页显示字节进度，最多 4 路并发、单文件最多 3 次重试，失败提供手动重试。
+- 2026-07-10：整岛 `island.glb` 已退出运行时和构建产物。世界拆为 `ground.glb`（约 56.7KB）、`central-decor.glb`（约 49.8KB）、`sakura-tree-low.glb`（约 780.9KB）、`sakura-tree-mid.glb`（约 1.20MB）、`sakura-tree-high.glb`（约 18.97MB）。出生点先显示低模；进入 68m 加载中模、45m 加载高模，旧 LOD 保留到新 LOD ready，避免空白。
+- 2026-07-10：占卜屋室内继续按距离 / 进入加载，塔罗牌面不再首屏全量下载；五子棋三个 GLB 只在按 `G` 展开时挂载；真实 WebRTC 只在玩家到达天空实验室后连接；游戏内部内容仍在按 `E` 后加载。三首 320kbps MP3 已降为 128kbps，总体积从约 30.04MiB 降至约 12.02MiB，并且不计入首屏门槛。
+- 2026-07-10：大型占卜屋 / 实验室 GLB 已统一 Meshopt；Teleporter 内嵌贴图改为 WebP，模型约 5.75MB 降到约 3.37MB。服务器当前没有 `toktx`，所以尚未伪装成 KTX2；KTX2 / Basis GPU 压缩作为明确剩余项。生产流式加载 release 为 `releases/20260710065942-2505fd4-streaming`，未运行 Playwright。
 - 2026-07-08：`resources/fortune.zip` 已解压为占卜屋模型资源目录 `resources/fortune/`，包含塔罗和星座相关 GLB / 贴图资源；原占卜屋现有功能实现代码目录从 `resources/fortune/` 重命名为 `resources/feature-implementation/`。后续复用类型、API 适配和 mock 流程时使用 `resources/feature-implementation/src/`；不要读取或记录其中 `.env` 内容。
 - 2026-07-08：Layer 5A 只接入占卜屋轻量模型外壳和室内道具，不接业务逻辑；完整塔罗牌面贴图目录约 80.8MB，不能随首屏或占卜屋模型包一次性下载。当前运行时只复制 allowlist GLB 到 `app/nav-world/public/models/fortune/`，用 `?fortuneAssets=shell|interior` 做截图验证，真实访问仍按靠近/聚焦触发加载。
 - 2026-07-08：Layer 5 已按用户要求正式缩小为“占卜屋模型摆放验收层”并确认验收；点击、选中、高亮、卡牌翻面、星座选择、周易起卦、mock 和真实占卜接口均下放到 Layer 8。用户并行推进实验室和五子棋相关层，协作者将在新分支 `fortune` 开发 Layer 8，交接文档为 `validation/layer-8/fortune-handoff.md`。
@@ -117,3 +123,9 @@
 - 生产前端改为 Nginx 静态托管 `/var/www/sites/gluepudding/current/frontend`，release 位于 `/var/www/sites/gluepudding/releases/<时间戳-提交号>/`，通过 `current` 软链原子切换；旧 `vite preview` PM2 进程和 4174 端口已退出生产链路。
 - 当前生产 release 为 `releases/20260710032043-94d692d`。独立服务暂通过 systemd drop-in 引用旧 ignored `.env.local` 兼容现有 DeepSeek Key；后续必须在 DeepSeek 控制台轮换 Key，把新 Key 写入权限受控的 `/etc/gluepudding/fortune-ai.env`，然后删除 `legacy-env.conf`，不要让新 Key 再回到 Vite / PM2 环境。
 - 2026-07-10 用户明确“不要测试”；收到指令后已停止正在进行的 E2E 和临时 Vite preview，后续未再运行测试或验收命令。
+- 2026-07-10：世界右上角不再显示 `Layer 5.5 / World Active` 常驻状态，只在模型下载或解析未完成时显示进度，并贴近视口右上角。占卜屋室内进入 13.5m 加载半径后使用 4 路高优先级字节下载队列；门口全屏雾只有在下载成功且 R3F Suspense 内全部室内模型实际解析挂载后才散开。下载失败保持雾并每 3 秒自动重试。
+- 2026-07-10：上述占卜屋下载门槛已发布到 `releases/20260710154007-2505fd4-fortune-loading` 并原子切换 `current`；只做 TypeScript 编译和 Vite 生产构建，按用户要求未运行 Playwright 或浏览器烟雾测试。
+- 2026-07-10：用户实机确认通用 Three LoadingManager HUD 会显示笼统“正在下载模型 0%”、没有速度，并在文件/解析阶段之间闪退。延迟模型现改用独立具名任务：樱花树中景、樱花树近景、占卜屋室内、五子棋分别以真实响应字节统计进度和平均速度；下载完成后任务进入“本地解析中”，直到相应 Suspense 子树实际提交才从右上角移除。多任务并发按占卜屋 > 五子棋 > 樱花高模 > 樱花中模显示。
+- 2026-07-10：具名下载任务修正已发布到 `releases/20260710155043-2505fd4-download-tracker` 并切换 `current`；TypeScript 和生产构建通过，未运行 Playwright 或浏览器烟雾测试。
+- 2026-07-10：按用户最新选择，世界进入后不再等距离触发后台模型下载。固定顺序为占卜屋室内全部下载/解析完成，再开始樱花中模，最后樱花高模；队列切项前先写入下一任务占位，避免 HUD 在两个任务间闪退。樱花资源只提前传输，实际渲染仍按 68m 中模、45m 高模距离切换，出生点远处保持低模。
+- 2026-07-10：固定后台下载队列已发布到 `releases/20260710160750-2505fd4-startup-queue` 并切换 `current`；TypeScript 和生产构建通过，未运行 Playwright 或浏览器烟雾测试。

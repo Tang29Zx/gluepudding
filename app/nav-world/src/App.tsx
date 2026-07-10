@@ -3,6 +3,7 @@ import {
   type ComponentType,
   type ErrorInfo,
   type ReactNode,
+  useCallback,
   useEffect,
   useState,
 } from "react";
@@ -14,8 +15,8 @@ import { FallbackPage, type FallbackReason } from "./components/FallbackPage";
 
 type RuntimeState = "checking" | "ready" | "fallback" | "error";
 
-const worldStartupTimeoutMs = 20 * 60 * 1000;
-const worldDownloadTimeoutMs = 20 * 60 * 1000;
+const worldStartupTimeoutMs = 3 * 60 * 1000;
+const worldDownloadTimeoutMs = 5 * 60 * 1000;
 const startupInitialProgress = 8;
 const startupDownloadSoftTarget = 88;
 const startupDownloadTarget = 98;
@@ -113,35 +114,39 @@ function getStartupLabel(
 ): string {
   if (worldLoadState.status === "loading") {
     if (assetProgress?.currentLabel) {
-      return `Downloading ${assetProgress.currentLabel}`;
+      return `正在下载：${assetProgress.currentLabel}`;
     }
 
     if (progress >= startupDownloadSoftTarget) {
-      return "Still Downloading 3D World";
+      return "仍在下载出生点可见资源";
     }
 
-    return "Downloading 3D World";
+    return "正在下载出生点可见资源";
   }
 
   if (worldLoadState.status === "failed") {
-    return "Preparing Fallback";
+    return "出生点可见资源加载失败";
   }
 
-  return "Loading 3D World Assets";
+  return "正在解析并挂载可见世界";
 }
 
 function StartupScreen({
   assetProgress,
+  hasFailed,
   label,
+  onRetry,
   progress,
 }: {
   assetProgress: StartupAssetProgress | null;
+  hasFailed: boolean;
   label: string;
+  onRetry: () => void;
   progress: number;
 }) {
   const roundedProgress = Math.min(100, Math.max(0, Math.round(progress)));
   const assetProgressText = assetProgress
-    ? `${assetProgress.completed}/${assetProgress.total}`
+    ? `${assetProgress.completed}/${assetProgress.total} · ${formatBytes(assetProgress.bytesLoaded)}/${formatBytes(assetProgress.bytesTotal)}`
     : null;
 
   return (
@@ -160,12 +165,27 @@ function StartupScreen({
       </div>
       <span className="startup-progress-text">{roundedProgress}%</span>
       <span className="startup-note">
-        {assetProgressText
-          ? `正在完整下载世界资源 ${assetProgressText}，失败会自动重试。`
-          : "首次加载需要下载 3D 模型，可能需要较长时间。"}
+        {hasFailed
+          ? "出生点可见资源加载失败，请检查网络后重试。"
+          : assetProgressText
+            ? `正在加载出生点可见资源 ${assetProgressText}`
+            : "正在准备出生点可见资源。"}
       </span>
+      {hasFailed ? (
+        <button className="startup-retry" onClick={onRetry} type="button">
+          重新加载
+        </button>
+      ) : null}
     </div>
   );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes <= 0) {
+    return "0 MB";
+  }
+
+  return `${(bytes / 1024 / 1024).toFixed(bytes >= 10 * 1024 * 1024 ? 1 : 2)} MB`;
 }
 
 export function App() {
@@ -179,6 +199,7 @@ export function App() {
   );
   const [startupAssetProgress, setStartupAssetProgress] =
     useState<StartupAssetProgress | null>(null);
+  const [downloadAttempt, setDownloadAttempt] = useState(0);
 
   useEffect(() => {
     if (runtimeState !== "checking") {
@@ -192,6 +213,9 @@ export function App() {
     const downloadTimeoutId = window.setTimeout(() => {
       if (!isCancelled && !hasSettled) {
         hasSettled = true;
+        abortController.abort(
+          new DOMException("Critical asset download timed out.", "TimeoutError"),
+        );
         setWorldLoadState({ status: "failed" });
       }
     }, worldDownloadTimeoutMs);
@@ -203,10 +227,13 @@ export function App() {
       }
 
       setStartupAssetProgress(progress);
+      const downloadRatio =
+        progress.bytesTotal > 0
+          ? progress.bytesLoaded / progress.bytesTotal
+          : progress.completed / Math.max(1, progress.total);
       setStartupProgress(
         startupInitialProgress +
-          (progress.completed / Math.max(1, progress.total)) *
-            (startupDownloadTarget - startupInitialProgress),
+          downloadRatio * (startupDownloadTarget - startupInitialProgress),
       );
     }, abortController.signal);
 
@@ -234,20 +261,21 @@ export function App() {
       abortController.abort();
       window.clearTimeout(downloadTimeoutId);
     };
-  }, [runtimeState]);
+  }, [downloadAttempt, runtimeState]);
 
   useEffect(() => {
-    if (runtimeState !== "checking" || worldLoadState.status === "loading") {
+    if (
+      runtimeState !== "checking" ||
+      worldLoadState.status !== "loaded"
+    ) {
       return undefined;
     }
 
-    const timeoutMs =
-      worldLoadState.status === "failed" ? 900 : worldStartupTimeoutMs;
     const timeoutId = window.setTimeout(() => {
       setRuntimeState((currentState) =>
         currentState === "checking" ? "error" : currentState,
       );
-    }, timeoutMs);
+    }, worldStartupTimeoutMs);
 
     return () => {
       window.clearTimeout(timeoutId);
@@ -292,6 +320,13 @@ export function App() {
     };
   }, [runtimeState, startupAssetProgress, worldLoadState.status]);
 
+  const retryCriticalAssets = useCallback(() => {
+    setStartupAssetProgress(null);
+    setStartupProgress(startupInitialProgress);
+    setWorldLoadState({ status: "loading" });
+    setDownloadAttempt((attempt) => attempt + 1);
+  }, []);
+
   if (runtimeState === "fallback" || runtimeState === "error") {
     return <FallbackPage reason={getFallbackReason(runtimeState)} />;
   }
@@ -315,11 +350,13 @@ export function App() {
       {runtimeState === "checking" ? (
         <StartupScreen
           assetProgress={startupAssetProgress}
+          hasFailed={worldLoadState.status === "failed"}
           label={getStartupLabel(
             worldLoadState,
             startupAssetProgress,
             startupProgress,
           )}
+          onRetry={retryCriticalAssets}
           progress={startupProgress}
         />
       ) : null}

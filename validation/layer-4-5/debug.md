@@ -214,3 +214,53 @@
 截图：无用户可见画面变化，不需要截图。
 
 剩余风险：尚未逐个导入模型检查比例、原点、材质和贴图绑定；Layer 5 接入时仍需在浏览器里验证模型显示效果。
+
+## 2026-07-10 / 浮岛隐藏底面裁切与传输压缩
+
+日期：2026-07-10
+
+版本 / Layer：Layer 4.5 资源接入准备层
+
+现象：生产 `island.glb` 约 86.47MB，每位首次访问用户都需要下载完整模型，服务器出口和弱网启动压力较大；用户允许删除岛底看不见的模型部分，并明确不需要 Playwright 测试。
+
+原因判断：岛体 `Icosphere` 和下层 `Plane` 合计只有约 8 千个顶点，单独裁底只能节省少量字节；文件主体是樱花树 `Cube.007`，包含约 221 万上传顶点。要明显降低传输量，需要在安全裁底之外，对全模型执行不减少轮廓三角面的去重、量化和 Meshopt 压缩。
+
+解决方案：新增 `scripts/optimize-world-asset.mjs`。资源准备时只处理节点名为 `Icosphere` / `Plane` 的三角面：三角形三个顶点都低于模型局部 `Y=0` 时删除，任何跨越裁切面的三角形全部保留，从而在可玩地面下方留下边缘裙边。处理后执行 `dedup`、`weld`、`prune`、`sparse` 和 Meshopt high；不启用 simplify，不改变樱花树轮廓。`prepare-world-assets.mjs` 保证临时输出仍以 `.glb` 结尾，避免 NodeIO 误写成分离的 glTF / bin。
+
+涉及文件：`app/nav-world/public/models/world/island.glb`、`app/nav-world/scripts/prepare-world-assets.mjs`、`app/nav-world/scripts/optimize-world-asset.mjs`、`app/nav-world/package.json`、`app/nav-world/package-lock.json`、`README.md`、`Tech-Spec.md`、`VALIDATION_LAYERS.md`、`MEMORY.md`。
+
+结果：删除 655 个隐藏岛体三角面，保留 2182 个岛体三角面；文件从约 86.47MB 降至约 18.19MB，减少约 79%。优化后仍包含 `Icosphere`、`Plane` 和樱花树节点，解码后约 176.75 万个三角面。生产通过静态资源原子 release `20260710053259-2505fd4-island` 切换，源文件与线上 release 的 SHA-256 一致。
+
+验证结果：未运行 Playwright。仅运行 GLB 规范校验和 Meshopt 解码后的结构检查：GLB 无错误 / 警告，27 个节点、12 个 mesh、14 个实际引用材质，关键节点齐全；另外执行一次 Vite 生产构建用于生成带新静态资源版本号的 release。
+
+画面变化：预期无地表和樱花树轮廓变化；只删除玩家无法到达的深层岛底，并引入高精度量化。未做浏览器视觉回归。
+
+截图：无，用户明确要求不运行 Playwright。
+
+剩余风险：`EXT_meshopt_compression` 要求客户端 GLTFLoader 提供 Meshopt 解码器；项目当前 Drei `useGLTF` 默认已配置该解码器。极老或脱离当前加载链路的第三方查看器可能无法直接打开压缩模型。
+
+## 2026-07-10 / 出生点可见资源首屏与世界流式加载
+
+日期：2026-07-10
+
+版本 / Layer：Layer 4.5 资源接入准备层（跨 Layer 5 / 7 / 12）
+
+现象：启动器原来串行下载 23 个 GLB、3 首 MP3 和 22 张塔罗牌面，共约 72.35MiB，并在所有资源完成前阻止进入世界。用户要求出生点肉眼可见内容必须首次加载，但室内、未展开模块和背景音频不应阻塞。
+
+原因判断：占卜屋虽已有室内距离门控，但全量启动清单提前下载了全部文件；实验室和五子棋组件也始终挂载。整岛 GLB 的绝大部分体积来自远处樱花树高模，使可行走地面和高模树木无法分开调度。原加载进度按文件计数，一个大文件完成前会长期显示 0/N。
+
+解决方案：新增 `worldAssetManifest.ts`，首次只加载 8 个出生点可见 GLB；下载改为最多 4 路并发、HEAD 获取总字节、流式累计字节、最多 3 次重试和手动重试按钮。App 先等待关键文件下载，再等待地面、中央景物 / 樱花低模、占卜屋外壳和实验室外壳实际解码挂载，全部 ready 后才解除移动。Island 生成流水线拆出地面、中央装饰和樱花树低 / 中 / 高 LOD；中模在 68m 内加载，高模在 45m 内加载，旧 LOD 保留到新 LOD ready。整岛 `island.glb` 从运行时和构建产物移除。
+
+模型与媒体优化：占卜屋 / 实验室大型 GLB 统一 Meshopt；Teleporter PNG 转 WebP，约 5.75MB 降至 3.37MB；其余可压缩纹理模型按收益转换 WebP。三首 BGM 从 320kbps 降为 128kbps，总体积约 30.04MiB 降至 12.02MiB，并全部退出首屏阻塞清单。
+
+涉及文件：`app/nav-world/src/App.tsx`、`app/nav-world/src/assets/startupAssetPreloader.ts`、`app/nav-world/src/assets/worldAssetManifest.ts`、`app/nav-world/src/world/IslandScenery.tsx`、`app/nav-world/src/world/WorldScene.tsx`、`app/nav-world/src/world/WorldExperience.tsx`、`app/nav-world/src/world/sceneConfig.ts`、`app/nav-world/scripts/build-world-streaming-assets.mjs`、`app/nav-world/scripts/prepare-world-assets.mjs`、`app/nav-world/scripts/optimize-streaming-assets.mjs`、`app/nav-world/scripts/optimize-audio-assets.mjs`、世界 / 占卜屋 / 实验室 GLB 和三首 MP3。
+
+结果：首次关键 GLB 总计 5,533,196 字节（5.28MiB）；按实测 4.05Mbps 理论下载约 10.9 秒，6Mbps 约 7.4 秒。生产已原子切换到 `releases/20260710065942-2505fd4-streaming`，release 中不存在旧 `models/world/island.glb`。
+
+验证结果：`npx tsc --noEmit`、`npm run build`、五个世界 GLB 校验、实验室 GLB 校验和占卜屋资源清单检查通过；Meshopt validator 只报告不支持该扩展的 info 和既有 unused object info，无 error / warning。按用户要求未运行 Playwright。
+
+画面变化：有。远处樱花树首次显示低模，靠近后切换中 / 高模；进入世界前会等待所有出生点可见外壳实际挂载。加载页显示真实字节进度和重试按钮。
+
+截图：无，未运行 Playwright。出生点 360° 肉眼无 pop-in 仍由用户实机复验。
+
+剩余风险：服务器缺少 `toktx`，Teleporter 当前是 WebP 而不是 KTX2，网络体积已下降但 GPU 压缩收益尚未获得。樱花低 / 中 LOD 是自动代理，需要用户实机确认远景轮廓；如差异明显，应调 voxel 尺寸和简化比例，不应把 18.97MB 高模重新放回首屏。
