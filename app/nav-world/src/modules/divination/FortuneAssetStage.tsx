@@ -23,6 +23,8 @@ import {
   getFortuneStagePosition,
   type FortuneRoomState,
 } from "../../world/fortuneRoomConfig";
+import { useFortuneAiAuth } from "../../auth/FortuneAiAuthContext";
+import { LaboratoryLoginScreen } from "../laboratory/LaboratoryLoginScreen";
 import {
   fortuneAssetLoadingConfig,
   fortuneModelAssets,
@@ -445,6 +447,35 @@ function InteriorModels() {
   );
 }
 
+function FortuneAiLoginScreen() {
+  const {
+    access,
+    cancelLogin,
+    isLoginVisible,
+    setInputActive,
+    submitCredentials,
+  } = useFortuneAiAuth();
+
+  return (
+    <LaboratoryLoginScreen
+      access={access}
+      cancelLabel="暂不登录"
+      description="登录后可使用塔罗与周易 AI 解读"
+      isVisible={isLoginVisible}
+      onAimedControlChange={() => {}}
+      onCancel={cancelLogin}
+      onInputActiveChange={setInputActive}
+      onRequestClose={() => {}}
+      onSubmitCredentials={submitCredentials}
+      position={[0, 2.25, -2.15]}
+      rotation={[0, Math.PI, 0]}
+      showCancel
+      successMessage="登录成功，正在继续 AI 解读"
+      title="占卜屋 AI 登录"
+    />
+  );
+}
+
 export function FortuneAssetStage({
   isInteriorVisible,
   isPlayerInsideFortuneRoom,
@@ -479,6 +510,7 @@ export function FortuneAssetStage({
         isPlayerInsideFortuneRoom={isPlayerInsideFortuneRoom}
         mistPhase={mistPhase}
       />
+      {isInteriorVisible ? <FortuneAiLoginScreen /> : null}
       {!isInteriorVisible ? <FortuneInteriorPrivacyVeil /> : null}
       {shouldLoadInterior ? (
         <FortuneAssetBoundary

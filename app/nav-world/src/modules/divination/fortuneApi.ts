@@ -19,7 +19,9 @@ import type {
   AiIchInterpretRequest,
   AiTarotRequest,
   AiInterpretResult,
+  FortuneApiErrorCode,
 } from './types';
+export type { ApiResponse } from './types';
 import { ZODIAC_SIGN_NAMES } from './types';
 import zodiacTextsData from './data/zodiac_texts.json';
 import tarotCardsData from './data/tarot_cards.json';
@@ -149,10 +151,12 @@ const mockIchingResult: IchingResult = {
 
 // --- Request Helper ---
 
-class FortuneApiError extends Error {
+export class FortuneApiError extends Error {
   constructor(
     message: string,
-    public statusCode?: number
+    public statusCode?: number,
+    public code?: FortuneApiErrorCode,
+    public retryAfterSeconds?: number,
   ) {
     super(message);
     this.name = 'FortuneApiError';
@@ -170,14 +174,21 @@ async function request<T>(
       ...options,
     });
 
+    const json = await response.json() as ApiResponse<T>;
     if (!response.ok) {
-      throw new FortuneApiError(`HTTP ${response.status}`, response.status);
+      throw new FortuneApiError(
+        json.error || `HTTP ${response.status}`,
+        response.status,
+        json.code,
+        json.retryAfterSeconds,
+      );
     }
 
-    const json: ApiResponse<T> = await response.json();
     return json;
   } catch (err) {
-    if (retries > 0) {
+    const canRetry = !(err instanceof FortuneApiError) ||
+      err.statusCode === 502 || err.statusCode === 504;
+    if (retries > 0 && canRetry) {
       await new Promise((resolve) => setTimeout(resolve, 650));
       return request<T>(url, options, retries - 1);
     }
@@ -253,7 +264,8 @@ export async function getIchingReading(params: IchingRequest): Promise<ApiRespon
 }
 
 export async function getIchingAiReading(
-  params: AiIchInterpretRequest
+  params: AiIchInterpretRequest,
+  options: { isAdmin?: boolean } = {},
 ): Promise<ApiResponse<AiInterpretResult>> {
   if (!USE_AI_API) {
     await new Promise((r) => setTimeout(r, 2000));
@@ -263,7 +275,7 @@ export async function getIchingAiReading(
       data: {
         interpretation: `【AI 模拟解读】
 
-根据卦象「${params.originalHexagram.name}」的启示，结合你提出的问题，当前局势需要审慎对待。${
+根据卦象「第${params.originalNumber}卦」的启示，结合你提出的问题，当前局势需要审慎对待。${
   params.changingLines.length > 0
     ? `第${params.changingLines.join('、')}爻的变化暗示着转机正在酝酿。`
     : '卦象稳定，近期不会有太大变化。'
@@ -277,19 +289,23 @@ export async function getIchingAiReading(
     };
   }
 
-  return request<AiInterpretResult>(`${API_BASE}/api/fortune/iching/ai`, {
+  const path = options.isAdmin
+    ? "/api/fortune/admin/iching/ai"
+    : "/api/fortune/iching/ai";
+  return request<AiInterpretResult>(`${API_BASE}${path}`, {
     method: 'POST',
     body: JSON.stringify(params),
   }, 1);
 }
 
 export async function getTarotAiReading(
-  params: AiTarotRequest
+  params: AiTarotRequest,
+  options: { isAdmin?: boolean } = {},
 ): Promise<ApiResponse<AiInterpretResult>> {
   if (!USE_AI_API) {
     await new Promise((r) => setTimeout(r, 2000));
     const cardList = params.cards.map(
-      (c) => `${c.name}（${c.isUpright ? '正位' : '逆位'}）`
+      (c) => `第${c.index + 1}张牌（${c.isUpright ? '正位' : '逆位'}）`
     ).join('、');
     return {
       module: 'tarot',
@@ -309,8 +325,15 @@ export async function getTarotAiReading(
     };
   }
 
-  return request<AiInterpretResult>(`${API_BASE}/api/fortune/tarot/ai`, {
+  const path = options.isAdmin
+    ? "/api/fortune/admin/tarot/ai"
+    : "/api/fortune/tarot/ai";
+  return request<AiInterpretResult>(`${API_BASE}${path}`, {
     method: 'POST',
     body: JSON.stringify(params),
   });
+}
+
+export function isFortuneAiApiEnabled(): boolean {
+  return USE_AI_API;
 }

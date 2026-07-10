@@ -13,6 +13,10 @@ import {
   type LaboratoryAccessSnapshot,
 } from "../adapters/laboratoryAuth";
 import { staticAssetUrl } from "../assets/staticAssetUrl";
+import {
+  FortuneAiAuthProvider,
+  useFortuneAiAuth,
+} from "../auth/FortuneAiAuthContext";
 import { fortuneAssetLoadingConfig } from "../modules/divination/fortuneModelAssets";
 import {
   createDefaultWorldModuleStatuses,
@@ -80,6 +84,7 @@ interface WorldRuntimeProps {
   focusedModuleId: WorldModuleId | null;
   forcedFortuneAssetMode: ForcedFortuneAssetMode;
   gomokuPlacement: GomokuPlacement | null;
+  isFortuneAiLoginInputActive: boolean;
   isLoading: boolean;
   isLaboratoryDebugScreenVisible: boolean;
   isLaboratoryLoginInputActive: boolean;
@@ -129,6 +134,7 @@ function WorldRuntime({
   focusedModuleId,
   forcedFortuneAssetMode,
   gomokuPlacement,
+  isFortuneAiLoginInputActive,
   isLoading,
   isLaboratoryDebugScreenVisible,
   isLaboratoryLoginInputActive,
@@ -257,7 +263,8 @@ function WorldRuntime({
     fortuneRoomState === "entering" || fortuneRoomState === "exiting";
   const player = usePlayerController({
     canUseLaboratoryTeleport,
-    isKeyboardInputCaptured: isLaboratoryLoginInputActive,
+    isKeyboardInputCaptured:
+      isFortuneAiLoginInputActive || isLaboratoryLoginInputActive,
     isLocomotionEnabled: !isFortuneRoomTransitionActive,
     isMovementEnabled: true,
     onLaboratoryTeleportDenied,
@@ -617,6 +624,14 @@ function WorldRuntime({
   );
 }
 
+export function WorldExperience(props: WorldExperienceProps) {
+  return (
+    <FortuneAiAuthProvider>
+      <WorldExperienceContent {...props} />
+    </FortuneAiAuthProvider>
+  );
+}
+
 function getForcedFortuneAssetMode(): ForcedFortuneAssetMode {
   const assetMode = new URLSearchParams(window.location.search).get(
     "fortuneAssets",
@@ -640,7 +655,12 @@ function shouldShowLaboratoryDebugScreen(): boolean {
   );
 }
 
-export function WorldExperience({ onReady }: WorldExperienceProps) {
+function WorldExperienceContent({ onReady }: WorldExperienceProps) {
+  const {
+    cancelLogin: cancelFortuneAiLogin,
+    isInputActive: isFortuneAiLoginInputActive,
+    isLoginVisible: isFortuneAiLoginVisible,
+  } = useFortuneAiAuth();
   const [aimedLaboratoryDebugControl, setAimedLaboratoryDebugControl] =
     useState<AimedLaboratoryDebugControl | null>(null);
   const [aimedLaboratoryLoginControl, setAimedLaboratoryLoginControl] =
@@ -997,6 +1017,13 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
         return;
       }
 
+      if (isFortuneAiLoginVisible) {
+        event.preventDefault();
+        event.stopPropagation();
+        cancelFortuneAiLogin();
+        return;
+      }
+
       if (isLaboratoryLoginInputActive) {
         event.preventDefault();
         event.stopPropagation();
@@ -1014,7 +1041,11 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
     return () => {
       window.removeEventListener("keydown", handleKeyDown, true);
     };
-  }, [isLaboratoryLoginInputActive]);
+  }, [
+    cancelFortuneAiLogin,
+    isFortuneAiLoginVisible,
+    isLaboratoryLoginInputActive,
+  ]);
 
   useEffect(() => {
     if (!isLaboratoryLoginInputActive) {
@@ -1091,6 +1122,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
             focusedModuleId={focusedModuleId}
             forcedFortuneAssetMode={forcedFortuneAssetMode}
             gomokuPlacement={gomokuPlacement}
+            isFortuneAiLoginInputActive={isFortuneAiLoginInputActive}
             isLoading={!isCanvasReady || !isTerrainReady}
             isLaboratoryDebugScreenVisible={isLaboratoryDebugScreenVisible}
             isLaboratoryLoginInputActive={isLaboratoryLoginInputActive}
@@ -1186,6 +1218,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
       <div className="world-touch-actions" aria-label="移动端交互操作">
         <button
           disabled={
+            isFortuneAiLoginVisible ||
             isLaboratoryLoginScreenVisible ||
             isLaboratoryLoginInputActive ||
             (!aimedModuleControl && !nearestTarget)
@@ -1205,6 +1238,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
         </button>
         <button
           disabled={
+            isFortuneAiLoginVisible ||
             isLaboratoryLoginScreenVisible ||
             isLaboratoryLoginInputActive ||
             (!aimedModuleControl && !selectableTarget)

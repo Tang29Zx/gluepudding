@@ -13,7 +13,10 @@ import type {
 import type { Vector3Tuple } from "../../world/sceneConfig";
 
 export type LaboratoryLoginField = "password" | "username";
-export type LaboratoryLoginControlId = LaboratoryLoginField | "submit";
+export type LaboratoryLoginControlId =
+  | LaboratoryLoginField
+  | "cancel"
+  | "submit";
 
 export interface AimedLaboratoryLoginControl {
   id: LaboratoryLoginControlId;
@@ -22,11 +25,14 @@ export interface AimedLaboratoryLoginControl {
 
 interface LaboratoryLoginScreenProps {
   access: LaboratoryAccessSnapshot;
+  cancelLabel?: string;
+  description?: string;
   isVisible: boolean;
   onAimedControlChange: (
     control: AimedLaboratoryLoginControl | null,
   ) => void;
   onInputActiveChange: (isActive: boolean) => void;
+  onCancel?: () => void;
   onRequestClose: () => void;
   onSubmitCredentials: (
     username: string,
@@ -34,9 +40,13 @@ interface LaboratoryLoginScreenProps {
   ) => Promise<LaboratoryAccessSnapshot>;
   position: Vector3Tuple;
   rotation: Vector3Tuple;
+  showCancel?: boolean;
+  successMessage?: string;
+  title?: string;
 }
 
 const controlLabels = {
+  cancel: "取消",
   password: "密码",
   submit: "登录",
   username: "用户名",
@@ -154,13 +164,19 @@ function FieldRow({
 
 export function LaboratoryLoginScreen({
   access,
+  cancelLabel = "取消",
+  description = "需要 admin/armbot/door 权限进入天空实验室",
   isVisible,
   onAimedControlChange,
   onInputActiveChange,
+  onCancel,
   onRequestClose,
   onSubmitCredentials,
   position,
   rotation,
+  showCancel = false,
+  successMessage = "登录成功，请再次按 Space 上行",
+  title = "用户名密码登录",
 }: LaboratoryLoginScreenProps) {
   const camera = useThree((state) => state.camera);
   const domElement = useThree((state) => state.gl.domElement);
@@ -238,7 +254,7 @@ export function LaboratoryLoginScreen({
 
       if (snapshot.status === "ready") {
         setPassword("");
-        setStatusMessage("登录成功，请再次按 Space 上行");
+        setStatusMessage(successMessage);
         onRequestClose();
         return;
       }
@@ -268,6 +284,7 @@ export function LaboratoryLoginScreen({
     onRequestClose,
     onSubmitCredentials,
     password,
+    successMessage,
     username,
   ]);
 
@@ -375,6 +392,12 @@ export function LaboratoryLoginScreen({
         return;
       }
 
+      if (aimedControl === "cancel") {
+        closeInput();
+        onCancel?.();
+        return;
+      }
+
       setActiveField(aimedControl);
       onInputActiveChange(true);
     };
@@ -389,6 +412,7 @@ export function LaboratoryLoginScreen({
     closeInput,
     domElement,
     isVisible,
+    onCancel,
     onInputActiveChange,
     submit,
   ]);
@@ -469,7 +493,7 @@ export function LaboratoryLoginScreen({
         maxWidth={3.4}
         position={[0, 0.96, 0.082]}
       >
-        用户名密码登录
+        {title}
       </Text>
       <Text
         anchorX="center"
@@ -479,7 +503,7 @@ export function LaboratoryLoginScreen({
         maxWidth={3.5}
         position={[0, 0.65, 0.078]}
       >
-        需要 admin/armbot/door 权限进入天空实验室
+        {description}
       </Text>
 
       <group position={[0, 0.28, 0]}>
@@ -501,7 +525,10 @@ export function LaboratoryLoginScreen({
         />
       </group>
 
-      <mesh ref={registerControl("submit")} position={[0, -0.88, 0.05]}>
+      <mesh
+        ref={registerControl("submit")}
+        position={[showCancel ? 0.76 : 0, -0.88, 0.05]}
+      >
         <planeGeometry args={[1.3, 0.4]} />
         <meshBasicMaterial
           color={isSubmitting ? "#b7d4df" : "#54b6d3"}
@@ -516,10 +543,34 @@ export function LaboratoryLoginScreen({
         color="#ffffff"
         fontSize={0.17}
         maxWidth={1.1}
-        position={[0, -0.88, 0.088]}
+        position={[showCancel ? 0.76 : 0, -0.88, 0.088]}
       >
         {isSubmitting ? "登录中" : "登录"}
       </Text>
+
+      {showCancel ? (
+        <>
+          <mesh ref={registerControl("cancel")} position={[-0.76, -0.88, 0.05]}>
+            <planeGeometry args={[1.3, 0.4]} />
+            <meshBasicMaterial
+              color="#8aa8b5"
+              opacity={0.94}
+              side={DoubleSide}
+              transparent
+            />
+          </mesh>
+          <Text
+            anchorX="center"
+            anchorY="middle"
+            color="#ffffff"
+            fontSize={0.17}
+            maxWidth={1.1}
+            position={[-0.76, -0.88, 0.088]}
+          >
+            {cancelLabel}
+          </Text>
+        </>
+      ) : null}
 
       <Text
         anchorX="center"

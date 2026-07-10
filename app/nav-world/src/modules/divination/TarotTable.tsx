@@ -24,13 +24,18 @@ import {
   Vector2,
 } from "three";
 import { consumeCanvasClick } from "./canvasEvents";
-import { getTarotAiReading, getTarotReading } from "./fortuneApi";
+import {
+  getTarotAiReading,
+  getTarotReading,
+  isFortuneAiApiEnabled,
+} from "./fortuneApi";
+import { useFortuneAiAuth } from "../../auth/FortuneAiAuthContext";
 import {
   drawFittedScreenText,
   drawWrappedText,
   type FortuneQuestionControl,
 } from "./screenInput";
-import type { TarotResult } from "./types";
+import type { AiTarotRequest, TarotResult } from "./types";
 import { useScreenTextInput } from "./useScreenTextInput";
 import {
   canSelectCard,
@@ -743,6 +748,7 @@ function SparklingCrystalEffect({ isHovered }: { isHovered: boolean }) {
 // ---- main ----
 
 export function TarotTable() {
+  const { requestAuthenticated } = useFortuneAiAuth();
   const camera = useThree((state) => state.camera);
   const domElement = useThree((state) => state.gl.domElement);
   const [phase, setPhase] = useState<"idle" | "question" | "select" | "reveal">("idle");
@@ -951,29 +957,46 @@ export function TarotTable() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await getTarotAiReading({
+        const params: AiTarotRequest = {
           question,
           spread: result.spread,
-          deck: result.deck || "major",
-          cards: result.cards,
-        });
+          deck: "major" as const,
+          cards: result.cards.map((card) => ({
+            index: card.index,
+            isUpright: card.isUpright,
+            position: card.position === "past" ||
+                card.position === "present" ||
+                card.position === "future"
+              ? card.position
+              : "single" as const,
+          })),
+        };
+        const execute = (isAdmin: boolean) =>
+          getTarotAiReading(params, { isAdmin });
+        const res = isFortuneAiApiEnabled()
+          ? await requestAuthenticated(execute)
+          : await execute(false);
         if (!cancelled) {
           setAiText(
-            res.success && res.data
+            res?.success && res.data
               ? res.data.interpretation
-              : (res.error || "AI 解读暂时不可用，请稍后再试。"),
+              : (res?.error || "登录后可使用 AI 解读。"),
           );
           setRevealPage("ai_result");
         }
-      } catch {
+      } catch (error) {
         if (!cancelled) {
-          setAiText("AI 解读暂时不可用，请稍后再试。");
+          setAiText(
+            error instanceof Error
+              ? error.message
+              : "AI 解读暂时不可用，请稍后再试。",
+          );
           setRevealPage("ai_result");
         }
       }
     })();
     return () => { cancelled = true; };
-  }, [revealPage, result, question]);
+  }, [question, requestAuthenticated, result, revealPage]);
 
   // flip animation — delayed to let cards settle
   useFrame((_, delta) => {

@@ -2,6 +2,49 @@
 
 本文档记录当前实现层的技术约束和接口边界。需求事实来源仍是 `REQUIREMENTS.md`，分层验收事实来源仍是 `VALIDATION_LAYERS.md`。
 
+## P0：占卜 AI 安全与生产部署
+
+### 服务边界
+
+- 占卜 AI 由 `app/fortune-ai-service/` 独立承载，生产监听 `127.0.0.1:3260`；Vite 只负责开发、构建和本地 preview。
+- 普通 AI 路由接受任意有效登录账号；Admin 路由必须具有 `admin` 角色。站点不提供自助注册入口，账号继续由现有 auth 管理端创建和停用。
+- Nginx 对普通路由执行登录校验、IP 限流和全局连接限制；Admin 使用独立精确路由，只保留登录、角色、请求体和 schema 安全边界。
+- AI 服务必须再次向本机 auth 服务确认 Cookie，不信任客户端声明的用户、角色或 Admin 标志。
+
+### API Contract
+
+普通路由：
+
+```text
+POST /api/fortune/tarot/ai
+POST /api/fortune/iching/ai
+```
+
+Admin 路由：
+
+```text
+POST /api/fortune/admin/tarot/ai
+POST /api/fortune/admin/iching/ai
+```
+
+塔罗请求只接收 `question`、`spread`、`deck` 和 `cards[].index/isUpright/position`；周易请求只接收 `question`、`originalNumber`、`changedNumber` 和 `changingLines`。牌义和卦义必须由服务端可信数据补全，所有 schema 拒绝额外字段。
+
+成功响应保持现有 `ApiResponse<AiInterpretResult>` 结构。错误响应使用 HTTP 状态码，并提供 `code`：`INVALID_REQUEST`、`AUTH_REQUIRED`、`FORBIDDEN`、`RATE_LIMITED`、`BUSY`、`DAILY_BUDGET_EXHAUSTED`、`AI_UNAVAILABLE`。
+
+### 配额与费用
+
+- 普通账号：每用户每分钟 3 次、每天 20 次、全局并发 2；Admin 不受这些配额限制。
+- 普通调用每日预算为 `$0.625`，按 Asia/Shanghai 自然日持久化；调用前按最坏 token 成本预留，调用后按 DeepSeek `usage` 核销。
+- Admin 费用单独审计，不占普通预算，也不触发费用熔断。
+- 普通和 Admin 使用独立的 256 项、10 分钟 TTL LRU 缓存和执行中请求集合，避免费用归属混淆。
+- 不记录问题正文、提示词、Cookie、密码或密钥；日志只包含 request id、匿名用户哈希、模块、状态、token 和费用摘要。
+
+### 生产发布
+
+- Nginx 静态 root 指向 `/var/www/sites/gluepudding/current/frontend`，`current` 原子指向 `releases/<时间戳-提交号>`。
+- AI 服务由 `gluepudding-fortune-ai.service` 管理；运行数据位于 `/var/lib/gluepudding-fortune-ai/`，secret 位于独立 EnvironmentFile。
+- `vite preview` 仅用于本地和 CI，生产切换成功后删除 PM2 中的 `gluepudding` preview 进程。
+
 ## Layer 4：模块外壳层
 
 目标：让占卜屋、实验室、五子棋都能作为常驻 3D 模块表面贴在世界物体上，不发生整页跳转，也不让鼠标焦点离开 Canvas。

@@ -178,3 +178,21 @@
 截图：本轮未新增截图；用户前面已明确这类实机视觉 / 手感调整由用户测试，Codex 使用类型检查、资源检查和构建作为替代验证。
 
 剩余风险：相机高度平滑会轻微改变跳跃和落地时的视觉跟随感，最终阻尼和最大速度仍以用户实机舒适度为准。
+
+## 2026-07-10 / 生产入口从 Vite preview 迁为静态托管
+
+现象：生产 Nginx 的 `/` 反代到 PM2 运行的 `vite preview`，占卜 AI middleware 也依附同一进程；前端静态托管和敏感后端职责无法独立隔离、扩缩和回滚。
+
+解决方案：发布目录改为 `/var/www/sites/gluepudding/releases/<时间戳-提交号>/`，其中包含 `frontend` 和编译后的独立 AI 服务；`current` 软链指向当前版本。Nginx root 改为 `/var/www/sites/gluepudding/current/frontend`，SPA 使用 `try_files`，AI 精确路由到 `127.0.0.1:3260`，未知 `/api/` 返回 404。新增 systemd unit、受控环境文件模板、Nginx 限制配置和原子发布脚本；生产切换后删除旧 PM2 进程。
+
+涉及文件：`ops/nginx/`、`ops/systemd/`、`scripts/deploy-production.sh`、`.gitignore`、`Tech-Spec.md`。
+
+部署结果：`current` 指向 `releases/20260710032043-94d692d`，Nginx 静态服务前端，独立 AI 服务由 systemd 管理，旧 4174 生产监听已退出。
+
+验证结果：部署切换时已在用户要求停止测试之前完成必要的配置与公开入口检查。用户随后明确“不要测试”，因此不再补跑部署或浏览器验收。
+
+画面变化：无预期视觉变化；生产资源来源和 API 进程边界发生变化。
+
+截图：无，用户明确要求不要测试。
+
+剩余风险：新 DeepSeek Key 需要用户在供应商控制台人工轮换；当前服务仅用临时兼容 drop-in 读取旧 ignored 环境文件。

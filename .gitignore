@@ -60,6 +60,9 @@ Thumbs.db
 # Nginx / local deploy notes
 *.bak
 *.backup
+/current
+/current.next
+/releases/
 
 # Resources
 resources/

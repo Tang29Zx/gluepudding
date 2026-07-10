@@ -12,11 +12,22 @@ export type HealthModule = 'health';
 export type AnyModule = FortuneModule | HealthModule;
 
 export interface ApiResponse<T> {
+  code?: FortuneApiErrorCode;
   module: AnyModule;
   success: boolean;
   data?: T;
   error?: string;
+  retryAfterSeconds?: number;
 }
+
+export type FortuneApiErrorCode =
+  | "AI_UNAVAILABLE"
+  | "AUTH_REQUIRED"
+  | "BUSY"
+  | "DAILY_BUDGET_EXHAUSTED"
+  | "FORBIDDEN"
+  | "INVALID_REQUEST"
+  | "RATE_LIMITED";
 
 // --- 星座 ---
 
@@ -157,17 +168,23 @@ export interface AiInterpretResult {
 }
 
 export interface AiIchInterpretRequest {
-  question: string;
-  originalHexagram: HexagramInfo;
-  changedHexagram: HexagramInfo | null;
+  changedNumber: number | null;
   changingLines: number[];
+  originalNumber: number;
+  question: string;
+}
+
+export interface AiTarotCardRequest {
+  index: number;
+  isUpright: boolean;
+  position: "future" | "past" | "present" | "single";
 }
 
 export interface AiTarotRequest {
+  cards: AiTarotCardRequest[];
+  deck: 'major';
   question: string;
-  spread: string;
-  deck: TarotDeck;
-  cards: TarotCardResult[];
+  spread: TarotSpread;
 }
 
 // --- 健康检查 ---

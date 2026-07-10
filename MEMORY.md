@@ -106,3 +106,14 @@
 - 分层验收目标在 `VALIDATION_LAYERS.md`。
 - 可执行任务拆分在 `TODO.md`。
 - 给建模同学的 FortuneArea 提示词在 `MEMORY for building.md`，包含塔罗、星座、周易模型与参考图要求。
+
+## 2026-07-10 / 占卜 AI P0 安全与生产部署基线
+
+- 占卜 AI 已从 `app/nav-world/vite.config.ts` 迁出到独立的 `app/fortune-ai-service`。生产服务监听 `127.0.0.1:3260`，由 systemd 管理；Vite 只保留本地开发代理和 E2E 预览能力，不再持有 DeepSeek 密钥、提示词、缓存或生产 API middleware。
+- 普通 AI 路由为 `/api/fortune/tarot/ai`、`/api/fortune/iching/ai`；Admin 专用路由为 `/api/fortune/admin/tarot/ai`、`/api/fortune/admin/iching/ai`。所有路由都必须校验登录 Cookie、16 KiB 请求体、严格 schema 和 30 秒上游超时；Admin 仍必须具有 `admin` 角色。
+- 普通用户限制固定为每用户每分钟 3 次、每天 20 次、全局上游并发 2、普通缓存 256 项 / 10 分钟、普通全站每日预算 `$0.625`。费用预留、核销、普通和 Admin 审计均写入 release 目录之外的 SQLite。Admin 使用独立缓存和费用审计，但按用户选择豁免个人额度、IP 限流、普通预算和普通并发限制；Admin 凭据泄露导致费用不封顶属于明确接受风险。
+- Nginx 第一层对普通 AI 路由执行 auth_request、单 IP 每分钟 6 次（突发 2）、连接限制和 16 KiB 请求体限制；Admin 路由独立鉴权且不应用用量限制。公共 `/api/fortune/health` 只返回存活信息，不暴露 DeepSeek 模型、密钥或启用状态。
+- 不开放自助注册。占卜屋复用世界内登录屏，只提供用户名、密码、登录和取消；普通现有账号可调用普通路由，`admin` 登录后自动切换 Admin 路由。401 会清除旧登录态并最多自动续接原请求一次；前端只对网络错误、502、504 重试一次。
+- 生产前端改为 Nginx 静态托管 `/var/www/sites/gluepudding/current/frontend`，release 位于 `/var/www/sites/gluepudding/releases/<时间戳-提交号>/`，通过 `current` 软链原子切换；旧 `vite preview` PM2 进程和 4174 端口已退出生产链路。
+- 当前生产 release 为 `releases/20260710032043-94d692d`。独立服务暂通过 systemd drop-in 引用旧 ignored `.env.local` 兼容现有 DeepSeek Key；后续必须在 DeepSeek 控制台轮换 Key，把新 Key 写入权限受控的 `/etc/gluepudding/fortune-ai.env`，然后删除 `legacy-env.conf`，不要让新 Key 再回到 Vite / PM2 环境。
+- 2026-07-10 用户明确“不要测试”；收到指令后已停止正在进行的 E2E 和临时 Vite preview，后续未再运行测试或验收命令。

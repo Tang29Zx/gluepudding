@@ -653,3 +653,27 @@
 截图：无，本次由用户实机复验。
 
 剩余风险：如果恢复分辨率后仍有卡顿或抽搐，下一步应改做区域懒加载或排查相机 / Pointer Lock 输入帧，而不是继续降低屏幕分辨率。
+
+## 2026-07-10 / 占卜 AI P0 防滥用与独立服务迁移
+
+日期：2026-07-10
+
+版本 / Layer：Layer 8 占卜屋交互与真实占卜接口层（跨生产部署）
+
+现象：原占卜 AI 接口依附 `vite preview` middleware，公开接口没有登录鉴权、限流、全局并发、缓存容量、严格 schema 和持久化费用熔断；攻击者可用不同问题绕过缓存，持续产生 DeepSeek 费用并推高 Node 内存。
+
+原因判断：Vite preview 承担了生产静态服务和后端 API 两类职责，DeepSeek Key、提示词、缓存与上游请求都位于 `vite.config.ts`；Nginx 只做普通反代，没有在请求进入 Node 前建立安全边界。
+
+解决方案：新增独立 TypeScript Node 服务 `app/fortune-ai-service`，使用 Zod、容量为 256 / TTL 10 分钟的 LRU、同请求合并、SQLite 费用与请求审计、普通用户分钟 / 每日额度、普通全站 `$0.625` 每日预算、普通全局并发 2 和 30 秒超时。服务携带原始 Cookie 向本机 auth 服务复核身份，只向 DeepSeek 传递用户 ID 的 SHA-256。普通和 Admin 使用独立路由、缓存及审计命名空间；Admin 必须登录并具有 `admin` 角色，但按产品决定豁免用量配额和普通并发限制。前端新增占卜 AI 登录态上下文，复用世界内原生登录屏，不显示注册入口；根据角色选择普通 / Admin 路由，并按错误码控制重试和登录续接。Nginx 改为静态托管前端，对普通 AI 路由增加 auth_request、IP 频率、连接和请求体限制，对 Admin 路由只保留鉴权与进程安全边界。
+
+涉及文件：`app/fortune-ai-service/`、`app/nav-world/vite.config.ts`、`app/nav-world/src/auth/FortuneAiAuthContext.tsx`、`app/nav-world/src/adapters/authSession.ts`、`app/nav-world/src/adapters/laboratoryAuth.ts`、`app/nav-world/src/modules/divination/`、`app/nav-world/src/modules/laboratory/LaboratoryLoginScreen.tsx`、`app/nav-world/src/world/WorldExperience.tsx`、`ops/`、`scripts/deploy-production.sh`、`Tech-Spec.md`、`.gitignore`。
+
+部署结果：生产 `current` 已指向 `releases/20260710032043-94d692d`；Nginx 从 `current/frontend` 静态服务 SPA，AI 精确路由到 `127.0.0.1:3260`；独立服务由 `gluepudding-fortune-ai.service` 管理；旧 PM2 `gluepudding` 进程已删除，4174 不再属于生产链路。
+
+验证结果：在用户发出“不要测试”前，独立服务类型检查、构建、11 个单元 / 集成用例、前端类型检查和临时构建、Nginx 配置检查、匿名鉴权与静态资源公网烟雾检查已完成。完整 E2E 在五子棋 Worker 长时间思考处未完成；该问题不属于占卜 AI P0。收到“不要测试”后立即停止 E2E 和临时预览，未再运行任何测试或验收命令。
+
+画面变化：是。普通现有账号在首次请求 AI 解读时会看到世界内登录屏；屏幕只包含用户名、密码、登录和取消，不提供注册入口。登录后自动继续原请求一次。
+
+截图：无。用户明确要求不要测试，本轮不生成或补跑截图。
+
+剩余风险：Admin 豁免意味着 Admin 凭据泄露后可能产生不封顶费用和压力；这是明确接受风险。DeepSeek Key 仍由 systemd 临时 drop-in 引用旧 ignored `.env.local`，需要在供应商控制台人工轮换后迁入 `/etc/gluepudding/fortune-ai.env` 并删除兼容 drop-in。完整 E2E 未完成，按用户要求不继续。

@@ -26,7 +26,11 @@ import {
   lookUpHexagram,
 } from "./business/ichingLogic";
 import { consumeCanvasClick } from "./canvasEvents";
-import { getIchingAiReading } from "./fortuneApi";
+import {
+  getIchingAiReading,
+  isFortuneAiApiEnabled,
+} from "./fortuneApi";
+import { useFortuneAiAuth } from "../../auth/FortuneAiAuthContext";
 import type { LotResult } from "./ichingLots";
 import {
   drawFittedScreenText,
@@ -573,6 +577,7 @@ export function IchingHexagram({
   lotResult: LotResult | null;
   onLotResultClear: () => void;
 }) {
+  const { requestAuthenticated } = useFortuneAiAuth();
   const camera = useThree((state) => state.camera);
   const domElement = useThree((state) => state.gl.domElement);
 
@@ -716,29 +721,38 @@ export function IchingHexagram({
     let cancelled = false;
     (async () => {
       try {
-        const res = await getIchingAiReading({
-          question,
-          originalHexagram: result.originalHexagram,
-          changedHexagram: result.changedHexagram,
+        const params = {
+          changedNumber: result.changedHexagram?.number ?? null,
           changingLines: result.changingLines,
-        });
+          originalNumber: result.originalHexagram.number,
+          question,
+        };
+        const execute = (isAdmin: boolean) =>
+          getIchingAiReading(params, { isAdmin });
+        const res = isFortuneAiApiEnabled()
+          ? await requestAuthenticated(execute)
+          : await execute(false);
         if (!cancelled) {
           setAiText(
-            res.success && res.data
+            res?.success && res.data
               ? res.data.interpretation
-              : (res.error || "AI 解读暂时不可用，请稍后再试。"),
+              : (res?.error || "登录后可使用 AI 解读。"),
           );
           setRevealPage("ai_result");
         }
-      } catch {
+      } catch (error) {
         if (!cancelled) {
-          setAiText("AI 解读暂时不可用，请稍后再试。");
+          setAiText(
+            error instanceof Error
+              ? error.message
+              : "AI 解读暂时不可用，请稍后再试。",
+          );
           setRevealPage("ai_result");
         }
       }
     })();
     return () => { cancelled = true; };
-  }, [revealPage, result, question]);
+  }, [question, requestAuthenticated, result, revealPage]);
 
   // raycasting — coin hover in idle, table click in result
   useFrame(() => {

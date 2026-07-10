@@ -1,4 +1,10 @@
-import { expect, type Page, test } from "@playwright/test";
+import {
+  devices,
+  expect,
+  type BrowserContext,
+  type Page,
+  test,
+} from "@playwright/test";
 
 type GomokuQaState = {
   difficulty: string;
@@ -15,15 +21,28 @@ type GomokuQaState = {
 function isIgnorableRequestFailure(url: string, errorText: string): boolean {
   return (
     errorText.includes("net::ERR_ABORTED") &&
-    /\/audio\/[^/]+\.mp3$/.test(url)
+    /\/audio\/[^/]+\.mp3(?:[?#].*)?$/.test(url)
   );
+}
+
+function isIgnorableConsoleError(text: string): boolean {
+  return text.includes(
+    "Failed to load resource: the server responded with a status of 401",
+  );
+}
+
+function isExpectedAuthProbeResponse(url: string, status: number): boolean {
+  return status === 401 && /\/api\/auth\/session(?:[?#].*)?$/.test(url);
 }
 
 function collectPageFailures(page: Page): string[] {
   const failures: string[] = [];
 
   page.on("console", (message) => {
-    if (message.type() === "error") {
+    if (
+      message.type() === "error" &&
+      !isIgnorableConsoleError(message.text())
+    ) {
       failures.push(`Console error: ${message.text()}`);
     }
   });
@@ -45,6 +64,10 @@ function collectPageFailures(page: Page): string[] {
   });
 
   page.on("response", (response) => {
+    if (isExpectedAuthProbeResponse(response.url(), response.status())) {
+      return;
+    }
+
     if (response.status() >= 400) {
       failures.push(`HTTP ${response.status()}: ${response.url()}`);
     }
@@ -107,52 +130,88 @@ test("loads the perspective shadow game iframe page", async ({ page }) => {
   expect(failures).toEqual([]);
 });
 
-test("loads the 3D world canvas", async ({ page }) => {
-  const failures = collectPageFailures(page);
+test("protects fortune AI routes without exposing provider details", async ({ request }, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+  const healthResponse = await request.get("/api/fortune/health");
+  expect(healthResponse.status()).toBe(200);
+  const healthText = await healthResponse.text();
+  expect(healthText).not.toContain("deepseek");
 
-  await page.goto("/");
-  await expect(page.locator(".startup-screen")).toHaveCount(0);
-  await expect(page.locator(".fallback-page")).toHaveCount(0);
-
-  const canvas = page.locator(".world-canvas canvas");
-  await expect(canvas).toBeVisible();
-
-  const canvasSize = await canvas.evaluate((element) => ({
-    height: element.clientHeight,
-    width: element.clientWidth,
-  }));
-
-  expect(canvasSize.width).toBeGreaterThan(0);
-  expect(canvasSize.height).toBeGreaterThan(0);
-  await expect(page.locator(".world-status")).toBeVisible();
-  expect(failures).toEqual([]);
+  for (const path of [
+    "/api/fortune/tarot/ai",
+    "/api/fortune/admin/tarot/ai",
+  ]) {
+    const response = await request.post(path, {
+      data: {
+        cards: [{ index: 0, isUpright: true, position: "single" }],
+        deck: "major",
+        question: "test",
+        spread: "single",
+      },
+    });
+    expect(response.status()).toBe(401);
+    expect(await response.json()).toMatchObject({
+      code: "AUTH_REQUIRED",
+      success: false,
+    });
+  }
 });
 
-test("places and retracts the world gomoku board with hotkeys", async ({ page }) => {
-  const failures = collectPageFailures(page);
+test.describe.serial("loaded 3D world", () => {
+  let context: BrowserContext;
+  let failures: string[];
+  let page: Page;
 
-  await page.goto("/");
-  await expect(page.locator(".startup-screen")).toHaveCount(0);
-  await expect(page.locator(".world-canvas canvas")).toBeVisible();
+  test.beforeAll(async ({ browser }, testInfo) => {
+    testInfo.setTimeout(12 * 60 * 1000);
+    const isMobile = testInfo.project.name === "chromium-mobile";
+    context = await browser.newContext({
+      ...(isMobile ? devices["Pixel 7"] : devices["Desktop Chrome"]),
+      viewport: isMobile
+        ? { width: 390, height: 844 }
+        : { width: 1365, height: 768 },
+    });
+    page = await context.newPage();
+    failures = collectPageFailures(page);
+    await page.goto("/");
+    await expect(page.locator(".startup-screen")).toHaveCount(0, {
+      timeout: 12 * 60 * 1000,
+    });
+    await expect(page.locator(".fallback-page")).toHaveCount(0);
+    await expect(page.locator(".world-canvas canvas")).toBeVisible();
+  });
 
-  await page.keyboard.press("KeyG");
-  await expect(page.locator(".world-interaction-bar")).toContainText("棋盘已展开");
+  test.afterAll(async () => {
+    await context?.close();
+  });
 
-  await page.keyboard.press("KeyG");
-  await expect(page.locator(".world-interaction-bar")).toContainText("棋盘已移动");
+  test("loads the 3D world canvas", async () => {
+    const canvas = page.locator(".world-canvas canvas");
+    const canvasSize = await canvas.evaluate((element) => ({
+      height: element.clientHeight,
+      width: element.clientWidth,
+    }));
 
-  await page.keyboard.press("KeyH");
-  await expect(page.locator(".world-interaction-bar")).toContainText("棋盘已收回");
+    expect(canvasSize.width).toBeGreaterThan(0);
+    expect(canvasSize.height).toBeGreaterThan(0);
+    await expect(page.locator(".world-status")).toBeVisible();
+    expect(failures).toEqual([]);
+  });
 
-  expect(failures).toEqual([]);
-});
+  test("places and retracts the world gomoku board with hotkeys", async () => {
+    await page.keyboard.press("KeyG");
+    await expect(page.locator(".world-interaction-bar")).toContainText("棋盘已展开");
 
-test("plays a native world gomoku turn against AI", async ({ page }) => {
-  const failures = collectPageFailures(page);
+    await page.keyboard.press("KeyG");
+    await expect(page.locator(".world-interaction-bar")).toContainText("棋盘已移动");
 
-  await page.goto("/");
-  await expect(page.locator(".startup-screen")).toHaveCount(0);
-  await expect(page.locator(".world-canvas canvas")).toBeVisible();
+    await page.keyboard.press("KeyH");
+    await expect(page.locator(".world-interaction-bar")).toContainText("棋盘已收回");
+
+    expect(failures).toEqual([]);
+  });
+
+  test("plays a native world gomoku turn against AI", async () => {
 
   await page.keyboard.press("KeyG");
   await expect(page.locator(".world-interaction-bar")).toContainText("棋盘已展开");
@@ -165,6 +224,12 @@ test("plays a native world gomoku turn against AI", async ({ page }) => {
 
   expect(await page.evaluate(() => window.__gomokuQa?.getState().difficulty))
     .toBe("legend");
+
+  for (let index = 0; index < 3; index += 1) {
+    await page.evaluate(() => window.__gomokuQa?.activateControl("difficulty"));
+  }
+  expect(await page.evaluate(() => window.__gomokuQa?.getState().difficulty))
+    .toBe("fast");
 
   const didMove = await page.evaluate(() => window.__gomokuQa?.playMove(12, 12));
   expect(didMove).toBe(true);
@@ -228,7 +293,8 @@ test("plays a native world gomoku turn against AI", async ({ page }) => {
     )
     .toBeGreaterThanOrEqual(2);
 
-  expect(failures).toEqual([]);
+    expect(failures).toEqual([]);
+  });
 });
 
 test("shows the 2D fallback when forced", async ({ page }) => {
