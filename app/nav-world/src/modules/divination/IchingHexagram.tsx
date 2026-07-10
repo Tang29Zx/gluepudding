@@ -33,13 +33,14 @@ import {
   drawWrappedText,
   type FortuneQuestionControl,
 } from "./screenInput";
+import { staticAssetUrl } from "../../assets/staticAssetUrl";
 import type { IchingResult, YaoValue } from "./types";
 import { useScreenTextInput } from "./useScreenTextInput";
 
 const screenCenter = new Vector2(0, 0);
 
 // iching-coin model in tent local: positionOnIchingTable(0.48, 1.112, 0.22) → ~[5.78, 1.112, 0.48]
-const COIN_URL = "./models/fortune/iching_coin.glb";
+const COIN_URL = staticAssetUrl("./models/fortune/iching_coin.glb");
 const ICHING_TABLE_COIN_Y = 1.112;
 const TRIGGER_POS: [number, number, number] = [5.78, ICHING_TABLE_COIN_Y, 0.48];
 const COIN_BASE_Y = ICHING_TABLE_COIN_Y;

@@ -1,4 +1,8 @@
-import { Suspense, type MutableRefObject } from "react";
+import {
+  Suspense,
+  useCallback,
+  type MutableRefObject,
+} from "react";
 import {
   InteractionSystem,
   type InteractionTargetId,
@@ -34,7 +38,7 @@ import type {
 import type { FortuneRoomState } from "./fortuneRoomConfig";
 import type { PlayerControllerState } from "./PlayerController";
 import type { TerrainSampler } from "./terrainSampler";
-import { worldColors, worldScale } from "./sceneConfig";
+import { worldColors, worldScale, worldTerrain } from "./sceneConfig";
 
 function FallbackGround() {
   return (
@@ -148,6 +152,11 @@ export function WorldScene({
   const sceneFog: [string, number, number] = isPlayerInsideFortuneRoom
     ? ["#160f28", 9, 34]
     : [worldColors.sky, 70, 150];
+  const terrainModelUrl = worldTerrain.modelUrl;
+  const handleTerrainError = useCallback(() => {
+    onTerrainSamplerChange(null);
+    onTerrainReadyChange(false);
+  }, [onTerrainReadyChange, onTerrainSamplerChange]);
 
   return (
     <>
@@ -173,14 +182,13 @@ export function WorldScene({
 
       <WorldTerrainErrorBoundary
         fallback={isOutsideWorldVisible ? <FallbackGround /> : null}
-        onError={() => {
-          onTerrainSamplerChange(null);
-          onTerrainReadyChange(true);
-        }}
+        onError={handleTerrainError}
+        resetKey={terrainModelUrl}
       >
-        <Suspense fallback={null}>
+        <Suspense fallback={isOutsideWorldVisible ? <FallbackGround /> : null}>
           <IslandTerrain
             isVisible={isOutsideWorldVisible}
+            modelUrl={terrainModelUrl}
             onTerrainReadyChange={onTerrainReadyChange}
             onTerrainSamplerChange={onTerrainSamplerChange}
           />

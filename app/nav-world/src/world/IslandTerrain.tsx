@@ -21,6 +21,7 @@ import { worldTerrain } from "./sceneConfig";
 
 interface IslandTerrainProps {
   isVisible?: boolean;
+  modelUrl?: string;
   onTerrainReadyChange: (isReady: boolean) => void;
   onTerrainSamplerChange: (sampler: TerrainSampler | null) => void;
 }
@@ -29,6 +30,7 @@ interface WorldTerrainErrorBoundaryProps {
   children: ReactNode;
   fallback: ReactNode;
   onError: () => void;
+  resetKey: string;
 }
 
 interface WorldTerrainErrorBoundaryState {
@@ -51,6 +53,12 @@ export class WorldTerrainErrorBoundary extends Component<
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     console.warn("Island terrain failed to render.", error, errorInfo);
     this.props.onError();
+  }
+
+  componentDidUpdate(prevProps: WorldTerrainErrorBoundaryProps): void {
+    if (prevProps.resetKey !== this.props.resetKey && this.state.hasError) {
+      this.setState({ hasError: false });
+    }
   }
 
   render(): ReactNode {
@@ -133,10 +141,11 @@ function createTerrainSampler(walkableMeshes: readonly Mesh[]): TerrainSampler {
 
 export function IslandTerrain({
   isVisible = true,
+  modelUrl = worldTerrain.modelUrl,
   onTerrainReadyChange,
   onTerrainSamplerChange,
 }: IslandTerrainProps) {
-  const gltf = useGLTF(worldTerrain.modelUrl);
+  const gltf = useGLTF(modelUrl);
   const rootRef = useRef<Group>(null);
   const scene = useMemo(() => {
     const clonedScene = gltf.scene.clone(true);
@@ -182,7 +191,6 @@ export function IslandTerrain({
 
     return () => {
       onTerrainSamplerChange(null);
-      onTerrainReadyChange(false);
     };
   }, [onTerrainReadyChange, onTerrainSamplerChange, scene]);
 
@@ -197,5 +205,3 @@ export function IslandTerrain({
     </group>
   );
 }
-
-useGLTF.preload(worldTerrain.modelUrl);

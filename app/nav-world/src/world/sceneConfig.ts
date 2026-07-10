@@ -1,3 +1,5 @@
+import { staticAssetUrl } from "../assets/staticAssetUrl";
+
 export type Vector3Tuple = [number, number, number];
 
 export interface PlayerSpawn {
@@ -46,7 +48,7 @@ export const worldScale = {
 };
 
 export const worldTerrain = {
-  modelUrl: "./models/world/island.glb",
+  modelUrl: staticAssetUrl("./models/world/island.glb"),
   position: [-14.4, -10, 3.5] satisfies Vector3Tuple,
   scale: 6,
   walkableMeshNames: ["Icosphere"] as const,

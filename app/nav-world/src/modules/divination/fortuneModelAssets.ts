@@ -1,3 +1,4 @@
+import { staticAssetUrl } from "../../assets/staticAssetUrl";
 import type { Vector3Tuple } from "../../world/sceneConfig";
 
 export interface FortuneModelAsset {
@@ -23,7 +24,7 @@ export const fortuneAssetLoadingConfig = {
 };
 
 function modelUrl(fileName: string): string {
-  return `${fortuneModelBaseUrl}/${fileName}`;
+  return staticAssetUrl(`${fortuneModelBaseUrl}/${fileName}`);
 }
 
 const ichingTablePosition = [6, 0.05, 0] satisfies Vector3Tuple;

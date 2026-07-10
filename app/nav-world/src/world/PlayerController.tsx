@@ -27,7 +27,7 @@ export interface PlayerControllerState {
 }
 
 interface UsePlayerControllerOptions {
-  canUseLaboratoryTeleport: () => boolean;
+  canUseLaboratoryTeleport: () => boolean | Promise<boolean>;
   isKeyboardInputCaptured: boolean;
   isLocomotionEnabled?: boolean;
   isMovementEnabled: boolean;
@@ -166,6 +166,7 @@ export function usePlayerController({
   const positionRef = useRef(new Vector3(...playerSpawn.position));
   const sprintKeysRef = useRef<Set<SprintKey>>(new Set());
   const verticalVelocityRef = useRef(0);
+  const laboratoryTeleportCheckRef = useRef(false);
   const yawRef = useRef(0);
 
   const clearMovementInput = useCallback(() => {
@@ -208,6 +209,51 @@ export function usePlayerController({
       return teleportTo(targetPosition);
     },
     [teleportTo],
+  );
+
+  const requestLaboratoryTeleportUp = useCallback(
+    (targetPosition: Vector3) => {
+      if (laboratoryTeleportCheckRef.current) {
+        return;
+      }
+
+      const handleDenied = () => {
+        clearMovementInput();
+        horizontalVelocityRef.current.set(0, 0, 0);
+        onLaboratoryTeleportDenied();
+      };
+
+      const handleAllowed = (isAllowed: boolean) => {
+        if (isAllowed) {
+          teleportTo(targetPosition.clone());
+        } else {
+          handleDenied();
+        }
+      };
+
+      const result = canUseLaboratoryTeleport();
+
+      if (result instanceof Promise) {
+        laboratoryTeleportCheckRef.current = true;
+        clearMovementInput();
+        horizontalVelocityRef.current.set(0, 0, 0);
+
+        void result.then(handleAllowed).catch(() => {
+          handleDenied();
+        }).finally(() => {
+          laboratoryTeleportCheckRef.current = false;
+        });
+        return;
+      }
+
+      handleAllowed(result);
+    },
+    [
+      canUseLaboratoryTeleport,
+      clearMovementInput,
+      onLaboratoryTeleportDenied,
+      teleportTo,
+    ],
   );
 
   const rotateView = useCallback((movementX: number, movementY: number) => {
@@ -315,14 +361,7 @@ export function usePlayerController({
           );
 
           if (targetPosition) {
-            if (canUseLaboratoryTeleport()) {
-              teleportTo(targetPosition);
-            } else {
-              clearMovementInput();
-              horizontalVelocityRef.current.set(0, 0, 0);
-              onLaboratoryTeleportDenied();
-            }
-
+            requestLaboratoryTeleportUp(targetPosition);
             return;
           }
 
@@ -372,7 +411,7 @@ export function usePlayerController({
     isLocomotionEnabled,
     isMovementEnabled,
     onLaboratoryTeleportDenied,
-    teleportTo,
+    requestLaboratoryTeleportUp,
     teleportLaboratory,
   ]);
 

@@ -7,7 +7,7 @@ import { useGLTF } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Group, Mesh, MeshStandardMaterial, Raycaster, Vector2 } from "three";
-import { playOptionalAudio } from "../../audio/playOptionalAudio";
+import { staticAssetUrl } from "../../assets/staticAssetUrl";
 import { consumeCanvasClick } from "./canvasEvents";
 import { drawLot, type LotResult } from "./ichingLots";
 
@@ -15,8 +15,8 @@ const screenCenter = new Vector2(0, 0);
 
 // from fortuneModelAssets: positionOnIchingTable(0, 1.14, 0) → [6, 1.14, 0]
 const CYLINDER_POS: [number, number, number] = [6, 1.14, 0];
-const CYLINDER_URL = "./models/fortune/iching_lot_cylinder.glb";
-const BAMBOO_URL = "./models/fortune/iching_bamboo_slips.glb";
+const CYLINDER_URL = staticAssetUrl("./models/fortune/iching_lot_cylinder.glb");
+const BAMBOO_URL = staticAssetUrl("./models/fortune/iching_bamboo_slips.glb");
 const FLOAT_Y = 0.5;
 const BOUNCE_Y = 0.12;
 const SHAKE_SPEED = 22;
@@ -33,13 +33,6 @@ export function IchingDesk({ onLotResult }: { onLotResult: (lot: LotResult) => v
 
   const [isShaking, setIsShaking] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-
-  // shake sound effect
-  useEffect(() => {
-    if (isShaking) {
-      playOptionalAudio("/audio/shake_cylinder.mp3", 0.4);
-    }
-  }, [isShaking]);
 
   // load the actual lot cylinder model
   const gltf = useGLTF(CYLINDER_URL);

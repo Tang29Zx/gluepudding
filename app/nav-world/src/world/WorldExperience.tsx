@@ -2,7 +2,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ACESFilmicToneMapping,
-  PCFSoftShadowMap,
+  PCFShadowMap,
   SRGBColorSpace,
   Vector3,
 } from "three";
@@ -12,8 +12,8 @@ import {
   loginLaboratoryAccess,
   type LaboratoryAccessSnapshot,
 } from "../adapters/laboratoryAuth";
+import { staticAssetUrl } from "../assets/staticAssetUrl";
 import { fortuneAssetLoadingConfig } from "../modules/divination/fortuneModelAssets";
-import { playOptionalAudio } from "../audio/playOptionalAudio";
 import {
   createDefaultWorldModuleStatuses,
   getWorldModuleById,
@@ -105,6 +105,7 @@ interface WorldRuntimeProps {
     username: string,
     password: string,
   ) => Promise<LaboratoryAccessSnapshot>;
+  onLaboratoryAccessRefresh: () => Promise<LaboratoryAccessSnapshot>;
   onLaboratoryTeleportDenied: () => void;
   onAimedTargetChange: (targetId: InteractionTargetId | null) => void;
   onFortuneInteriorReadyChange: (isReady: boolean) => void;
@@ -148,6 +149,7 @@ function WorldRuntime({
   onLaboratoryLoginInputActiveChange,
   onLaboratoryLoginScreenClose,
   onLaboratoryLoginSubmit,
+  onLaboratoryAccessRefresh,
   onLaboratoryTeleportDenied,
   onModuleStatusChange,
   onNearestTargetChange,
@@ -230,8 +232,12 @@ function WorldRuntime({
     setRawTerrainSampler(sampler);
   }, []);
   const canUseLaboratoryTeleport = useCallback(
-    () => laboratoryAccess.status === "ready",
-    [laboratoryAccess.status],
+    async () => {
+      const snapshot = await onLaboratoryAccessRefresh();
+
+      return snapshot.status === "ready";
+    },
+    [onLaboratoryAccessRefresh],
   );
   const [fortuneRoomState, setFortuneRoomState] =
     useState<FortuneRoomState>("outside");
@@ -441,7 +447,8 @@ function WorldRuntime({
       }
     }
 
-    // footstep sound (outdoor only)
+    // footstep timing is kept for future audio assets; no request is made when
+    // the optional footstep file is not shipped.
     const prevX = footstepPrevRef.current[0];
     const prevZ = footstepPrevRef.current[1];
     const dx = player.position.current.x - prevX;
@@ -454,18 +461,17 @@ function WorldRuntime({
       const now = performance.now();
       if (now - footstepTimerRef.current > 480) {
         footstepTimerRef.current = now;
-        playOptionalAudio("/audio/footstep.mp3", 0.25);
       }
     }
   });
 
-  const shouldLoadFortuneShell = true;
   const shouldLoadFortuneInterior =
     forcedFortuneAssetMode === "interior" ||
       focusedModuleId === "divination" ||
       selectedTargetId === "divination-house" ||
       shouldLoadFortuneInteriorByDistance ||
       isPlayerInsideFortuneRoom;
+  const shouldLoadFortuneShell = true;
   const isFortuneRoomInteriorVisible =
     forcedFortuneAssetMode === "interior" || isPlayerInsideFortuneRoom;
 
@@ -482,28 +488,29 @@ function WorldRuntime({
   const currentTrackRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // lazy init all three tracks
     const tracks: Record<string, string> = {
-      loading: "/audio/loading_bgm.mp3",
-      world: "/audio/world_bgm.mp3",
-      fortune: "/audio/fortune_bgm.mp3",
+      loading: staticAssetUrl("/audio/loading_bgm.mp3"),
+      world: staticAssetUrl("/audio/world_bgm.mp3"),
+      fortune: staticAssetUrl("/audio/fortune_bgm.mp3"),
     };
+    const target = isLoading ? "loading" : isNearFortuneForMusic ? "fortune" : "world";
+
     for (const [key, src] of Object.entries(tracks)) {
       if (!musicRef.current[key]) {
-        const a = new Audio(src);
+        const a = new Audio();
         a.loop = true;
         a.volume = 0.3;
-        a.preload = "auto";
+        a.preload = key === target ? "auto" : "none";
+        a.src = src;
         musicRef.current[key] = a;
       }
     }
-
-    const target = isLoading ? "loading" : isNearFortuneForMusic ? "fortune" : "world";
 
     // pause previous track, resume (or start) target
     for (const [key, a] of Object.entries(musicRef.current)) {
       if (!a) continue;
       if (key === target) {
+        a.preload = "auto";
         if (a.readyState < HTMLMediaElement.HAVE_ENOUGH_DATA) {
           a.load();
           a.addEventListener("canplaythrough", () => a.play().catch(() => {}), { once: true });
@@ -546,6 +553,7 @@ function WorldRuntime({
     for (const [key, a] of Object.entries(musicRef.current)) {
       if (!a) continue;
       if (key === target) {
+        a.preload = "auto";
         if (a.readyState < HTMLMediaElement.HAVE_ENOUGH_DATA) {
           a.load();
           a.addEventListener("canplaythrough", () => a.play().catch(() => {}), { once: true });
@@ -1060,7 +1068,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
           position: cameraConfig.position,
         }}
         tabIndex={0}
-        dpr={[1, 1.75]}
+        dpr={[1, 1.35]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
         onCreated={({ gl }) => {
           worldCanvasRef.current = gl.domElement;
@@ -1068,7 +1076,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
           gl.toneMapping = ACESFilmicToneMapping;
           gl.toneMappingExposure = 0.96;
           gl.setClearColor(worldColors.sky);
-          gl.shadowMap.type = PCFSoftShadowMap;
+          gl.shadowMap.type = PCFShadowMap;
           gl.domElement.tabIndex = 0;
           setIsCanvasReady(true);
         }}
@@ -1105,6 +1113,7 @@ export function WorldExperience({ onReady }: WorldExperienceProps) {
             }
             onLaboratoryLoginScreenClose={closeLaboratoryLoginScreen}
             onLaboratoryLoginSubmit={submitLaboratoryLogin}
+            onLaboratoryAccessRefresh={refreshLaboratoryAccess}
             onLaboratoryTeleportDenied={showLaboratoryLoginScreen}
             onAimedTargetChange={setAimedTargetId}
             onFortuneInteriorReadyChange={ignoreFortuneInteriorReady}

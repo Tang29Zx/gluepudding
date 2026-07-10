@@ -6,12 +6,16 @@ import {
   useEffect,
   useState,
 } from "react";
+import {
+  preloadStartupAssets,
+  type StartupAssetProgress,
+} from "./assets/startupAssetPreloader";
 import { FallbackPage, type FallbackReason } from "./components/FallbackPage";
 
 type RuntimeState = "checking" | "ready" | "fallback" | "error";
 
-const worldStartupTimeoutMs = 180000;
-const worldDownloadTimeoutMs = 90000;
+const worldStartupTimeoutMs = 20 * 60 * 1000;
+const worldDownloadTimeoutMs = 20 * 60 * 1000;
 const startupInitialProgress = 8;
 const startupDownloadSoftTarget = 88;
 const startupDownloadTarget = 98;
@@ -104,9 +108,14 @@ function getInitialRuntimeState(): RuntimeState {
 
 function getStartupLabel(
   worldLoadState: WorldLoadState,
+  assetProgress: StartupAssetProgress | null,
   progress: number,
 ): string {
   if (worldLoadState.status === "loading") {
+    if (assetProgress?.currentLabel) {
+      return `Downloading ${assetProgress.currentLabel}`;
+    }
+
     if (progress >= startupDownloadSoftTarget) {
       return "Still Downloading 3D World";
     }
@@ -122,13 +131,18 @@ function getStartupLabel(
 }
 
 function StartupScreen({
+  assetProgress,
   label,
   progress,
 }: {
+  assetProgress: StartupAssetProgress | null;
   label: string;
   progress: number;
 }) {
   const roundedProgress = Math.min(100, Math.max(0, Math.round(progress)));
+  const assetProgressText = assetProgress
+    ? `${assetProgress.completed}/${assetProgress.total}`
+    : null;
 
   return (
     <div className="startup-screen" role="status" aria-live="polite">
@@ -146,7 +160,9 @@ function StartupScreen({
       </div>
       <span className="startup-progress-text">{roundedProgress}%</span>
       <span className="startup-note">
-        首次加载需要下载 3D 模型，可能需要较长时间。
+        {assetProgressText
+          ? `正在完整下载世界资源 ${assetProgressText}，失败会自动重试。`
+          : "首次加载需要下载 3D 模型，可能需要较长时间。"}
       </span>
     </div>
   );
@@ -161,6 +177,8 @@ export function App() {
   const [startupProgress, setStartupProgress] = useState(
     startupInitialProgress,
   );
+  const [startupAssetProgress, setStartupAssetProgress] =
+    useState<StartupAssetProgress | null>(null);
 
   useEffect(() => {
     if (runtimeState !== "checking") {
@@ -169,6 +187,7 @@ export function App() {
 
     let isCancelled = false;
     let hasSettled = false;
+    const abortController = new AbortController();
 
     const downloadTimeoutId = window.setTimeout(() => {
       if (!isCancelled && !hasSettled) {
@@ -177,8 +196,22 @@ export function App() {
       }
     }, worldDownloadTimeoutMs);
 
-    void import("./world/WorldExperience")
-      .then((module) => {
+    const worldImportPromise = import("./world/WorldExperience");
+    const startupAssetsPromise = preloadStartupAssets((progress) => {
+      if (isCancelled) {
+        return;
+      }
+
+      setStartupAssetProgress(progress);
+      setStartupProgress(
+        startupInitialProgress +
+          (progress.completed / Math.max(1, progress.total)) *
+            (startupDownloadTarget - startupInitialProgress),
+      );
+    }, abortController.signal);
+
+    void Promise.all([worldImportPromise, startupAssetsPromise])
+      .then(([module]) => {
         if (!isCancelled && !hasSettled) {
           hasSettled = true;
           window.clearTimeout(downloadTimeoutId);
@@ -198,6 +231,7 @@ export function App() {
 
     return () => {
       isCancelled = true;
+      abortController.abort();
       window.clearTimeout(downloadTimeoutId);
     };
   }, [runtimeState]);
@@ -226,7 +260,7 @@ export function App() {
       return undefined;
     }
 
-    if (runtimeState !== "checking") {
+    if (runtimeState !== "checking" || startupAssetProgress) {
       return undefined;
     }
 
@@ -256,7 +290,7 @@ export function App() {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [runtimeState, worldLoadState.status]);
+  }, [runtimeState, startupAssetProgress, worldLoadState.status]);
 
   if (runtimeState === "fallback" || runtimeState === "error") {
     return <FallbackPage reason={getFallbackReason(runtimeState)} />;
@@ -280,7 +314,12 @@ export function App() {
       </WorldErrorBoundary>
       {runtimeState === "checking" ? (
         <StartupScreen
-          label={getStartupLabel(worldLoadState, startupProgress)}
+          assetProgress={startupAssetProgress}
+          label={getStartupLabel(
+            worldLoadState,
+            startupAssetProgress,
+            startupProgress,
+          )}
           progress={startupProgress}
         />
       ) : null}

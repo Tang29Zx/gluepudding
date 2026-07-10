@@ -159,7 +159,11 @@ class FortuneApiError extends Error {
   }
 }
 
-async function request<T>(url: string, options?: RequestInit): Promise<ApiResponse<T>> {
+async function request<T>(
+  url: string,
+  options?: RequestInit,
+  retries = 0,
+): Promise<ApiResponse<T>> {
   try {
     const response = await fetch(url, {
       headers: { 'Content-Type': 'application/json' },
@@ -173,6 +177,11 @@ async function request<T>(url: string, options?: RequestInit): Promise<ApiRespon
     const json: ApiResponse<T> = await response.json();
     return json;
   } catch (err) {
+    if (retries > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 650));
+      return request<T>(url, options, retries - 1);
+    }
+
     if (err instanceof FortuneApiError) throw err;
     throw new FortuneApiError('无法连接到占卜服务，请检查网络或稍后重试');
   }
@@ -271,7 +280,7 @@ export async function getIchingAiReading(
   return request<AiInterpretResult>(`${API_BASE}/api/fortune/iching/ai`, {
     method: 'POST',
     body: JSON.stringify(params),
-  });
+  }, 1);
 }
 
 export async function getTarotAiReading(

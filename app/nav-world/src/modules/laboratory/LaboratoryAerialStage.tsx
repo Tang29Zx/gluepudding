@@ -6,6 +6,7 @@ import {
   playerSpawn,
   type Vector3Tuple,
 } from "../../world/sceneConfig";
+import { staticAssetUrl } from "../../assets/staticAssetUrl";
 import type {
   LaboratoryAccessSnapshot,
 } from "../../adapters/laboratoryAuth";
@@ -15,9 +16,9 @@ import {
 } from "./LaboratoryLoginScreen";
 import { LaboratoryWebRtcScreen } from "./LaboratoryWebRtcScreen";
 
-const domeModelUrl = "./models/laboratory/dome.glb";
-const floorModelUrl = "./models/laboratory/glass_floor.glb";
-const teleporterModelUrl = "./models/laboratory/teleporter.glb";
+const domeModelUrl = staticAssetUrl("./models/laboratory/dome.glb");
+const floorModelUrl = staticAssetUrl("./models/laboratory/glass_floor.glb");
+const teleporterModelUrl = staticAssetUrl("./models/laboratory/teleporter.glb");
 
 const laboratoryShellScale = 6;
 const teleporterScale = 1.95;
@@ -150,9 +151,17 @@ function TeleporterModel({
   );
 }
 
-function SkyLaboratoryScreen() {
+function SkyLaboratoryScreen({
+  laboratoryAccess,
+}: {
+  laboratoryAccess: LaboratoryAccessSnapshot;
+}) {
   const [screenWidth, screenHeight] = skyLaboratoryScreenSize;
   const videoTopY = skyLaboratoryVideoY + skyLaboratoryVideoHeight / 2;
+  const authorizationKey =
+    laboratoryAccess.status === "ready"
+      ? `${laboratoryAccess.status}:${laboratoryAccess.user?.id ?? "user"}`
+      : laboratoryAccess.status;
 
   return (
     <group
@@ -211,7 +220,9 @@ function SkyLaboratoryScreen() {
         />
       </mesh>
       <LaboratoryWebRtcScreen
+        authorizationKey={authorizationKey}
         height={skyLaboratoryVideoHeight}
+        isAuthorized={laboratoryAccess.status === "ready"}
         position={[0, skyLaboratoryVideoY, 0.063]}
         width={skyLaboratoryVideoWidth}
       />
@@ -317,7 +328,11 @@ function LaboratoryCoordinateGuide() {
   );
 }
 
-function AerialLaboratoryBeacon() {
+function AerialLaboratoryBeacon({
+  laboratoryAccess,
+}: {
+  laboratoryAccess: LaboratoryAccessSnapshot;
+}) {
   const [x, y, z] = landmarkPositions.laboratory;
 
   return (
@@ -345,7 +360,7 @@ function AerialLaboratoryBeacon() {
           0,
         ]}
       />
-      <SkyLaboratoryScreen />
+      <SkyLaboratoryScreen laboratoryAccess={laboratoryAccess} />
       <LaboratoryCoordinateGuide />
     </group>
   );
@@ -408,11 +423,7 @@ export function LaboratoryAerialStage({
         onLoginScreenClose={onLoginScreenClose}
         onLoginSubmit={onLoginSubmit}
       />
-      <AerialLaboratoryBeacon />
+      <AerialLaboratoryBeacon laboratoryAccess={laboratoryAccess} />
     </>
   );
 }
-
-useGLTF.preload(domeModelUrl);
-useGLTF.preload(floorModelUrl);
-useGLTF.preload(teleporterModelUrl);

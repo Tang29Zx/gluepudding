@@ -37,13 +37,14 @@ import {
   deselectCard,
   selectCard,
 } from "./business/tarotLogic";
+import { staticAssetUrl } from "../../assets/staticAssetUrl";
 
 const screenCenter = new Vector2(0, 0);
 
 // ---- crystal ball ----
 const CRYSTAL_POS: [number, number, number] = [0, 1.8, 3.72];
 const CRYSTAL_RAYCAST_R = 0.42;
-const CRYSTAL_URL = "./models/fortune/tarot_crystal_ball.glb";
+const CRYSTAL_URL = staticAssetUrl("./models/fortune/tarot_crystal_ball.glb");
 const CRYSTAL_VISUAL_SCALE = 0.62;
 const crystalSparkles = [
   { color: "#fff2b8", phase: 0.1, position: [-0.18, 0.2, 0.28], size: 0.14 },
@@ -98,7 +99,7 @@ const CARD_SLUGS = [
 function cardFaceUrl(index: number): string {
   const s = String(index).padStart(2, "0");
   const slug = CARD_SLUGS[index] || "fool";
-  return `/textures/tarot/major_${s}_${slug}.jpg`;
+  return staticAssetUrl(`/textures/tarot/major_${s}_${slug}.jpg`);
 }
 
 // ---- helpers ----

@@ -20,6 +20,7 @@ import {
   Vector3,
 } from "three";
 import type { PlayerControllerState } from "../../world/PlayerController";
+import { staticAssetUrl } from "../../assets/staticAssetUrl";
 import {
   landmarkPositions,
   worldTerrain,
@@ -68,9 +69,9 @@ interface GomokuControlDefinition {
   z: number;
 }
 
-const boardModelUrl = "./models/gomoku/gomoku_board.glb";
-const blackStoneModelUrl = "./models/gomoku/black_stone.glb";
-const whiteStoneModelUrl = "./models/gomoku/white_stone.glb";
+const boardModelUrl = staticAssetUrl("./models/gomoku/gomoku_board.glb");
+const blackStoneModelUrl = staticAssetUrl("./models/gomoku/black_stone.glb");
+const whiteStoneModelUrl = staticAssetUrl("./models/gomoku/white_stone.glb");
 const screenCenter = new Vector2(0, 0);
 const placementDirection = new Vector3();
 const placementForward = new Vector3();
@@ -1149,7 +1150,3 @@ export function GomokuWorldBoard({
     </group>
   );
 }
-
-useGLTF.preload(boardModelUrl);
-useGLTF.preload(blackStoneModelUrl);
-useGLTF.preload(whiteStoneModelUrl);

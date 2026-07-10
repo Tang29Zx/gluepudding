@@ -134,6 +134,28 @@ function FortuneModel({ asset }: { asset: FortuneModelAsset }) {
   );
 }
 
+function OptionalFortuneModel({ asset }: { asset: FortuneModelAsset }) {
+  return (
+    <FortuneAssetBoundary fallback={null} label={`Fortune model ${asset.id}`}>
+      <FortuneModel asset={asset} />
+    </FortuneAssetBoundary>
+  );
+}
+
+function OptionalFortuneFeature({
+  children,
+  label,
+}: {
+  children: ReactNode;
+  label: string;
+}) {
+  return (
+    <FortuneAssetBoundary fallback={null} label={label}>
+      {children}
+    </FortuneAssetBoundary>
+  );
+}
+
 function ShellFallback() {
   return (
     <group>
@@ -282,8 +304,6 @@ function InteriorReadyMarker({
 }) {
   useEffect(() => {
     onInteriorReadyChange(true);
-
-    return () => onInteriorReadyChange(false);
   }, [onInteriorReadyChange]);
 
   return null;
@@ -406,7 +426,7 @@ function ShellModels() {
   return (
     <>
       {fortuneModelAssets.shellAssets.map((asset) => (
-        <FortuneModel asset={asset} key={asset.id} />
+        <OptionalFortuneModel asset={asset} key={asset.id} />
       ))}
     </>
   );
@@ -419,7 +439,7 @@ function InteriorModels() {
       {fortuneModelAssets.interiorAssets
         .filter((a) => !excludeIds.has(a.id))
         .map((asset) => (
-          <FortuneModel asset={asset} key={asset.id} />
+          <OptionalFortuneModel asset={asset} key={asset.id} />
         ))}
     </>
   );
@@ -469,22 +489,32 @@ export function FortuneAssetStage({
           }
           label="Fortune interior"
         >
-          <Suspense fallback={null}>
+          {isInteriorVisible ? (
+            <InteriorReadyMarker
+              onInteriorReadyChange={onInteriorReadyChange}
+            />
+          ) : null}
+          <Suspense fallback={isInteriorVisible ? <InteriorFallback /> : null}>
             <group visible={isInteriorVisible}>
               <InteriorModels />
             </group>
             {isInteriorVisible ? (
               <>
-                <ZodiacWheel />
-                <TarotTable />
-                <IchingDesk onLotResult={setIchingLotResult} />
-                <IchingHexagram
-                  lotResult={ichingLotResult}
-                  onLotResultClear={() => setIchingLotResult(null)}
-                />
-                <InteriorReadyMarker
-                  onInteriorReadyChange={onInteriorReadyChange}
-                />
+                <OptionalFortuneFeature label="Fortune zodiac wheel">
+                  <ZodiacWheel />
+                </OptionalFortuneFeature>
+                <OptionalFortuneFeature label="Fortune tarot table">
+                  <TarotTable />
+                </OptionalFortuneFeature>
+                <OptionalFortuneFeature label="Fortune iching desk">
+                  <IchingDesk onLotResult={setIchingLotResult} />
+                </OptionalFortuneFeature>
+                <OptionalFortuneFeature label="Fortune iching hexagram">
+                  <IchingHexagram
+                    lotResult={ichingLotResult}
+                    onLotResultClear={() => setIchingLotResult(null)}
+                  />
+                </OptionalFortuneFeature>
               </>
             ) : null}
           </Suspense>

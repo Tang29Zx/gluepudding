@@ -1,4 +1,5 @@
 import { Text } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DoubleSide,
@@ -16,7 +17,9 @@ import {
 import type { Vector3Tuple } from "../../world/sceneConfig";
 
 interface LaboratoryWebRtcScreenProps {
+  authorizationKey: string;
   height: number;
+  isAuthorized: boolean;
   position: Vector3Tuple;
   width: number;
 }
@@ -27,6 +30,8 @@ const initialSnapshot: LaboratoryStreamSnapshot = {
   status: "idle",
   stream: null,
 };
+const whepRetryBaseDelayMs = 3000;
+const whepRetryMaxDelayMs = 15000;
 
 const statusColors = {
   connecting: "#2d8eaa",
@@ -56,6 +61,13 @@ function configureVideoElement(video: HTMLVideoElement) {
   video.playsInline = true;
 }
 
+function shouldRetryStream(configMode: string, snapshot: LaboratoryStreamSnapshot) {
+  return (
+    configMode === "whep" &&
+    (snapshot.status === "offline" || snapshot.status === "error")
+  );
+}
+
 function createVideoTexture(video: HTMLVideoElement): VideoTexture {
   const texture = new VideoTexture(video);
 
@@ -67,7 +79,9 @@ function createVideoTexture(video: HTMLVideoElement): VideoTexture {
 }
 
 export function LaboratoryWebRtcScreen({
+  authorizationKey,
   height,
+  isAuthorized,
   position,
   width,
 }: LaboratoryWebRtcScreenProps) {
@@ -78,11 +92,69 @@ export function LaboratoryWebRtcScreen({
   const [videoTexture, setVideoTexture] =
     useState<VideoTexture | null>(null);
 
+  useFrame(() => {
+    if (textureRef.current) {
+      textureRef.current.needsUpdate = true;
+    }
+  });
+
   useEffect(() => {
+    if (!isAuthorized) {
+      setSnapshot({
+        message: "没有查看权限",
+        source: "none",
+        status: "unauthorized",
+        stream: null,
+      });
+      setVideoTexture(null);
+      return undefined;
+    }
+
     const video = document.createElement("video");
+    let handle: ReturnType<typeof connectLaboratoryStream> | null = null;
     let isDisposed = false;
+    let retryAttempt = 0;
+    let retryTimeoutId: number | null = null;
 
     configureVideoElement(video);
+
+    const ensureVideoTexture = () => {
+      if (isDisposed || !video.srcObject) {
+        return;
+      }
+
+      if (video.videoWidth === 0 || video.videoHeight === 0) {
+        return;
+      }
+
+      if (!textureRef.current) {
+        textureRef.current = createVideoTexture(video);
+        setVideoTexture(textureRef.current);
+      }
+
+      textureRef.current.needsUpdate = true;
+    };
+
+    video.addEventListener("loadedmetadata", ensureVideoTexture);
+    video.addEventListener("canplay", ensureVideoTexture);
+    video.addEventListener("playing", ensureVideoTexture);
+    video.addEventListener("resize", ensureVideoTexture);
+
+    const clearRetry = () => {
+      if (retryTimeoutId !== null) {
+        window.clearTimeout(retryTimeoutId);
+        retryTimeoutId = null;
+      }
+    };
+
+    const disconnectCurrentStream = () => {
+      if (!handle) {
+        return;
+      }
+
+      disconnectLaboratoryStream(handle);
+      handle = null;
+    };
 
     const disposeTexture = (shouldUpdateState: boolean) => {
       if (textureRef.current) {
@@ -95,12 +167,41 @@ export function LaboratoryWebRtcScreen({
       }
     };
 
+    const startStreamConnection = () => {
+      if (isDisposed) {
+        return;
+      }
+
+      clearRetry();
+      disconnectCurrentStream();
+      handle = connectLaboratoryStream(config, connectVideoStream);
+    };
+
+    const scheduleRetry = () => {
+      if (isDisposed || retryTimeoutId !== null) {
+        return;
+      }
+
+      retryAttempt += 1;
+      retryTimeoutId = window.setTimeout(
+        startStreamConnection,
+        Math.min(whepRetryBaseDelayMs * retryAttempt, whepRetryMaxDelayMs),
+      );
+    };
+
     const connectVideoStream = (nextSnapshot: LaboratoryStreamSnapshot) => {
       if (isDisposed) {
         return;
       }
 
       setSnapshot(nextSnapshot);
+
+      if (nextSnapshot.status === "online") {
+        retryAttempt = 0;
+        clearRetry();
+      } else if (shouldRetryStream(config.mode, nextSnapshot)) {
+        scheduleRetry();
+      }
 
       if (!nextSnapshot.stream) {
         video.pause();
@@ -114,14 +215,7 @@ export function LaboratoryWebRtcScreen({
       }
 
       void video.play().then(() => {
-        if (isDisposed) {
-          return;
-        }
-
-        if (!textureRef.current) {
-          textureRef.current = createVideoTexture(video);
-          setVideoTexture(textureRef.current);
-        }
+        ensureVideoTexture();
       }).catch(() => {
         if (isDisposed) {
           return;
@@ -139,16 +233,21 @@ export function LaboratoryWebRtcScreen({
       });
     };
 
-    const handle = connectLaboratoryStream(config, connectVideoStream);
+    startStreamConnection();
 
     return () => {
       isDisposed = true;
-      disconnectLaboratoryStream(handle);
+      clearRetry();
+      disconnectCurrentStream();
+      video.removeEventListener("loadedmetadata", ensureVideoTexture);
+      video.removeEventListener("canplay", ensureVideoTexture);
+      video.removeEventListener("playing", ensureVideoTexture);
+      video.removeEventListener("resize", ensureVideoTexture);
       video.pause();
       video.srcObject = null;
       disposeTexture(false);
     };
-  }, [config]);
+  }, [authorizationKey, config, isAuthorized]);
 
   const statusLabel = getStatusLabel(snapshot);
   const statusColor = statusColors[snapshot.status];

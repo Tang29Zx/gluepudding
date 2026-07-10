@@ -1,10 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { createHash } from "node:crypto";
 import { defineConfig, loadEnv, type PluginOption } from "vite";
 import react from "@vitejs/plugin-react";
 
 const DEFAULT_DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1";
 const DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash";
+const previewAllowedHosts = ["gluepudding.com", "www.gluepudding.com"];
 const FORTUNE_AI_TIMEOUT_MS = 30_000;
+const FORTUNE_AI_CACHE_TTL_MS = 10 * 60 * 1000;
 const MAX_FORTUNE_AI_BODY_BYTES = 64 * 1024;
 
 type FortuneAiModule = "tarot" | "iching";
@@ -22,9 +25,17 @@ interface ChatCompletionMessage {
   content: string;
 }
 
+interface FortuneAiCacheEntry {
+  expiresAt: number;
+  promise?: Promise<string>;
+  value?: string;
+}
+
+const fortuneAiResponseCache = new Map<string, FortuneAiCacheEntry>();
+
 const fortuneAiMaxTokens: Record<FortuneAiModule, number> = {
   tarot: 760,
-  iching: 650,
+  iching: 360,
 };
 
 function normalizeOpenAiBaseUrl(baseUrl: string): string {
@@ -164,7 +175,7 @@ function buildIchingPrompt(params: Record<string, unknown>): ChatCompletionMessa
         `变卦：${changedName}${changedName !== "无变卦" ? ` ${asText(changed.symbol)}` : ""}`,
         `变卦说明：${changedName !== "无变卦" ? asText(changed.description, "无") : "无变爻，卦象稳定。"}`,
         `变爻：${changingLines.length > 0 ? changingLines.join("、") : "无"}`,
-        "请输出 4 段以内、360 到 530 个中文字。第一段概括卦象，第二段结合问题，第三段说明变化趋势，第四段给行动建议；不要逐条展开每一爻。不要使用 Markdown、标题、编号、项目符号或加粗符号。最后用一句短句提醒“以上解读仅供娱乐参考”。",
+        "请输出 2 到 3 段、220 到 320 个中文字。先概括卦象，再结合问题说明趋势和行动建议；不要逐条展开每一爻。不要使用 Markdown、标题、编号、项目符号或加粗符号。最后用一句短句提醒“以上解读仅供娱乐参考”。",
       ].join("\n"),
     },
   ];
@@ -214,6 +225,62 @@ async function requestFortuneAi(
     return text;
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+function createFortuneAiCacheKey(
+  config: FortuneAiConfig,
+  module: FortuneAiModule,
+  params: Record<string, unknown>,
+): string {
+  return createHash("sha256")
+    .update(config.model)
+    .update("\0")
+    .update(module)
+    .update("\0")
+    .update(JSON.stringify(params))
+    .digest("hex");
+}
+
+async function requestCachedFortuneAi(
+  config: FortuneAiConfig,
+  module: FortuneAiModule,
+  params: Record<string, unknown>,
+  messages: ChatCompletionMessage[],
+  maxTokens: number,
+): Promise<string> {
+  const now = Date.now();
+  const cacheKey = createFortuneAiCacheKey(config, module, params);
+  const cached = fortuneAiResponseCache.get(cacheKey);
+
+  if (cached && cached.expiresAt > now) {
+    if (cached.value) {
+      return cached.value;
+    }
+
+    if (cached.promise) {
+      return cached.promise;
+    }
+  }
+
+  fortuneAiResponseCache.delete(cacheKey);
+
+  const promise = requestFortuneAi(config, messages, maxTokens);
+  fortuneAiResponseCache.set(cacheKey, {
+    expiresAt: now + FORTUNE_AI_CACHE_TTL_MS,
+    promise,
+  });
+
+  try {
+    const value = await promise;
+    fortuneAiResponseCache.set(cacheKey, {
+      expiresAt: Date.now() + FORTUNE_AI_CACHE_TTL_MS,
+      value,
+    });
+    return value;
+  } catch (error) {
+    fortuneAiResponseCache.delete(cacheKey);
+    throw error;
   }
 }
 
@@ -270,8 +337,10 @@ function createFortuneAiProxyPlugin(config: FortuneAiConfig): PluginOption {
       const messages = module === "tarot"
         ? buildTarotPrompt(params)
         : buildIchingPrompt(params);
-      const interpretation = await requestFortuneAi(
+      const interpretation = await requestCachedFortuneAi(
         config,
+        module,
+        params,
         messages,
         fortuneAiMaxTokens[module],
       );
@@ -340,9 +409,13 @@ export default defineConfig(({ mode }) => {
     ...loadEnv(mode, ".", ""),
   };
   const fortuneAiConfig = readFortuneAiConfig(env);
+  const staticAssetVersion = env.VITE_STATIC_ASSET_VERSION || String(Date.now());
 
   return {
     base: "./",
+    define: {
+      __STATIC_ASSET_VERSION__: JSON.stringify(staticAssetVersion),
+    },
     plugins: [
       react(),
       createFortuneAiProxyPlugin(fortuneAiConfig),
@@ -351,6 +424,9 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: "../frontend",
       emptyOutDir: false,
+    },
+    preview: {
+      allowedHosts: previewAllowedHosts,
     },
   };
 });
