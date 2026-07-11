@@ -63,9 +63,6 @@ export const worldScenery = {
   sakuraLowModelUrl: staticAssetUrl("./models/world/sakura-tree-low.glb"),
   sakuraMidModelUrl: staticAssetUrl("./models/world/sakura-tree-mid.glb"),
   sakuraHighModelUrl: staticAssetUrl("./models/world/sakura-tree-high.glb"),
-  sakuraWorldCenter: [-10.9, 18.7, -36.7] satisfies Vector3Tuple,
-  midLoadRadius: 68,
-  highLoadRadius: 45,
 };
 
 export const landmarkPositions = {

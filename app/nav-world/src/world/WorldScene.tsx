@@ -240,7 +240,6 @@ export function WorldScene({
             onDeferredLevelReady={onSakuraDeferredLevelReady}
             onModelDownloadProgressChange={onModelDownloadProgressChange}
             onReadyChange={setIsSceneryReady}
-            player={player}
             requestedLevel={sakuraPreloadLevel}
           />
         </Suspense>

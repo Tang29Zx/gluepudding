@@ -1,10 +1,8 @@
 import { useGLTF } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
 import {
   useCallback,
   useLayoutEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { Mesh, type Group } from "three";
@@ -13,7 +11,6 @@ import {
   type ModelDownloadProgressHandler,
 } from "../assets/TrackedModelGate";
 import { backgroundWorldAssets } from "../assets/worldAssetManifest";
-import type { PlayerControllerState } from "./PlayerController";
 import { worldScenery, worldTerrain } from "./sceneConfig";
 
 export type SakuraLevel = "low" | "mid" | "high";
@@ -62,19 +59,15 @@ export function IslandScenery({
   onDeferredLevelReady,
   onModelDownloadProgressChange,
   onReadyChange,
-  player,
   requestedLevel,
 }: {
   isVisible: boolean;
   onDeferredLevelReady: (level: Exclude<SakuraLevel, "low">) => void;
   onModelDownloadProgressChange: ModelDownloadProgressHandler;
   onReadyChange: (isReady: boolean) => void;
-  player: PlayerControllerState;
   requestedLevel: SakuraLevel;
 }) {
-  const [availableLevel, setAvailableLevel] = useState<SakuraLevel>("low");
   const [activeLevel, setActiveLevel] = useState<SakuraLevel>("low");
-  const activeLevelRef = useRef<SakuraLevel>("low");
 
   useLayoutEffect(() => {
     onReadyChange(true);
@@ -84,32 +77,9 @@ export function IslandScenery({
     };
   }, [onReadyChange]);
 
-  useFrame(() => {
-    const dx =
-      player.position.current.x - worldScenery.sakuraWorldCenter[0];
-    const dz =
-      player.position.current.z - worldScenery.sakuraWorldCenter[2];
-    const distance = Math.hypot(dx, dz);
-    const distanceLevel: SakuraLevel =
-      distance <= worldScenery.highLoadRadius
-        ? "high"
-        : distance <= worldScenery.midLoadRadius
-          ? "mid"
-          : "low";
-    const nextLevel =
-      sakuraLevelRank[distanceLevel] <= sakuraLevelRank[availableLevel]
-        ? distanceLevel
-        : availableLevel;
-
-    if (activeLevelRef.current !== nextLevel) {
-      activeLevelRef.current = nextLevel;
-      setActiveLevel(nextLevel);
-    }
-  });
-
   const handleLevelReady = useCallback(
     (level: Exclude<SakuraLevel, "low">) => {
-      setAvailableLevel((currentLevel) =>
+      setActiveLevel((currentLevel) =>
         sakuraLevelRank[level] > sakuraLevelRank[currentLevel]
           ? level
           : currentLevel,

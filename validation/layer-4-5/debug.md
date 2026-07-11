@@ -264,3 +264,17 @@
 截图：无，未运行 Playwright。出生点 360° 肉眼无 pop-in 仍由用户实机复验。
 
 剩余风险：服务器缺少 `toktx`，Teleporter 当前是 WebP 而不是 KTX2，网络体积已下降但 GPU 压缩收益尚未获得。樱花低 / 中 LOD 是自动代理，需要用户实机确认远景轮廓；如差异明显，应调 voxel 尺寸和简化比例，不应把 18.97MB 高模重新放回首屏。
+
+## 2026-07-11 / 樱花树加载完成后立即升级质量
+
+日期：2026-07-11
+版本 / Layer：Layer 4.5 / 樱花树渐进质量升级
+现象：樱花中模和高模已经在后台串行下载并完成解析，但渲染层仍按玩家距离选择 LOD；玩家位于出生点时，即使高模 ready 也会继续显示低模。
+原因判断：`IslandScenery` 同时维护“已可用等级”和“距离等级”，每帧取两者中较低者作为当前模型，导致提前下载只减少靠近后的等待，不能直接提升当前画质。
+解决方案：删除距离等级和每帧距离计算。低模继续作为首屏模型；中模的 `TrackedModelGate` 在下载、GLTF 解码和 Suspense 子树提交完成后将当前等级提升到 `mid`，高模同理提升到 `high`。等级只能上升，旧模型保持可见直到新模型 ready，避免切换空白。
+涉及文件：`app/nav-world/src/world/IslandScenery.tsx`、`WorldScene.tsx`、`sceneConfig.ts`、`TODO.md`、`Tech-Spec.md`、`MEMORY.md`、`VALIDATION_LAYERS.md`。
+验证结果：`npm run build` 与 `npm run assets:check` 通过，构建产物已生成；静态检查确认距离阈值和逐帧距离选择已从运行时代码及构建产物移除，模型只会在 `TrackedModelGate` 的 ready 回调后向更高等级提升。生产预览尝试等待桌面端高模完成，但当前共享环境的 headless SwiftShader 在 180 秒内仍未通过初始 3D 编译门槛，未进入可截图世界。
+部署结果：当前工作区已通过原子发布脚本切换到 `releases/20260711123738-cb69e27`。前端生产主世界资源为 `WorldExperience-BGT18mOB.js`，入口资源为 `index-C2XWOPqz.js`；fortune AI 11 项测试和两轮依赖审计通过，服务为 active，内部健康检查返回 `ok`，`sudo nginx -t` 与 reload 成功。源站和公网首页均引用新哈希，新资源返回 `200`，未登录 WHEP 返回 `401`。
+画面变化：有。后台中模或高模完成后，远距离樱花树也会立即显示当前已就绪的最高质量模型。
+截图：无。当前 headless 软件 GPU 在超时前未解除初始加载页，不能用加载中画面代替完成态验证；桌面端和手机端均需真实 GPU 浏览器复验。
+剩余风险：高模约 18.97MB，完成后会在远距离常驻渲染，GPU 几何负载高于原距离 LOD 策略；移动端性能及真实画质切换需要实机继续观察。
