@@ -167,7 +167,7 @@ export function usePlayerController({
   const sprintKeysRef = useRef<Set<SprintKey>>(new Set());
   const verticalVelocityRef = useRef(0);
   const laboratoryTeleportCheckRef = useRef(false);
-  const yawRef = useRef(0);
+  const yawRef = useRef(playerControls.initialYaw);
 
   const clearMovementInput = useCallback(() => {
     activeKeysRef.current.clear();

@@ -25,7 +25,7 @@ interface LaboratoryDebugAccessScreenProps {
 }
 
 const screenCenter = new Vector2(0, 0);
-const screenPosition: Vector3Tuple = [2.6, 2.55, 26.2];
+const screenPosition: Vector3Tuple = [18.2, 3.15, 20.4];
 const screenSize = [3.3, 1.86] as const;
 const copyrightNoticeLines = [
   '"Float Island - low ploy" (https://skfb.ly/oPpL7) by 18gen is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).',

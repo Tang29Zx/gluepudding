@@ -50,6 +50,8 @@ import type { FortuneRoomState } from "./fortuneRoomConfig";
 import type { PlayerControllerState } from "./PlayerController";
 import type { TerrainSampler } from "./terrainSampler";
 import { worldColors, worldScale, worldTerrain } from "./sceneConfig";
+import { WorldComposition } from "./WorldComposition";
+import { WorldAtmosphere } from "./WorldAtmosphere";
 
 function FallbackGround() {
   return (
@@ -175,7 +177,7 @@ export function WorldScene({
   const sceneBackground = isPlayerInsideFortuneRoom ? "#160f28" : worldColors.sky;
   const sceneFog: [string, number, number] = isPlayerInsideFortuneRoom
     ? ["#160f28", 9, 34]
-    : [worldColors.sky, 70, 150];
+    : ["#b8c8c6", 54, 132];
   const terrainModelUrl = worldTerrain.modelUrl;
   const handleTerrainError = useCallback(() => {
     onTerrainSamplerChange(null);
@@ -197,22 +199,28 @@ export function WorldScene({
     <>
       <color attach="background" args={[sceneBackground]} />
       <fog attach="fog" args={sceneFog} />
-      <ambientLight intensity={0.28} />
-      <hemisphereLight args={["#f5fbff", "#5e876d", 0.64]} />
+      {isOutsideWorldVisible ? <WorldAtmosphere /> : null}
+      <ambientLight intensity={0.17} />
+      <hemisphereLight args={["#c8e0e5", "#4c5848", 0.56]} />
       <directionalLight
         castShadow
-        color="#fff0d8"
-        intensity={3.1}
-        position={[-8.5, 14, 7.2]}
-        shadow-bias={-0.00015}
+        color="#ffd5a4"
+        intensity={3.05}
+        position={[-34, 30, 26]}
+        shadow-bias={-0.00012}
         shadow-camera-bottom={-48}
-        shadow-camera-far={90}
+        shadow-camera-far={110}
         shadow-camera-left={-48}
         shadow-camera-near={0.5}
         shadow-camera-right={48}
         shadow-camera-top={48}
         shadow-mapSize={[2048, 2048]}
-        shadow-normalBias={0.04}
+        shadow-normalBias={0.055}
+      />
+      <directionalLight
+        color="#9fc9dc"
+        intensity={0.48}
+        position={[24, 18, -34]}
       />
 
       <WorldTerrainErrorBoundary
@@ -237,6 +245,11 @@ export function WorldScene({
           />
         </Suspense>
       </WorldTerrainErrorBoundary>
+
+      <WorldComposition
+        isVisible={isOutsideWorldVisible}
+        terrainSamplerRef={placementTerrainSamplerRef}
+      />
 
       {isOutsideWorldVisible ? (
         <>

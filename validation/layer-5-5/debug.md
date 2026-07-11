@@ -38,3 +38,27 @@
 截图：`validation/layer-5-5/visual-desktop.png`、`validation/layer-5-5/visual-mobile.png`。
 
 剩余风险：本层没有引入 Bloom / SSAO / 环境贴图，也没有做真实 path tracing；高画质模式和低性能模式仍留到 Layer 13 或后续美术专项。headless 截图不能完整验证 Pointer Lock 移动时的阴影闪烁感，仍建议后续实机移动观察。
+
+## 2026-07-11 / Layer 5.6 暮光写实光影增强
+
+日期：2026-07-11
+
+版本 / Layer：Layer 5.6 暮光写实光影增强
+
+现象：户外背景仍是纯色，环境光和单向光的色彩关系偏平；草地、建筑和装饰缺少统一的天空反射，程序化灯笼只有几何体而没有局部光照。第一轮低角度太阳测试还让可走地形出现大面积平行阴影条纹。
+
+原因判断：原光照缺少可见天空与反射环境，暖冷关系主要靠直接光，材质之间难以形成自然的环境统一感。低角度太阳下，可走地形同时投射并接收自身阴影，低面数三角面和阴影精度共同放大了 self-shadow acne。另一次背光夕阳试验虽然轮廓更强，但占卜屋和实验室暗部可读性明显下降。
+
+解决方案：新增程序化 `Sky`，并用 `Environment + Lightformer` 生成只更新一帧、`64px` 分辨率的低成本环境反射；户外光照使用暖色主光、冷色半球光和冷色侧向补光，保留一组 `2048` shadow map。调整曝光、雾、shadow bias 和 normal bias；可走地形改为只接收阴影、不投射阴影，建筑与近景装饰仍投影。灯笼加入短距离、无阴影的暖色点光。放弃过暗的背光夕阳，采用建筑正面仍可读的均衡晚午暖阳。
+
+涉及文件：`app/nav-world/src/world/WorldAtmosphere.tsx`、`app/nav-world/src/world/WorldScene.tsx`、`app/nav-world/src/world/WorldExperience.tsx`、`app/nav-world/src/world/WorldComposition.tsx`、`app/nav-world/src/world/IslandTerrain.tsx`、`Tech-Spec.md`、`TODO.md`、`VALIDATION_LAYERS.md`、`validation/layer-5-5/debug.md`、`MEMORY.md`。
+
+验证结果：`npx tsc --noEmit` 通过；`npm run build` 通过，只有既有的 `WorldExperience` chunk 超过 500KB 警告。Vite preview 在 `127.0.0.1:4175` 加载后生成桌面端与手机尺寸截图；目检未见阴影条纹、过曝、死黑或新增 HUD 遮挡问题。手机尺寸只做回归，不属于本轮专项改造。
+
+画面变化：有。天空、材质反射、主次光色、雾中远景层次、地面投影关系和灯笼附近的暖光均发生变化；未引入 Bloom、SSAO、PCSS、ContactShadows 或实时光线追踪。
+
+截图：`validation/layer-5-5/lighting-dusk-desktop.png`、`validation/layer-5-5/lighting-dusk-mobile.png`。
+
+剩余风险：headless 静态截图不能完整验证 Pointer Lock 行走时的阴影闪烁；新增天空与环境组件使最终世界 chunk 约增加 `21KB gzip`。环境反射固定为一帧和低分辨率以控制运行成本。
+
+部署结果：2026-07-11 通过 `scripts/deploy-production.sh` 发布为 `releases/20260711060605-91a5231` 并原子切换 `current`。前端 TypeScript 与 Vite 构建通过，fortune AI 11 项测试全部通过，生产依赖审计为 0 个漏洞；systemd 服务、内部健康端点、Nginx 配置、生产首页、新版主世界 JS 和公共占卜健康端点复检通过。构建仍只有既有的主世界 chunk 超过 500KB 警告。

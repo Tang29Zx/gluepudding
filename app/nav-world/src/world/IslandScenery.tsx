@@ -131,7 +131,10 @@ export function IslandScenery({
       scale={worldTerrain.scale}
       visible={isVisible}
     >
-      <SceneryModel modelUrl={worldScenery.decorModelUrl} />
+      <SceneryModel
+        modelUrl={worldScenery.decorModelUrl}
+        shouldCastShadow={false}
+      />
       <SceneryModel
         modelUrl={worldScenery.sakuraLowModelUrl}
         shouldCastShadow={false}

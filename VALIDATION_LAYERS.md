@@ -722,6 +722,27 @@ Layer 5A 模型接入切片：
 - 桌面端可以完成 Layer 12 的完整流程。
 - 移动端至少可以移动、进入三个区域、打开模块并使用核心操作。
 
+2026-07-11 视觉构图收口：
+
+- 桌面端出生视角已改为占卜屋主焦点、中央石径导向和右侧实验室次焦点的三角构图。
+- 场景新增根据 `TerrainSampler` 贴地的石径、岩石、草簇、灯笼和五子棋方向标记，全部为无碰撞的低面数几何体。
+- 2D 兜底页已使用真实世界截图、深墨紫 / 旧金视觉系统和三条纵向独立入口，已删除开发阶段文案。
+- 桌面端场景：![Layer 13 出生点构图桌面端](validation/layer-13/world-composition-desktop.png)
+- 手机尺寸回归：![Layer 13 出生点构图手机端](validation/layer-13/world-composition-mobile.png)
+- 2D 兜底桌面端：![Layer 13 2D 兜底页桌面端](validation/layer-13/fallback-v2-desktop.png)
+- 2D 兜底手机尺寸回归：![Layer 13 2D 兜底页手机端](validation/layer-13/fallback-v2-mobile.png)
+- 本次移动端只验证未被桌面改动破坏；触屏移动和 HUD 专项改造仍留在 Layer 13 后续范围。
+
+2026-07-11 暮光写实光影增强：
+
+- 户外纯色背景已替换为程序化大气天空，并加入只渲染一帧、`64px` 分辨率的环境反射，不依赖外部 HDRI。
+- 光照收口为暖色太阳主光、冷色天空与侧向补光；仅主光生成 shadow map，程序化灯笼使用无阴影局部暖光。
+- 低角度太阳初版会让可走地形出现自阴影条纹，现让可走地形只接收阴影、不投射阴影，建筑和近景装饰继续保留投影。
+- ACES 曝光、户外雾、shadow bias 与 normal bias 已联合调整；背光夕阳方案因建筑暗部可读性不足被放弃，最终保留更均衡的晚午暖阳方案。
+- 桌面端光影定稿：![Layer 5.6 暮光写实光影桌面端](validation/layer-5-5/lighting-dusk-desktop.png)
+- 手机尺寸回归：![Layer 5.6 暮光写实光影手机端](validation/layer-5-5/lighting-dusk-mobile.png)
+- `npm run build` 与 `npx tsc --noEmit` 通过；2026-07-11 已发布到 `releases/20260711060605-91a5231`，生产首页和占卜健康接口复检均返回 `200`。
+
 ## Layer 14：端到端演示层
 
 目标：验证整个设想作为一个统一作品成立。

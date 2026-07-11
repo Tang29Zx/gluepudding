@@ -30,7 +30,8 @@ export const cameraConfig = {
 
 export const playerControls = {
   gravity: 34,
-  initialPitch: -0.32,
+  initialPitch: -0.01,
+  initialYaw: 0.05,
   jumpBufferSeconds: 0.12,
   jumpGroundDetachSeconds: 0.14,
   jumpVelocity: 8.8,
@@ -76,9 +77,9 @@ export const landmarkPositions = {
 };
 
 export const worldColors = {
-  sky: "#dff4ff",
-  ground: "#96d9b4",
-  grid: "#6ab6c5",
+  sky: "#c8dfdf",
+  ground: "#779b73",
+  grid: "#6f9f95",
   player: "#ef7aa8",
   playerAccent: "#fffefd",
   lab: "#77aee8",

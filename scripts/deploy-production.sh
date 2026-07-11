@@ -12,6 +12,21 @@ NEXT_LINK="${ROOT_DIR}/current.next"
 PREVIOUS_TARGET=""
 PM2_BIN="${PM2_BIN:-/home/ubuntu/.npm-global/bin/pm2}"
 
+wait_for_fortune_ai_health() {
+  local attempt
+
+  for attempt in $(seq 1 40); do
+    if curl --fail --silent --show-error --max-time 2 \
+      http://127.0.0.1:3260/internal/health >/dev/null; then
+      return 0
+    fi
+
+    sleep 0.5
+  done
+
+  return 1
+}
+
 if [[ "$(id -u)" -eq 0 ]]; then
   SUDO=()
 else
@@ -59,8 +74,7 @@ ln -s "releases/${RELEASE_ID}" "${NEXT_LINK}"
 mv -Tf "${NEXT_LINK}" "${CURRENT_LINK}"
 
 if ! "${SUDO[@]}" systemctl restart gluepudding-fortune-ai.service || \
-   ! curl --fail --silent --show-error --max-time 10 \
-      http://127.0.0.1:3260/internal/health >/dev/null; then
+   ! wait_for_fortune_ai_health; then
   if [[ -n "${PREVIOUS_TARGET}" ]]; then
     ln -s "${PREVIOUS_TARGET}" "${NEXT_LINK}"
     mv -Tf "${NEXT_LINK}" "${CURRENT_LINK}"

@@ -9,9 +9,12 @@ import {
 } from "react";
 import {
   Camera,
+  Color,
   Group,
   Light,
+  Material,
   Mesh,
+  MeshStandardMaterial,
   Raycaster,
   Vector3,
 } from "three";
@@ -39,6 +42,51 @@ interface WorldTerrainErrorBoundaryState {
 
 const raycastDirection = new Vector3(0, -1, 0);
 const fallbackGroundNormal = new Vector3(0, 1, 0);
+const terrainHsl = { h: 0, l: 0, s: 0 };
+const terrainVertexColor = new Color();
+
+function cloneTerrainMaterial(material: Material): Material {
+  const clonedMaterial = material.clone();
+
+  if (clonedMaterial instanceof MeshStandardMaterial) {
+    clonedMaterial.roughness = Math.max(clonedMaterial.roughness, 0.88);
+  }
+
+  return clonedMaterial;
+}
+
+function softenWalkableVertexColors(mesh: Mesh): void {
+  const colorAttribute = mesh.geometry.getAttribute("color");
+
+  if (!colorAttribute) {
+    return;
+  }
+
+  mesh.geometry = mesh.geometry.clone();
+  const clonedColorAttribute = mesh.geometry.getAttribute("color");
+
+  for (let index = 0; index < clonedColorAttribute.count; index += 1) {
+    terrainVertexColor.setRGB(
+      clonedColorAttribute.getX(index),
+      clonedColorAttribute.getY(index),
+      clonedColorAttribute.getZ(index),
+    );
+    terrainVertexColor.getHSL(terrainHsl);
+    terrainVertexColor.setHSL(
+      terrainHsl.h,
+      terrainHsl.s * 0.68,
+      Math.min(0.72, terrainHsl.l * 0.88 + 0.025),
+    );
+    clonedColorAttribute.setXYZ(
+      index,
+      terrainVertexColor.r,
+      terrainVertexColor.g,
+      terrainVertexColor.b,
+    );
+  }
+
+  clonedColorAttribute.needsUpdate = true;
+}
 
 export class WorldTerrainErrorBoundary extends Component<
   WorldTerrainErrorBoundaryProps,
@@ -152,7 +200,25 @@ export function IslandTerrain({
 
     clonedScene.traverse((object) => {
       if (object instanceof Mesh) {
-        object.castShadow = true;
+        const isWalkableMesh =
+          worldTerrain.walkableMeshNames.includes(
+            object.name as (typeof worldTerrain.walkableMeshNames)[number],
+          ) ||
+          worldTerrain.walkableMeshNames.includes(
+            object.geometry.name as (typeof worldTerrain.walkableMeshNames)[number],
+          );
+
+        object.material = Array.isArray(object.material)
+          ? object.material.map(cloneTerrainMaterial)
+          : cloneTerrainMaterial(object.material);
+
+        if (isWalkableMesh) {
+          softenWalkableVertexColors(object);
+        }
+
+        // Large walkable meshes self-shadow at grazing sun angles and create
+        // visible acne bands. They only need to receive landmark shadows.
+        object.castShadow = !isWalkableMesh;
         object.receiveShadow = true;
         return;
       }

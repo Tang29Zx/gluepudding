@@ -2,7 +2,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ACESFilmicToneMapping,
-  PCFShadowMap,
+  PCFSoftShadowMap,
   SRGBColorSpace,
   Vector3,
 } from "three";
@@ -1303,9 +1303,9 @@ function WorldExperienceContent({ onReady }: WorldExperienceProps) {
           worldCanvasRef.current = gl.domElement;
           gl.outputColorSpace = SRGBColorSpace;
           gl.toneMapping = ACESFilmicToneMapping;
-          gl.toneMappingExposure = 0.96;
+          gl.toneMappingExposure = 0.86;
           gl.setClearColor(worldColors.sky);
-          gl.shadowMap.type = PCFShadowMap;
+          gl.shadowMap.type = PCFSoftShadowMap;
           gl.domElement.tabIndex = 0;
           setIsCanvasReady(true);
         }}
