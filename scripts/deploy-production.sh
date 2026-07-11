@@ -11,6 +11,13 @@ CURRENT_LINK="${ROOT_DIR}/current"
 NEXT_LINK="${ROOT_DIR}/current.next"
 PREVIOUS_TARGET=""
 PM2_BIN="${PM2_BIN:-/home/ubuntu/.npm-global/bin/pm2}"
+DEPLOY_LOCK_FILE="/tmp/gluepudding-deploy-production.lock"
+
+exec 9>"${DEPLOY_LOCK_FILE}"
+if ! flock -n 9; then
+  echo "Another gluepudding deployment is already running." >&2
+  exit 1
+fi
 
 wait_for_fortune_ai_health() {
   local attempt
@@ -24,6 +31,22 @@ wait_for_fortune_ai_health() {
     sleep 0.5
   done
 
+  return 1
+}
+
+wait_for_node_bin() {
+  local executable_path="$1"
+  local attempt
+
+  for attempt in $(seq 1 40); do
+    if [[ -x "${executable_path}" ]]; then
+      return 0
+    fi
+
+    sleep 0.25
+  done
+
+  echo "Missing local executable after npm ci: ${executable_path}" >&2
   return 1
 }
 
@@ -44,10 +67,12 @@ mkdir -p "${STAGING_DIR}/frontend" "${STAGING_DIR}/fortune-ai-service"
 (
   cd "${ROOT_DIR}/app/nav-world"
   npm ci
-  npx tsc --noEmit
+  wait_for_node_bin "${ROOT_DIR}/app/nav-world/node_modules/.bin/tsc"
+  wait_for_node_bin "${ROOT_DIR}/app/nav-world/node_modules/.bin/vite"
+  ./node_modules/.bin/tsc --noEmit
   VITE_FORTUNE_AI_API=true \
   VITE_STATIC_ASSET_VERSION="${RELEASE_ID}" \
-  npx vite build --emptyOutDir --outDir "${STAGING_DIR}/frontend"
+  ./node_modules/.bin/vite build --emptyOutDir --outDir "${STAGING_DIR}/frontend"
 )
 
 (

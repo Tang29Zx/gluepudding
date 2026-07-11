@@ -587,20 +587,30 @@ function connectWhepStream(
     onUpdate(createSnapshot("offline", "等待视频轨道超时"));
   }, config.timeoutMs);
 
-  const deleteSession = () => {
-    if (!sessionUrl) {
-      return;
-    }
+  const closePeerAfterSessionDelete = (
+    connection: RTCPeerConnection,
+    url: string,
+  ) => {
+    let isClosed = false;
 
-    const url = sessionUrl;
+    const closeConnection = () => {
+      if (isClosed) {
+        return;
+      }
 
-    sessionUrl = null;
+      isClosed = true;
+      connection.close();
+    };
+    const closeFallbackId = window.setTimeout(closeConnection, 1200);
 
     void fetch(url, {
       cache: "no-store",
       credentials: "include",
       method: "DELETE",
-    }).catch(() => undefined);
+    }).catch(() => undefined).finally(() => {
+      window.clearTimeout(closeFallbackId);
+      closeConnection();
+    });
   };
 
   const cleanupPeer = () => {
@@ -610,12 +620,30 @@ function connectWhepStream(
 
     hasCleanedUp = true;
     window.clearTimeout(streamTimeoutId);
-    deleteSession();
     remoteStream.getTracks().forEach((track) => {
       track.stop();
     });
-    peerConnection?.close();
+
+    const connection = peerConnection;
+    const url = sessionUrl;
+
     peerConnection = null;
+    sessionUrl = null;
+
+    if (!connection) {
+      return;
+    }
+
+    if (
+      url &&
+      (connection.connectionState === "connected" ||
+        connection.connectionState === "connecting")
+    ) {
+      closePeerAfterSessionDelete(connection, url);
+      return;
+    }
+
+    connection.close();
   };
 
   const handleTrackEnded = (track: MediaStreamTrack) => {

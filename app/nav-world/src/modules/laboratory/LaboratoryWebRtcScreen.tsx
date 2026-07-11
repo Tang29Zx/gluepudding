@@ -1,12 +1,6 @@
-import { Text } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  DoubleSide,
-  LinearFilter,
-  SRGBColorSpace,
-  VideoTexture,
-} from "three";
+import { Html, Text } from "@react-three/drei";
+import { useEffect, useMemo, useState } from "react";
+import { DoubleSide } from "three";
 import {
   connectLaboratoryStream,
   disconnectLaboratoryStream,
@@ -33,6 +27,7 @@ const initialSnapshot: LaboratoryStreamSnapshot = {
 };
 const whepRetryBaseDelayMs = 3000;
 const whepRetryMaxDelayMs = 15000;
+const nativeVideoWidthPx = 720;
 
 const statusColors = {
   connecting: "#2d8eaa",
@@ -60,6 +55,17 @@ function configureVideoElement(video: HTMLVideoElement) {
   video.loop = false;
   video.muted = true;
   video.playsInline = true;
+  video.preload = "auto";
+  video.tabIndex = -1;
+  video.setAttribute("aria-hidden", "true");
+  video.style.position = "absolute";
+  video.style.inset = "0";
+  video.style.width = "100%";
+  video.style.height = "100%";
+  video.style.background = "#0b2028";
+  video.style.objectFit = "cover";
+  video.style.opacity = "0";
+  video.style.pointerEvents = "none";
 }
 
 function shouldRetryStream(configMode: string, snapshot: LaboratoryStreamSnapshot) {
@@ -67,16 +73,6 @@ function shouldRetryStream(configMode: string, snapshot: LaboratoryStreamSnapsho
     configMode === "whep" &&
     (snapshot.status === "offline" || snapshot.status === "error")
   );
-}
-
-function createVideoTexture(video: HTMLVideoElement): VideoTexture {
-  const texture = new VideoTexture(video);
-
-  texture.colorSpace = SRGBColorSpace;
-  texture.magFilter = LinearFilter;
-  texture.minFilter = LinearFilter;
-
-  return texture;
 }
 
 export function LaboratoryWebRtcScreen({
@@ -88,70 +84,141 @@ export function LaboratoryWebRtcScreen({
   width,
 }: LaboratoryWebRtcScreenProps) {
   const config = useMemo(() => getLaboratoryWebRtcConfig(), []);
-  const textureRef = useRef<VideoTexture | null>(null);
   const [snapshot, setSnapshot] =
     useState<LaboratoryStreamSnapshot>(initialSnapshot);
-  const [videoTexture, setVideoTexture] =
-    useState<VideoTexture | null>(null);
-
-  useFrame(() => {
-    if (textureRef.current) {
-      textureRef.current.needsUpdate = true;
-    }
-  });
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
 
   useEffect(() => {
+    const video = videoElement;
+
+    if (!video) {
+      return undefined;
+    }
+
+    configureVideoElement(video);
+
     if (!isActive) {
+      video.pause();
+      video.srcObject = null;
+      video.style.opacity = "0";
       setSnapshot({
         message: "进入天空实验室后连接",
         source: "none",
         status: "idle",
         stream: null,
       });
-      setVideoTexture(null);
       return undefined;
     }
 
     if (!isAuthorized) {
+      video.pause();
+      video.srcObject = null;
+      video.style.opacity = "0";
       setSnapshot({
         message: "没有查看权限",
         source: "none",
         status: "unauthorized",
         stream: null,
       });
-      setVideoTexture(null);
       return undefined;
     }
 
-    const video = document.createElement("video");
     let handle: ReturnType<typeof connectLaboratoryStream> | null = null;
     let isDisposed = false;
+    let pendingOnlineSnapshot: LaboratoryStreamSnapshot | null = null;
     let retryAttempt = 0;
     let retryTimeoutId: number | null = null;
+    let videoFrameCallbackId: number | null = null;
+    let videoFramePollId: number | null = null;
+    let videoFrameTimeoutId: number | null = null;
 
-    configureVideoElement(video);
-
-    const ensureVideoTexture = () => {
-      if (isDisposed || !video.srcObject) {
-        return;
+    const clearVideoFrameWatch = () => {
+      if (
+        videoFrameCallbackId !== null &&
+        typeof video.cancelVideoFrameCallback === "function"
+      ) {
+        video.cancelVideoFrameCallback(videoFrameCallbackId);
       }
 
-      if (video.videoWidth === 0 || video.videoHeight === 0) {
-        return;
+      videoFrameCallbackId = null;
+
+      if (videoFramePollId !== null) {
+        window.clearInterval(videoFramePollId);
+        videoFramePollId = null;
       }
 
-      if (!textureRef.current) {
-        textureRef.current = createVideoTexture(video);
-        setVideoTexture(textureRef.current);
+      if (videoFrameTimeoutId !== null) {
+        window.clearTimeout(videoFrameTimeoutId);
+        videoFrameTimeoutId = null;
       }
-
-      textureRef.current.needsUpdate = true;
     };
 
-    video.addEventListener("loadedmetadata", ensureVideoTexture);
-    video.addEventListener("canplay", ensureVideoTexture);
-    video.addEventListener("playing", ensureVideoTexture);
-    video.addEventListener("resize", ensureVideoTexture);
+    const ensureVideoFrame = () => {
+      if (isDisposed || !video.srcObject) {
+        return false;
+      }
+
+      if (
+        video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
+        video.videoWidth === 0 ||
+        video.videoHeight === 0
+      ) {
+        return false;
+      }
+
+      video.style.opacity = "1";
+
+      if (pendingOnlineSnapshot) {
+        retryAttempt = 0;
+        setSnapshot(pendingOnlineSnapshot);
+        pendingOnlineSnapshot = null;
+        clearVideoFrameWatch();
+      }
+
+      return true;
+    };
+
+    const watchForFirstVideoFrame = () => {
+      clearVideoFrameWatch();
+
+      if (typeof video.requestVideoFrameCallback === "function") {
+        videoFrameCallbackId = video.requestVideoFrameCallback(() => {
+          videoFrameCallbackId = null;
+
+          if (!ensureVideoFrame() && !isDisposed) {
+            watchForFirstVideoFrame();
+          }
+        });
+      }
+
+      videoFramePollId = window.setInterval(() => {
+        ensureVideoFrame();
+      }, 250);
+
+      videoFrameTimeoutId = window.setTimeout(() => {
+        if (isDisposed || ensureVideoFrame()) {
+          return;
+        }
+
+        pendingOnlineSnapshot = null;
+        clearVideoFrameWatch();
+        const timeoutSnapshot: LaboratoryStreamSnapshot = {
+          message: "实时视频解码超时",
+          source: "none",
+          status: "offline",
+          stream: null,
+        };
+
+        setSnapshot(timeoutSnapshot);
+        scheduleRetry();
+      }, config.timeoutMs);
+    };
+
+    video.addEventListener("loadedmetadata", ensureVideoFrame);
+    video.addEventListener("loadeddata", ensureVideoFrame);
+    video.addEventListener("canplay", ensureVideoFrame);
+    video.addEventListener("playing", ensureVideoFrame);
+    video.addEventListener("resize", ensureVideoFrame);
 
     const clearRetry = () => {
       if (retryTimeoutId !== null) {
@@ -167,17 +234,6 @@ export function LaboratoryWebRtcScreen({
 
       disconnectLaboratoryStream(handle);
       handle = null;
-    };
-
-    const disposeTexture = (shouldUpdateState: boolean) => {
-      if (textureRef.current) {
-        textureRef.current.dispose();
-        textureRef.current = null;
-      }
-
-      if (shouldUpdateState) {
-        setVideoTexture(null);
-      }
     };
 
     const startStreamConnection = () => {
@@ -207,42 +263,64 @@ export function LaboratoryWebRtcScreen({
         return;
       }
 
-      setSnapshot(nextSnapshot);
+      if (nextSnapshot.status !== "online") {
+        setSnapshot(nextSnapshot);
+      }
 
-      if (nextSnapshot.status === "online") {
-        retryAttempt = 0;
-        clearRetry();
-      } else if (shouldRetryStream(config.mode, nextSnapshot)) {
+      if (shouldRetryStream(config.mode, nextSnapshot)) {
         scheduleRetry();
       }
 
       if (!nextSnapshot.stream) {
+        pendingOnlineSnapshot = null;
+        clearVideoFrameWatch();
         video.pause();
         video.srcObject = null;
-        disposeTexture(true);
+        video.style.opacity = "0";
         return;
       }
 
+      pendingOnlineSnapshot = nextSnapshot;
+      clearRetry();
+      setSnapshot({
+        message: "正在解码实时视频",
+        source: "none",
+        status: "connecting",
+        stream: null,
+      });
+
       if (video.srcObject !== nextSnapshot.stream) {
+        clearVideoFrameWatch();
+        video.style.opacity = "0";
         video.srcObject = nextSnapshot.stream;
       }
 
+      watchForFirstVideoFrame();
+
       void video.play().then(() => {
-        ensureVideoTexture();
+        ensureVideoFrame();
       }).catch(() => {
         if (isDisposed) {
           return;
         }
 
+        pendingOnlineSnapshot = null;
+        clearVideoFrameWatch();
         video.pause();
         video.srcObject = null;
-        disposeTexture(true);
-        setSnapshot({
+        video.style.opacity = "0";
+        const blockedSnapshot: LaboratoryStreamSnapshot = {
           message: "浏览器阻止视频播放",
           source: "none",
           status: "error",
           stream: null,
-        });
+        };
+
+        setSnapshot(blockedSnapshot);
+
+        if (shouldRetryStream(config.mode, blockedSnapshot)) {
+          scheduleRetry();
+        }
       });
     };
 
@@ -251,40 +329,79 @@ export function LaboratoryWebRtcScreen({
     return () => {
       isDisposed = true;
       clearRetry();
+      clearVideoFrameWatch();
       disconnectCurrentStream();
-      video.removeEventListener("loadedmetadata", ensureVideoTexture);
-      video.removeEventListener("canplay", ensureVideoTexture);
-      video.removeEventListener("playing", ensureVideoTexture);
-      video.removeEventListener("resize", ensureVideoTexture);
+      video.removeEventListener("loadedmetadata", ensureVideoFrame);
+      video.removeEventListener("loadeddata", ensureVideoFrame);
+      video.removeEventListener("canplay", ensureVideoFrame);
+      video.removeEventListener("playing", ensureVideoFrame);
+      video.removeEventListener("resize", ensureVideoFrame);
       video.pause();
       video.srcObject = null;
-      disposeTexture(false);
+      video.style.opacity = "0";
     };
-  }, [authorizationKey, config, isActive, isAuthorized]);
+  }, [authorizationKey, config, isActive, isAuthorized, videoElement]);
 
   const statusLabel = getStatusLabel(snapshot);
   const statusColor = statusColors[snapshot.status];
   const shouldShowCenteredStatus = snapshot.status !== "online";
+  const nativeVideoHeightPx = nativeVideoWidthPx * (height / width);
+  const nativeVideoDistanceFactor = (width / nativeVideoWidthPx) * 400;
 
   return (
     <group position={position}>
       <mesh>
         <planeGeometry args={[width, height]} />
-        {videoTexture ? (
-          <meshBasicMaterial
-            map={videoTexture}
-            side={DoubleSide}
-            toneMapped={false}
-          />
-        ) : (
-          <meshBasicMaterial
-            color="#dff4fb"
-            opacity={0.92}
-            side={DoubleSide}
-            transparent
-          />
-        )}
+        <meshBasicMaterial
+          color="#dff4fb"
+          opacity={0.92}
+          side={DoubleSide}
+          transparent
+        />
       </mesh>
+
+      <Html
+        distanceFactor={nativeVideoDistanceFactor}
+        pointerEvents="none"
+        position={[0, 0, 0.03]}
+        transform
+        zIndexRange={[1, 0]}
+      >
+        <div
+          aria-hidden="true"
+          style={{
+            height: `${nativeVideoHeightPx}px`,
+            overflow: "hidden",
+            pointerEvents: "none",
+            position: "relative",
+            width: `${nativeVideoWidthPx}px`,
+          }}
+        >
+          <video ref={setVideoElement} />
+          {snapshot.status === "online" ? (
+            <div
+              style={{
+                alignItems: "center",
+                background: "rgba(246, 251, 254, 0.88)",
+                bottom: "12px",
+                color: statusColor,
+                display: "flex",
+                fontFamily: "system-ui, sans-serif",
+                fontSize: "13px",
+                fontWeight: 600,
+                height: "32px",
+                justifyContent: "center",
+                left: "14px",
+                position: "absolute",
+                width: "142px",
+                zIndex: 1,
+              }}
+            >
+              {statusLabel}
+            </div>
+          ) : null}
+        </div>
+      </Html>
 
       {shouldShowCenteredStatus ? (
         <>
@@ -318,29 +435,7 @@ export function LaboratoryWebRtcScreen({
             没有真实流时保持世界可用
           </Text>
         </>
-      ) : (
-        <group position={[-width / 2 + 0.84, -height / 2 + 0.28, 0.04]}>
-          <mesh>
-            <planeGeometry args={[1.42, 0.32]} />
-            <meshBasicMaterial
-              color="#f6fbfe"
-              opacity={0.86}
-              side={DoubleSide}
-              transparent
-            />
-          </mesh>
-          <Text
-            anchorX="center"
-            anchorY="middle"
-            color={statusColor}
-            fontSize={0.13}
-            maxWidth={1.22}
-            position={[0, 0, 0.028]}
-          >
-            {statusLabel}
-          </Text>
-        </group>
-      )}
+      ) : null}
     </group>
   );
 }

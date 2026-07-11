@@ -269,6 +269,38 @@
 截图：未截图；本次主要是信令和 Nginx 接入，真实推流源当前离线，且用户此前要求这类实验室实机画面由用户验证；Codex 侧用构建、资源检查和远端 HTTP / Nginx 验证兜底。
 剩余风险：当前没有在线 `robot001` 推流源，无法在 Codex 侧看到真实视频画面；生产构建需要设置 `VITE_LAB_WEBRTC_MODE=whep`、`VITE_LAB_WEBRTC_SIGNALING_URL=/lab-webrtc/{streamId}/whep`、`VITE_LAB_WEBRTC_STREAM_ID=robot001`，否则仍会使用本地默认 mock 流。
 
+## 2026-07-11 / 真实流首帧与视频纹理稳定性修复
+
+现象：用户反馈实验室大屏无法显示真实推流。MediaMTX 日志确认浏览器 WHEP PeerConnection 已建立并开始读取 `robot001` 的 H.264 track，但旧实现收到 track 后立即标记“实时视频流”，完全脱离 DOM 的临时 `video` 没有稳定产出可供 Three.js 使用的首帧。
+
+原因判断：`robot001` 推流源、MediaMTX、WHEP 信令和 ICE 均正常；真实源为 1280×720、H.264 High Profile Level 3.1。断点位于浏览器媒体轨道到视频纹理之间：旧实现只监听 detached video 的 metadata / canplay 事件，没有把“首个已解码视频帧”作为在线条件，也没有单独的解码超时重连。
+
+解决方案：将专用 `video` 挂载到 `document.body` 的视口外位置，保持 `autoplay + muted + playsInline`；同时监听 `loadedmetadata`、`loadeddata`、`canplay`、`playing`、`resize` 和 `requestVideoFrameCallback`。只有 `readyState >= HAVE_CURRENT_DATA` 且分辨率非零后才创建 `VideoTexture` 并显示“实时视频流”。首帧等待超过流超时则显示“实时视频解码超时”并进入既有指数退避重连。断流、重连和卸载时取消视频帧回调与轮询、清理 `srcObject`、移除 DOM 节点并释放纹理。
+
+验证结果：在线 `robot001` 的 WHEP 流程返回 `OPTIONS 204`、`POST 201`、ICE candidate `PATCH 204`；Chromium 中 video 为 1280×720、`readyState=4`、`paused=false`，连续两次采样的 `currentTime` 从 `1.717` 增长到 `2.696`。直接媒体帧和 2D canvas 像素验证为有效非黑画面。`npm run build` 与 `npm run assets:check` 通过，只有既有大 chunk 警告。
+
+剩余风险：headless SwiftShader 对 WebRTC `VideoTexture` 的 WebGL 截图会得到黑纹理，无法替代真实 GPU 浏览器的最终肉眼确认；因此本次自动验证以 WHEP 状态、解码尺寸、readyState、播放时间增长和原始帧像素为准。真实视频内容涉及外部现场画面，未归档到仓库截图。
+
+部署结果：2026-07-11 发布为 `releases/20260711064416-e0237e5` 并原子切换 `current`。前端 TypeScript / Vite 构建、fortune AI 11 项测试、生产依赖审计、systemd 健康、Nginx 配置与 reload 均通过；生产首页引用 `WorldExperience-CBhqJkaN.js`，首页、新版主世界资源和公共占卜健康接口均返回 `200`，未登录 WHEP 仍返回 `401`。
+
+## 2026-07-11 / Edge 实机空纹理改为原生视频合成层
+
+现象：用户在 Windows Edge 实机截图确认，大屏左下角已显示“实时视频流”，说明 WHEP、track 和首帧门槛均已通过，但视频区域仍保持浅蓝空白。控制台同时出现旧 session `DELETE 400`。
+
+原因判断：Edge 能用原生 video 解码并播放这路 H.264，但将 WebRTC video 上传为 WebGL `VideoTexture` 后没有有效画面；继续调 WebGL texture 参数无法保证不同 GPU / 驱动组合。`DELETE 400` 则来自清理时同时发 DELETE 和立即 `peerConnection.close()` 的竞态：MediaMTX 先因 peer close 回收 session，随后 DELETE 找不到 session。
+
+解决方案：实验室视频区域改用 drei `Html transform` 承载浏览器原生 video，按 720×405 CSS 基准和世界宽度动态计算 `distanceFactor`，从而继承屏幕父级位置、旋转、透视和背后隐藏判断。原生 video 不显示 controls、不接收鼠标，首帧前透明；首帧可用后显示，同时保留 3D 边框、离线提示和 HTML 在线角标。WHEP 清理改为先 DELETE，成功、失败或 1.2 秒兜底后再关闭 peer；已经失败 / 断开的 peer 直接关闭，不再制造删除竞态。
+
+验证结果：隔离 R3F 验证页使用在线 `robot001` 得到真实画面；video 为 1280×720、`paused=false`、opacity 为 1，投影后的屏幕区域为约 678×381 像素并保持 16:9。WHEP 返回 `OPTIONS 204`、`POST 201`、`PATCH 204`，组件主动卸载时 `DELETE 200`；浏览器没有 console error。真实视频内容涉及外部现场，验证截图在检查后删除，未归档到仓库。
+
+剩余风险：原生 DOM 合成层不参与 WebGL 深度缓冲；当前使用 drei transform 的屏幕后隐藏与低 z-index，适用于实验室室内正面观看，但未来如果在视频屏幕前新增可穿过的 3D 遮挡物，需要额外启用指定 mesh 的 HTML occlusion。
+
+部署结果：原生视频合成修复已发布到 `releases/20260711071254-e0237e5` 并切换 `current`。前端 TypeScript / Vite 构建、fortune AI 11 项测试、两轮生产依赖审计、systemd 健康、Nginx 配置与 reload 均通过；生产首页引用 `WorldExperience-w23zXzKB.js`，首页、新版资源、fortune health 为 `200`，未登录 WHEP 为 `401`，`robot001` 仍为在线 1280×720 H.264。断线恢复期间曾有两条发布进程并发，未切换旧 staging；最终终止旧流程，只保留本 release。发布脚本新增非阻塞 `flock`，后续并发发布会在构建前直接退出。
+
+发布插曲：第一次发布尝试中，npm 11 的 `npm ci` 已输出完成，但本地 `typescript/bin/tsc` 与 `.bin/tsc` 尚未落盘，紧接着的 `npx tsc` 因而提示安装无关的 `tsc@2.0.3`。已拒绝安装并中止，`current` 未切换。发布脚本现会等待项目本地 `tsc` / `vite` 可执行文件出现，并直接调用本地 binary，避免 `npx` 错误回退到在线同名包。
+
+部署结果：原生视频合成版最终发布为 `releases/20260711071254-e0237e5` 并切换 `current`。生产首页引用 `WorldExperience-w23zXzKB.js`，首页、新主世界资源和 fortune health 均返回 `200`，未登录 WHEP 返回 `401`；`robot001` 复检仍为在线 1280×720 H.264。发布期间一个重复启动的旧脚本实例在构建阶段自行失败并清理 staging，最终仅保留一个 release 完成原子切换，没有出现半发布。
+
 日期：2026-07-09
 版本 / Layer：Layer 7 实验室传送权限与世界内登录屏
 现象：用户要求地面传送台按 `Space` 上行前必须登录并具备 `admin`、`armbot` 或 `door` 任一角色；未通过时不传送，并在传送台门口显示世界内原生用户名 / 密码登录屏。用户进一步确认 `admin` 也可以上去，输入框采用固定准星模式，鼠标仍可转视角。

@@ -226,6 +226,29 @@ gomoku-board     -> gomoku
 - 实验室金属 / 玻璃和占卜屋 PBR 材质能获得轻量环境反射，canvas 内容屏仍清晰可读。
 - 生产构建通过，Chromium 桌面端无 console error / page error；390 × 844 只做回归截图，不在本层调整移动端 HUD。
 
+## Layer 7.1：实验室真实流首帧稳定性
+
+### 问题边界
+
+- MediaMTX 已能接收 `robot001` 的 SRT H.264 推流，WHEP 信令、ICE 和视频 track 均可建立；本层不改推流协议、鉴权角色或 Nginx 路由。
+- 旧实现使用完全脱离 DOM 的临时 `video`，并在收到 track 时就标记在线；部分浏览器会建立 PeerConnection，却没有稳定触发可供 Three.js 使用的首个解码帧。
+- 用户在 Windows Edge 实机确认：首帧门槛通过且状态显示“实时视频流”后，WebGL `VideoTexture` 仍为空白；因此不能继续把原生媒体帧上传 WebGL 作为生产显示主路径。
+
+### 实现边界
+
+- 使用 drei `Html transform` 把原生 `video` 作为浏览器合成层贴合实验室视频区域，继承父级 3D 位置、旋转、透视和屏幕后隐藏判断；不再经过 WebGL `VideoTexture` 上传。
+- 媒体元素保持 `autoplay + muted + playsInline`，不显示原生 controls、不接收鼠标事件；视频区域尺寸固定为 16:9，并保留原 3D 边框、离线状态与在线角标。
+- 收到真实 `MediaStream` 后调用 `play()`，以 `requestVideoFrameCallback`、`loadeddata`、`canplay` 和 `playing` 共同确认首个可用视频帧，再显示原生视频层。
+- 断流、重连或组件卸载时取消视频帧回调、暂停媒体元素、清除 `srcObject` 并移除 DOM 节点；MediaStream 和 WHEP session 仍由现有适配层负责关闭。
+- 保留真实流离线后的指数退避重连，不降级为公开未鉴权直连，也不把流地址或凭据写入用户可见日志。
+- WHEP session `DELETE` 作为幂等 best-effort 清理；已由 peer close 或上游回收的 session 不再向控制台抛出未处理的 400 响应。
+
+### 验收
+
+- 在线 `robot001` 在 Chromium 中得到非零 `videoWidth/videoHeight`、`readyState >= 2` 且 `currentTime` 持续增长。
+- 实验室大屏只有在视频帧可用后显示“实时视频流”，原生视频画面能连续刷新；推流短暂断开后无需刷新整页即可恢复。
+- TypeScript、生产构建和资源检查通过，生产 WHEP 仍只允许具备 `armbot` 权限的同源会话访问。
+
 ## Layer 8：占卜屋交互与占卜接口层
 
 目标：在 Layer 5 模型摆放已验收后，让用户能在同一个 3D 世界内完成占卜屋塔罗、星座和周易交互，并为真实占卜接口接入保留边界。
